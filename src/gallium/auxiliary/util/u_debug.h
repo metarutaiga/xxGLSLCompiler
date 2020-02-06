@@ -39,12 +39,12 @@
 #define U_DEBUG_H_
 
 
+#include "os/os_misc.h"
+
 #if defined(PIPE_OS_HAIKU)
 /* Haiku provides debug_printf in libroot with OS.h */
 #include <OS.h>
 #endif
-
-#include "os/os_misc.h"
 
 #include "pipe/p_format.h"
 #include "pipe/p_defines.h"
@@ -185,7 +185,7 @@ void _debug_assert_fail(const char *expr,
  * For non debug builds the assert macro will expand to a no-op, so do not
  * call functions with side effects in the assert expression.
  */
-#ifdef DEBUG
+#ifndef NDEBUG
 #define debug_assert(expr) ((expr) ? (void)0 : _debug_assert_fail(#expr, __FILE__, __LINE__, __FUNCTION__))
 #else
 #define debug_assert(expr) (void)(0 && (expr))

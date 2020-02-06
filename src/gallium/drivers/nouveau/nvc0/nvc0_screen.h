@@ -13,9 +13,10 @@
 
 #define NVC0_TIC_MAX_ENTRIES 2048
 #define NVC0_TSC_MAX_ENTRIES 2048
+#define NVE4_IMG_MAX_HANDLES 512
 
-/* doesn't count reserved slots (for auxiliary constants, immediates, etc.) */
-#define NVC0_MAX_PIPE_CONSTBUFS         14
+/* doesn't count driver-reserved slot */
+#define NVC0_MAX_PIPE_CONSTBUFS         15
 
 #define NVC0_MAX_SURFACE_SLOTS 16
 
@@ -50,12 +51,12 @@ struct nvc0_graph_state {
    uint8_t num_textures[6];
    uint8_t num_samplers[6];
    uint8_t tls_required; /* bitmask of shader types using l[] */
-   uint8_t c14_bound; /* whether immediate array constbuf is bound */
    uint8_t clip_enable;
    uint32_t clip_mode;
    uint32_t uniform_buffer_bound[6];
    struct nvc0_transform_feedback_state *tfb;
    bool seamless_cube_map;
+   bool post_depth_coverage;
 };
 
 struct nvc0_screen {
@@ -95,6 +96,11 @@ struct nvc0_screen {
       int next;
       uint32_t lock[NVC0_TSC_MAX_ENTRIES / 32];
    } tsc;
+
+   struct {
+      struct pipe_image_view **entries;
+      int next;
+   } img;
 
    struct {
       struct nouveau_bo *bo;
@@ -193,6 +199,8 @@ extern const struct nvc0_vertex_format nvc0_vertex_format[];
 static inline void
 nvc0_screen_tic_unlock(struct nvc0_screen *screen, struct nv50_tic_entry *tic)
 {
+   if (tic->bindless)
+      return;
    if (tic->id >= 0)
       screen->tic.lock[tic->id / 32] &= ~(1 << (tic->id % 32));
 }

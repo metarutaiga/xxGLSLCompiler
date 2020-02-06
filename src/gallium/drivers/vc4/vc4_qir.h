@@ -123,6 +123,7 @@ enum qop {
         QOP_SHR,
         QOP_ASR,
         QOP_MIN,
+        QOP_MIN_NOIMM,
         QOP_MAX,
         QOP_AND,
         QOP_OR,
@@ -353,7 +354,6 @@ struct vc4_fs_key {
         bool stencil_full_writemasks;
         bool is_points;
         bool is_lines;
-        bool alpha_test;
         bool point_coord_upper_left;
         bool light_twoside;
         bool msaa;
@@ -505,6 +505,7 @@ struct vc4_compile {
         struct qblock *cur_block;
         struct qblock *loop_cont_block;
         struct qblock *loop_break_block;
+        struct qblock *last_top_block;
 
         struct list_head qpu_inst_list;
 
@@ -725,6 +726,7 @@ QIR_ALU2(SHL)
 QIR_ALU2(SHR)
 QIR_ALU2(ASR)
 QIR_ALU2(MIN)
+QIR_ALU2(MIN_NOIMM)
 QIR_ALU2(MAX)
 QIR_ALU2(AND)
 QIR_ALU2(OR)

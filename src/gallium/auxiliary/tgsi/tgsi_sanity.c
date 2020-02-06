@@ -256,7 +256,6 @@ static const char *file_names[TGSI_FILE_COUNT] =
    "SAMP",
    "ADDR",
    "IMM",
-   "PRED",
    "SV",
    "RES"
 };
@@ -327,10 +326,12 @@ iter_instruction(
    }
 
    if (info->num_dst != inst->Instruction.NumDstRegs) {
-      report_error( ctx, "%s: Invalid number of destination operands, should be %u", info->mnemonic, info->num_dst );
+      report_error( ctx, "%s: Invalid number of destination operands, should be %u",
+                    tgsi_get_opcode_name(inst->Instruction.Opcode), info->num_dst );
    }
    if (info->num_src != inst->Instruction.NumSrcRegs) {
-      report_error( ctx, "%s: Invalid number of source operands, should be %u", info->mnemonic, info->num_src );
+      report_error( ctx, "%s: Invalid number of source operands, should be %u",
+                    tgsi_get_opcode_name(inst->Instruction.Opcode), info->num_src );
    }
 
    /* Check destination and source registers' validity.
@@ -559,6 +560,7 @@ tgsi_sanity_check(
    const struct tgsi_token *tokens )
 {
    struct sanity_check_ctx ctx;
+   boolean retval;
 
    ctx.iter.prolog = prolog;
    ctx.iter.iterate_instruction = iter_instruction;
@@ -580,11 +582,12 @@ tgsi_sanity_check(
    ctx.implied_array_size = 0;
    ctx.print = debug_get_option_print_sanity();
 
-   if (!tgsi_iterate_shader( tokens, &ctx.iter ))
-      return FALSE;
-
+   retval = tgsi_iterate_shader( tokens, &ctx.iter );
    regs_hash_destroy(ctx.regs_decl);
    regs_hash_destroy(ctx.regs_used);
    regs_hash_destroy(ctx.regs_ind_used);
+   if (retval == FALSE)
+      return FALSE;
+
    return ctx.errors == 0;
 }

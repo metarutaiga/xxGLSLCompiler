@@ -131,6 +131,7 @@ try_pbo_readpixels(struct st_context *st, struct st_renderbuffer *strb,
    cso_save_state(cso, (CSO_BIT_FRAGMENT_SAMPLER_VIEWS |
                         CSO_BIT_FRAGMENT_SAMPLERS |
                         CSO_BIT_FRAGMENT_IMAGE0 |
+                        CSO_BIT_BLEND |
                         CSO_BIT_VERTEX_ELEMENTS |
                         CSO_BIT_AUX_VERTEX_BUFFER_SLOT |
                         CSO_BIT_FRAMEBUFFER |
@@ -139,8 +140,15 @@ try_pbo_readpixels(struct st_context *st, struct st_renderbuffer *strb,
                         CSO_BIT_DEPTH_STENCIL_ALPHA |
                         CSO_BIT_STREAM_OUTPUTS |
                         CSO_BIT_PAUSE_QUERIES |
+                        CSO_BIT_SAMPLE_MASK |
+                        CSO_BIT_MIN_SAMPLES |
+                        CSO_BIT_RENDER_CONDITION |
                         CSO_BITS_ALL_SHADERS));
    cso_save_constant_buffer_slot0(cso, PIPE_SHADER_FRAGMENT);
+
+   cso_set_sample_mask(cso, ~0);
+   cso_set_min_samples(cso, 1);
+   cso_set_render_condition(cso, NULL, FALSE, 0);
 
    /* Set up the sampler_view */
    {
@@ -167,7 +175,7 @@ try_pbo_readpixels(struct st_context *st, struct st_renderbuffer *strb,
 
       if (view_target != PIPE_TEXTURE_3D) {
          templ.u.tex.first_layer = surface->u.tex.first_layer;
-         templ.u.tex.last_layer = templ.u.tex.last_layer;
+         templ.u.tex.last_layer = templ.u.tex.first_layer;
       } else {
          addr.constants.layer_offset = surface->u.tex.first_layer;
       }
@@ -206,6 +214,11 @@ try_pbo_readpixels(struct st_context *st, struct st_renderbuffer *strb,
    fb.layers = 1;
    cso_set_framebuffer(cso, &fb);
 
+   /* Any blend state would do. Set this just to prevent drivers having
+    * blend == NULL.
+    */
+   cso_set_blend(cso, &st->pbo.upload_blend);
+
    cso_set_viewport_dims(cso, fb.width, fb.height, invert_y);
 
    if (invert_y)
@@ -236,14 +249,6 @@ fail:
    cso_restore_constant_buffer_slot0(cso, PIPE_SHADER_FRAGMENT);
 
    return success;
-}
-
-/* Invalidate the readpixels cache to ensure we don't read stale data.
- */
-void st_invalidate_readpix_cache(struct st_context *st)
-{
-   pipe_resource_reference(&st->readpix_cache.src, NULL);
-   pipe_resource_reference(&st->readpix_cache.cache, NULL);
 }
 
 /**
@@ -409,7 +414,7 @@ st_ReadPixels(struct gl_context *ctx, GLint x, GLint y,
 
    /* Validate state (to be sure we have up-to-date framebuffer surfaces)
     * and flush the bitmap cache prior to reading. */
-   st_validate_state(st, ST_PIPELINE_RENDER);
+   st_validate_state(st, ST_PIPELINE_UPDATE_FRAMEBUFFER);
    st_flush_bitmap_cache(st);
 
    if (!st->prefer_blit_based_texture_transfer) {

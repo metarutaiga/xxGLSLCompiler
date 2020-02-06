@@ -95,7 +95,7 @@ nvc0_get_query_result_resource(struct pipe_context *pipe,
 static void
 nvc0_render_condition(struct pipe_context *pipe,
                       struct pipe_query *pq,
-                      boolean condition, uint mode)
+                      boolean condition, enum pipe_render_cond_flag mode)
 {
    struct nvc0_context *nvc0 = nvc0_context(pipe);
    struct nouveau_pushbuf *push = nvc0->base.pushbuf;
@@ -119,6 +119,7 @@ nvc0_render_condition(struct pipe_context *pipe,
          break;
       case PIPE_QUERY_OCCLUSION_COUNTER:
       case PIPE_QUERY_OCCLUSION_PREDICATE:
+      case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
          if (likely(!condition)) {
             if (unlikely(hq->nesting))
                cond = wait ? NVC0_3D_COND_MODE_NOT_EQUAL :
@@ -142,15 +143,17 @@ nvc0_render_condition(struct pipe_context *pipe,
    nvc0->cond_mode = mode;
 
    if (!pq) {
-      PUSH_SPACE(push, 1);
+      PUSH_SPACE(push, 2);
       IMMED_NVC0(push, NVC0_3D(COND_MODE), cond);
+      if (nvc0->screen->compute)
+         IMMED_NVC0(push, NVC0_CP(COND_MODE), cond);
       return;
    }
 
    if (wait)
       nvc0_hw_query_fifo_wait(nvc0, q);
 
-   PUSH_SPACE(push, 7);
+   PUSH_SPACE(push, 10);
    PUSH_REFN (push, hq->bo, NOUVEAU_BO_GART | NOUVEAU_BO_RD);
    BEGIN_NVC0(push, NVC0_3D(COND_ADDRESS_HIGH), 3);
    PUSH_DATAh(push, hq->bo->offset + hq->offset);
@@ -159,6 +162,12 @@ nvc0_render_condition(struct pipe_context *pipe,
    BEGIN_NVC0(push, NVC0_2D(COND_ADDRESS_HIGH), 2);
    PUSH_DATAh(push, hq->bo->offset + hq->offset);
    PUSH_DATA (push, hq->bo->offset + hq->offset);
+   if (nvc0->screen->compute) {
+      BEGIN_NVC0(push, NVC0_CP(COND_ADDRESS_HIGH), 3);
+      PUSH_DATAh(push, hq->bo->offset + hq->offset);
+      PUSH_DATA (push, hq->bo->offset + hq->offset);
+      PUSH_DATA (push, cond);
+   }
 }
 
 int

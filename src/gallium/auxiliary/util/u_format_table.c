@@ -93,7 +93,7 @@ util_format_none_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, const fl
 }
 
 static inline void
-util_format_none_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_none_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          uint8_t r;
@@ -240,7 +240,7 @@ util_format_b8g8r8a8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_b8g8r8a8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b8g8r8a8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -437,7 +437,7 @@ util_format_b8g8r8x8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_b8g8r8x8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b8g8r8x8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -630,7 +630,7 @@ util_format_a8r8g8b8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_a8r8g8b8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a8r8g8b8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -827,7 +827,7 @@ util_format_x8r8g8b8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_x8r8g8b8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_x8r8g8b8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -1020,7 +1020,7 @@ util_format_a8b8g8r8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_a8b8g8r8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a8b8g8r8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -1217,7 +1217,7 @@ util_format_x8b8g8r8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_x8b8g8r8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_x8b8g8r8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -1404,7 +1404,7 @@ util_format_r8g8b8x8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_r8g8b8x8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8x8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -1591,7 +1591,7 @@ util_format_b5g5r5x1_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_b5g5r5x1_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b5g5r5x1_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -1784,7 +1784,7 @@ util_format_b5g5r5a1_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_b5g5r5a1_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b5g5r5a1_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -1893,6 +1893,396 @@ util_format_b5g5r5a1_unorm_pack_rgba_8unorm(uint8_t *dst_row, unsigned dst_strid
    }
 }
 
+union util_format_x1b5g5r5_unorm {
+   uint16_t value;
+   struct {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+      unsigned r:5;
+      unsigned g:5;
+      unsigned b:5;
+      unsigned x:1;
+#else
+      unsigned x:1;
+      unsigned b:5;
+      unsigned g:5;
+      unsigned r:5;
+#endif
+   } chan;
+};
+
+static inline void
+util_format_x1b5g5r5_unorm_unpack_rgba_float(float *dst_row, unsigned dst_stride, const uint8_t *src_row, unsigned src_stride, unsigned width, unsigned height)
+{
+   unsigned x, y;
+   for(y = 0; y < height; y += 1) {
+      float *dst = dst_row;
+      const uint8_t *src = src_row;
+      for(x = 0; x < width; x += 1) {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint16_t value = *(const uint16_t *)src;
+         uint16_t r;
+         uint16_t g;
+         uint16_t b;
+         r = value >> 11;
+         g = (value >> 6) & 0x1f;
+         b = (value >> 1) & 0x1f;
+         dst[0] = (float)(r * (1.0f/0x1f)); /* r */
+         dst[1] = (float)(g * (1.0f/0x1f)); /* g */
+         dst[2] = (float)(b * (1.0f/0x1f)); /* b */
+         dst[3] = 1; /* a */
+#else
+         uint16_t value = *(const uint16_t *)src;
+         uint16_t b;
+         uint16_t g;
+         uint16_t r;
+         b = (value >> 1) & 0x1f;
+         g = (value >> 6) & 0x1f;
+         r = value >> 11;
+         dst[0] = (float)(r * (1.0f/0x1f)); /* r */
+         dst[1] = (float)(g * (1.0f/0x1f)); /* g */
+         dst[2] = (float)(b * (1.0f/0x1f)); /* b */
+         dst[3] = 1; /* a */
+#endif
+         src += 2;
+         dst += 4;
+      }
+      src_row += src_stride;
+      dst_row += dst_stride/sizeof(*dst_row);
+   }
+}
+
+static inline void
+util_format_x1b5g5r5_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, const float *src_row, unsigned src_stride, unsigned width, unsigned height)
+{
+   unsigned x, y;
+   for(y = 0; y < height; y += 1) {
+      const float *src = src_row;
+      uint8_t *dst = dst_row;
+      for(x = 0; x < width; x += 1) {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint16_t value = 0;
+         value |= ((uint16_t)util_iround(CLAMP(src[0], 0.0f, 1.0f) * 0x1f)) << 11;
+         value |= (((uint16_t)util_iround(CLAMP(src[1], 0.0f, 1.0f) * 0x1f)) & 0x1f) << 6;
+         value |= (((uint16_t)util_iround(CLAMP(src[2], 0.0f, 1.0f) * 0x1f)) & 0x1f) << 1;
+         *(uint16_t *)dst = value;
+#else
+         uint16_t value = 0;
+         value |= (((uint16_t)util_iround(CLAMP(src[2], 0.0f, 1.0f) * 0x1f)) & 0x1f) << 1;
+         value |= (((uint16_t)util_iround(CLAMP(src[1], 0.0f, 1.0f) * 0x1f)) & 0x1f) << 6;
+         value |= ((uint16_t)util_iround(CLAMP(src[0], 0.0f, 1.0f) * 0x1f)) << 11;
+         *(uint16_t *)dst = value;
+#endif
+         src += 4;
+         dst += 2;
+      }
+      dst_row += dst_stride;
+      src_row += src_stride/sizeof(*src_row);
+   }
+}
+
+static inline void
+util_format_x1b5g5r5_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
+{
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint16_t value = *(const uint16_t *)src;
+         uint16_t r;
+         uint16_t g;
+         uint16_t b;
+         r = value >> 11;
+         g = (value >> 6) & 0x1f;
+         b = (value >> 1) & 0x1f;
+         dst[0] = (float)(r * (1.0f/0x1f)); /* r */
+         dst[1] = (float)(g * (1.0f/0x1f)); /* g */
+         dst[2] = (float)(b * (1.0f/0x1f)); /* b */
+         dst[3] = 1; /* a */
+#else
+         uint16_t value = *(const uint16_t *)src;
+         uint16_t b;
+         uint16_t g;
+         uint16_t r;
+         b = (value >> 1) & 0x1f;
+         g = (value >> 6) & 0x1f;
+         r = value >> 11;
+         dst[0] = (float)(r * (1.0f/0x1f)); /* r */
+         dst[1] = (float)(g * (1.0f/0x1f)); /* g */
+         dst[2] = (float)(b * (1.0f/0x1f)); /* b */
+         dst[3] = 1; /* a */
+#endif
+}
+
+static inline void
+util_format_x1b5g5r5_unorm_unpack_rgba_8unorm(uint8_t *dst_row, unsigned dst_stride, const uint8_t *src_row, unsigned src_stride, unsigned width, unsigned height)
+{
+   unsigned x, y;
+   for(y = 0; y < height; y += 1) {
+      uint8_t *dst = dst_row;
+      const uint8_t *src = src_row;
+      for(x = 0; x < width; x += 1) {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint16_t value = *(const uint16_t *)src;
+         uint16_t r;
+         uint16_t g;
+         uint16_t b;
+         r = value >> 11;
+         g = (value >> 6) & 0x1f;
+         b = (value >> 1) & 0x1f;
+         dst[0] = (uint8_t)(((uint32_t)r) * 0xff / 0x1f); /* r */
+         dst[1] = (uint8_t)(((uint32_t)g) * 0xff / 0x1f); /* g */
+         dst[2] = (uint8_t)(((uint32_t)b) * 0xff / 0x1f); /* b */
+         dst[3] = 255; /* a */
+#else
+         uint16_t value = *(const uint16_t *)src;
+         uint16_t b;
+         uint16_t g;
+         uint16_t r;
+         b = (value >> 1) & 0x1f;
+         g = (value >> 6) & 0x1f;
+         r = value >> 11;
+         dst[0] = (uint8_t)(((uint32_t)r) * 0xff / 0x1f); /* r */
+         dst[1] = (uint8_t)(((uint32_t)g) * 0xff / 0x1f); /* g */
+         dst[2] = (uint8_t)(((uint32_t)b) * 0xff / 0x1f); /* b */
+         dst[3] = 255; /* a */
+#endif
+         src += 2;
+         dst += 4;
+      }
+      src_row += src_stride;
+      dst_row += dst_stride/sizeof(*dst_row);
+   }
+}
+
+static inline void
+util_format_x1b5g5r5_unorm_pack_rgba_8unorm(uint8_t *dst_row, unsigned dst_stride, const uint8_t *src_row, unsigned src_stride, unsigned width, unsigned height)
+{
+   unsigned x, y;
+   for(y = 0; y < height; y += 1) {
+      const uint8_t *src = src_row;
+      uint8_t *dst = dst_row;
+      for(x = 0; x < width; x += 1) {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint16_t value = 0;
+         value |= ((uint16_t)(src[0] >> 3)) << 11;
+         value |= (((uint16_t)(src[1] >> 3)) & 0x1f) << 6;
+         value |= (((uint16_t)(src[2] >> 3)) & 0x1f) << 1;
+         *(uint16_t *)dst = value;
+#else
+         uint16_t value = 0;
+         value |= (((uint16_t)(src[2] >> 3)) & 0x1f) << 1;
+         value |= (((uint16_t)(src[1] >> 3)) & 0x1f) << 6;
+         value |= ((uint16_t)(src[0] >> 3)) << 11;
+         *(uint16_t *)dst = value;
+#endif
+         src += 4;
+         dst += 2;
+      }
+      dst_row += dst_stride;
+      src_row += src_stride/sizeof(*src_row);
+   }
+}
+
+union util_format_a1b5g5r5_unorm {
+   uint16_t value;
+   struct {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+      unsigned r:5;
+      unsigned g:5;
+      unsigned b:5;
+      unsigned a:1;
+#else
+      unsigned a:1;
+      unsigned b:5;
+      unsigned g:5;
+      unsigned r:5;
+#endif
+   } chan;
+};
+
+static inline void
+util_format_a1b5g5r5_unorm_unpack_rgba_float(float *dst_row, unsigned dst_stride, const uint8_t *src_row, unsigned src_stride, unsigned width, unsigned height)
+{
+   unsigned x, y;
+   for(y = 0; y < height; y += 1) {
+      float *dst = dst_row;
+      const uint8_t *src = src_row;
+      for(x = 0; x < width; x += 1) {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint16_t value = *(const uint16_t *)src;
+         uint16_t r;
+         uint16_t g;
+         uint16_t b;
+         uint16_t a;
+         r = value >> 11;
+         g = (value >> 6) & 0x1f;
+         b = (value >> 1) & 0x1f;
+         a = (value) & 0x1;
+         dst[0] = (float)(r * (1.0f/0x1f)); /* r */
+         dst[1] = (float)(g * (1.0f/0x1f)); /* g */
+         dst[2] = (float)(b * (1.0f/0x1f)); /* b */
+         dst[3] = (float)(a * (1.0f/0x1)); /* a */
+#else
+         uint16_t value = *(const uint16_t *)src;
+         uint16_t a;
+         uint16_t b;
+         uint16_t g;
+         uint16_t r;
+         a = (value) & 0x1;
+         b = (value >> 1) & 0x1f;
+         g = (value >> 6) & 0x1f;
+         r = value >> 11;
+         dst[0] = (float)(r * (1.0f/0x1f)); /* r */
+         dst[1] = (float)(g * (1.0f/0x1f)); /* g */
+         dst[2] = (float)(b * (1.0f/0x1f)); /* b */
+         dst[3] = (float)(a * (1.0f/0x1)); /* a */
+#endif
+         src += 2;
+         dst += 4;
+      }
+      src_row += src_stride;
+      dst_row += dst_stride/sizeof(*dst_row);
+   }
+}
+
+static inline void
+util_format_a1b5g5r5_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, const float *src_row, unsigned src_stride, unsigned width, unsigned height)
+{
+   unsigned x, y;
+   for(y = 0; y < height; y += 1) {
+      const float *src = src_row;
+      uint8_t *dst = dst_row;
+      for(x = 0; x < width; x += 1) {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint16_t value = 0;
+         value |= ((uint16_t)util_iround(CLAMP(src[0], 0.0f, 1.0f) * 0x1f)) << 11;
+         value |= (((uint16_t)util_iround(CLAMP(src[1], 0.0f, 1.0f) * 0x1f)) & 0x1f) << 6;
+         value |= (((uint16_t)util_iround(CLAMP(src[2], 0.0f, 1.0f) * 0x1f)) & 0x1f) << 1;
+         value |= ((uint16_t)util_iround(CLAMP(src[3], 0.0f, 1.0f) * 0x1)) & 0x1;
+         *(uint16_t *)dst = value;
+#else
+         uint16_t value = 0;
+         value |= ((uint16_t)util_iround(CLAMP(src[3], 0.0f, 1.0f) * 0x1)) & 0x1;
+         value |= (((uint16_t)util_iround(CLAMP(src[2], 0.0f, 1.0f) * 0x1f)) & 0x1f) << 1;
+         value |= (((uint16_t)util_iround(CLAMP(src[1], 0.0f, 1.0f) * 0x1f)) & 0x1f) << 6;
+         value |= ((uint16_t)util_iround(CLAMP(src[0], 0.0f, 1.0f) * 0x1f)) << 11;
+         *(uint16_t *)dst = value;
+#endif
+         src += 4;
+         dst += 2;
+      }
+      dst_row += dst_stride;
+      src_row += src_stride/sizeof(*src_row);
+   }
+}
+
+static inline void
+util_format_a1b5g5r5_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
+{
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint16_t value = *(const uint16_t *)src;
+         uint16_t r;
+         uint16_t g;
+         uint16_t b;
+         uint16_t a;
+         r = value >> 11;
+         g = (value >> 6) & 0x1f;
+         b = (value >> 1) & 0x1f;
+         a = (value) & 0x1;
+         dst[0] = (float)(r * (1.0f/0x1f)); /* r */
+         dst[1] = (float)(g * (1.0f/0x1f)); /* g */
+         dst[2] = (float)(b * (1.0f/0x1f)); /* b */
+         dst[3] = (float)(a * (1.0f/0x1)); /* a */
+#else
+         uint16_t value = *(const uint16_t *)src;
+         uint16_t a;
+         uint16_t b;
+         uint16_t g;
+         uint16_t r;
+         a = (value) & 0x1;
+         b = (value >> 1) & 0x1f;
+         g = (value >> 6) & 0x1f;
+         r = value >> 11;
+         dst[0] = (float)(r * (1.0f/0x1f)); /* r */
+         dst[1] = (float)(g * (1.0f/0x1f)); /* g */
+         dst[2] = (float)(b * (1.0f/0x1f)); /* b */
+         dst[3] = (float)(a * (1.0f/0x1)); /* a */
+#endif
+}
+
+static inline void
+util_format_a1b5g5r5_unorm_unpack_rgba_8unorm(uint8_t *dst_row, unsigned dst_stride, const uint8_t *src_row, unsigned src_stride, unsigned width, unsigned height)
+{
+   unsigned x, y;
+   for(y = 0; y < height; y += 1) {
+      uint8_t *dst = dst_row;
+      const uint8_t *src = src_row;
+      for(x = 0; x < width; x += 1) {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint16_t value = *(const uint16_t *)src;
+         uint16_t r;
+         uint16_t g;
+         uint16_t b;
+         uint16_t a;
+         r = value >> 11;
+         g = (value >> 6) & 0x1f;
+         b = (value >> 1) & 0x1f;
+         a = (value) & 0x1;
+         dst[0] = (uint8_t)(((uint32_t)r) * 0xff / 0x1f); /* r */
+         dst[1] = (uint8_t)(((uint32_t)g) * 0xff / 0x1f); /* g */
+         dst[2] = (uint8_t)(((uint32_t)b) * 0xff / 0x1f); /* b */
+         dst[3] = (uint8_t)(((uint32_t)a) * 0xff / 0x1); /* a */
+#else
+         uint16_t value = *(const uint16_t *)src;
+         uint16_t a;
+         uint16_t b;
+         uint16_t g;
+         uint16_t r;
+         a = (value) & 0x1;
+         b = (value >> 1) & 0x1f;
+         g = (value >> 6) & 0x1f;
+         r = value >> 11;
+         dst[0] = (uint8_t)(((uint32_t)r) * 0xff / 0x1f); /* r */
+         dst[1] = (uint8_t)(((uint32_t)g) * 0xff / 0x1f); /* g */
+         dst[2] = (uint8_t)(((uint32_t)b) * 0xff / 0x1f); /* b */
+         dst[3] = (uint8_t)(((uint32_t)a) * 0xff / 0x1); /* a */
+#endif
+         src += 2;
+         dst += 4;
+      }
+      src_row += src_stride;
+      dst_row += dst_stride/sizeof(*dst_row);
+   }
+}
+
+static inline void
+util_format_a1b5g5r5_unorm_pack_rgba_8unorm(uint8_t *dst_row, unsigned dst_stride, const uint8_t *src_row, unsigned src_stride, unsigned width, unsigned height)
+{
+   unsigned x, y;
+   for(y = 0; y < height; y += 1) {
+      const uint8_t *src = src_row;
+      uint8_t *dst = dst_row;
+      for(x = 0; x < width; x += 1) {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint16_t value = 0;
+         value |= ((uint16_t)(src[0] >> 3)) << 11;
+         value |= (((uint16_t)(src[1] >> 3)) & 0x1f) << 6;
+         value |= (((uint16_t)(src[2] >> 3)) & 0x1f) << 1;
+         value |= ((uint16_t)(src[3] >> 7)) & 0x1;
+         *(uint16_t *)dst = value;
+#else
+         uint16_t value = 0;
+         value |= ((uint16_t)(src[3] >> 7)) & 0x1;
+         value |= (((uint16_t)(src[2] >> 3)) & 0x1f) << 1;
+         value |= (((uint16_t)(src[1] >> 3)) & 0x1f) << 6;
+         value |= ((uint16_t)(src[0] >> 3)) << 11;
+         *(uint16_t *)dst = value;
+#endif
+         src += 4;
+         dst += 2;
+      }
+      dst_row += dst_stride;
+      src_row += src_stride/sizeof(*src_row);
+   }
+}
+
 union util_format_b4g4r4a4_unorm {
    uint16_t value;
    struct {
@@ -1987,7 +2377,7 @@ util_format_b4g4r4a4_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_b4g4r4a4_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b4g4r4a4_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -2184,7 +2574,7 @@ util_format_b4g4r4x4_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_b4g4r4x4_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b4g4r4x4_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -2369,7 +2759,7 @@ util_format_b5g6r5_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_b5g6r5_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b5g6r5_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -2562,7 +2952,7 @@ util_format_r10g10b10a2_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_str
 }
 
 static inline void
-util_format_r10g10b10a2_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r10g10b10a2_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -2671,6 +3061,193 @@ util_format_r10g10b10a2_unorm_pack_rgba_8unorm(uint8_t *dst_row, unsigned dst_st
    }
 }
 
+union util_format_r10g10b10x2_unorm {
+   uint32_t value;
+   struct {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+      unsigned x:2;
+      unsigned b:10;
+      unsigned g:10;
+      unsigned r:10;
+#else
+      unsigned r:10;
+      unsigned g:10;
+      unsigned b:10;
+      unsigned x:2;
+#endif
+   } chan;
+};
+
+static inline void
+util_format_r10g10b10x2_unorm_unpack_rgba_float(float *dst_row, unsigned dst_stride, const uint8_t *src_row, unsigned src_stride, unsigned width, unsigned height)
+{
+   unsigned x, y;
+   for(y = 0; y < height; y += 1) {
+      float *dst = dst_row;
+      const uint8_t *src = src_row;
+      for(x = 0; x < width; x += 1) {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint32_t value = *(const uint32_t *)src;
+         uint32_t b;
+         uint32_t g;
+         uint32_t r;
+         b = (value >> 20) & 0x3ff;
+         g = (value >> 10) & 0x3ff;
+         r = (value) & 0x3ff;
+         dst[0] = (float)(r * (1.0f/0x3ff)); /* r */
+         dst[1] = (float)(g * (1.0f/0x3ff)); /* g */
+         dst[2] = (float)(b * (1.0f/0x3ff)); /* b */
+         dst[3] = 1; /* a */
+#else
+         uint32_t value = *(const uint32_t *)src;
+         uint32_t r;
+         uint32_t g;
+         uint32_t b;
+         r = (value) & 0x3ff;
+         g = (value >> 10) & 0x3ff;
+         b = (value >> 20) & 0x3ff;
+         dst[0] = (float)(r * (1.0f/0x3ff)); /* r */
+         dst[1] = (float)(g * (1.0f/0x3ff)); /* g */
+         dst[2] = (float)(b * (1.0f/0x3ff)); /* b */
+         dst[3] = 1; /* a */
+#endif
+         src += 4;
+         dst += 4;
+      }
+      src_row += src_stride;
+      dst_row += dst_stride/sizeof(*dst_row);
+   }
+}
+
+static inline void
+util_format_r10g10b10x2_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, const float *src_row, unsigned src_stride, unsigned width, unsigned height)
+{
+   unsigned x, y;
+   for(y = 0; y < height; y += 1) {
+      const float *src = src_row;
+      uint8_t *dst = dst_row;
+      for(x = 0; x < width; x += 1) {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint32_t value = 0;
+         value |= (((uint32_t)util_iround(CLAMP(src[2], 0.0f, 1.0f) * 0x3ff)) & 0x3ff) << 20;
+         value |= (((uint32_t)util_iround(CLAMP(src[1], 0.0f, 1.0f) * 0x3ff)) & 0x3ff) << 10;
+         value |= ((uint32_t)util_iround(CLAMP(src[0], 0.0f, 1.0f) * 0x3ff)) & 0x3ff;
+         *(uint32_t *)dst = value;
+#else
+         uint32_t value = 0;
+         value |= ((uint32_t)util_iround(CLAMP(src[0], 0.0f, 1.0f) * 0x3ff)) & 0x3ff;
+         value |= (((uint32_t)util_iround(CLAMP(src[1], 0.0f, 1.0f) * 0x3ff)) & 0x3ff) << 10;
+         value |= (((uint32_t)util_iround(CLAMP(src[2], 0.0f, 1.0f) * 0x3ff)) & 0x3ff) << 20;
+         *(uint32_t *)dst = value;
+#endif
+         src += 4;
+         dst += 4;
+      }
+      dst_row += dst_stride;
+      src_row += src_stride/sizeof(*src_row);
+   }
+}
+
+static inline void
+util_format_r10g10b10x2_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
+{
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint32_t value = *(const uint32_t *)src;
+         uint32_t b;
+         uint32_t g;
+         uint32_t r;
+         b = (value >> 20) & 0x3ff;
+         g = (value >> 10) & 0x3ff;
+         r = (value) & 0x3ff;
+         dst[0] = (float)(r * (1.0f/0x3ff)); /* r */
+         dst[1] = (float)(g * (1.0f/0x3ff)); /* g */
+         dst[2] = (float)(b * (1.0f/0x3ff)); /* b */
+         dst[3] = 1; /* a */
+#else
+         uint32_t value = *(const uint32_t *)src;
+         uint32_t r;
+         uint32_t g;
+         uint32_t b;
+         r = (value) & 0x3ff;
+         g = (value >> 10) & 0x3ff;
+         b = (value >> 20) & 0x3ff;
+         dst[0] = (float)(r * (1.0f/0x3ff)); /* r */
+         dst[1] = (float)(g * (1.0f/0x3ff)); /* g */
+         dst[2] = (float)(b * (1.0f/0x3ff)); /* b */
+         dst[3] = 1; /* a */
+#endif
+}
+
+static inline void
+util_format_r10g10b10x2_unorm_unpack_rgba_8unorm(uint8_t *dst_row, unsigned dst_stride, const uint8_t *src_row, unsigned src_stride, unsigned width, unsigned height)
+{
+   unsigned x, y;
+   for(y = 0; y < height; y += 1) {
+      uint8_t *dst = dst_row;
+      const uint8_t *src = src_row;
+      for(x = 0; x < width; x += 1) {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint32_t value = *(const uint32_t *)src;
+         uint32_t b;
+         uint32_t g;
+         uint32_t r;
+         b = (value >> 20) & 0x3ff;
+         g = (value >> 10) & 0x3ff;
+         r = (value) & 0x3ff;
+         dst[0] = (uint8_t)(r >> 2); /* r */
+         dst[1] = (uint8_t)(g >> 2); /* g */
+         dst[2] = (uint8_t)(b >> 2); /* b */
+         dst[3] = 255; /* a */
+#else
+         uint32_t value = *(const uint32_t *)src;
+         uint32_t r;
+         uint32_t g;
+         uint32_t b;
+         r = (value) & 0x3ff;
+         g = (value >> 10) & 0x3ff;
+         b = (value >> 20) & 0x3ff;
+         dst[0] = (uint8_t)(r >> 2); /* r */
+         dst[1] = (uint8_t)(g >> 2); /* g */
+         dst[2] = (uint8_t)(b >> 2); /* b */
+         dst[3] = 255; /* a */
+#endif
+         src += 4;
+         dst += 4;
+      }
+      src_row += src_stride;
+      dst_row += dst_stride/sizeof(*dst_row);
+   }
+}
+
+static inline void
+util_format_r10g10b10x2_unorm_pack_rgba_8unorm(uint8_t *dst_row, unsigned dst_stride, const uint8_t *src_row, unsigned src_stride, unsigned width, unsigned height)
+{
+   unsigned x, y;
+   for(y = 0; y < height; y += 1) {
+      const uint8_t *src = src_row;
+      uint8_t *dst = dst_row;
+      for(x = 0; x < width; x += 1) {
+#ifdef PIPE_ARCH_BIG_ENDIAN
+         uint32_t value = 0;
+         value |= (((uint32_t)(((uint32_t)src[2]) * 0x3ff / 0xff)) & 0x3ff) << 20;
+         value |= (((uint32_t)(((uint32_t)src[1]) * 0x3ff / 0xff)) & 0x3ff) << 10;
+         value |= ((uint32_t)(((uint32_t)src[0]) * 0x3ff / 0xff)) & 0x3ff;
+         *(uint32_t *)dst = value;
+#else
+         uint32_t value = 0;
+         value |= ((uint32_t)(((uint32_t)src[0]) * 0x3ff / 0xff)) & 0x3ff;
+         value |= (((uint32_t)(((uint32_t)src[1]) * 0x3ff / 0xff)) & 0x3ff) << 10;
+         value |= (((uint32_t)(((uint32_t)src[2]) * 0x3ff / 0xff)) & 0x3ff) << 20;
+         *(uint32_t *)dst = value;
+#endif
+         src += 4;
+         dst += 4;
+      }
+      dst_row += dst_stride;
+      src_row += src_stride/sizeof(*src_row);
+   }
+}
+
 union util_format_b10g10r10a2_unorm {
    uint32_t value;
    struct {
@@ -2765,7 +3342,7 @@ util_format_b10g10r10a2_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_str
 }
 
 static inline void
-util_format_b10g10r10a2_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b10g10r10a2_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -2960,7 +3537,7 @@ util_format_b2g3r3_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_b2g3r3_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b2g3r3_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint8_t value = *(const uint8_t *)src;
@@ -3109,7 +3686,7 @@ util_format_l8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, cons
 }
 
 static inline void
-util_format_l8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          uint8_t rgb;
@@ -3212,7 +3789,7 @@ util_format_a8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, cons
 }
 
 static inline void
-util_format_a8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          uint8_t a;
@@ -3315,7 +3892,7 @@ util_format_i8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, cons
 }
 
 static inline void
-util_format_i8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_i8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          uint8_t rgba;
@@ -3446,7 +4023,7 @@ util_format_l4a4_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_l4a4_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l4a4_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint8_t value = *(const uint8_t *)src;
@@ -3613,7 +4190,7 @@ util_format_l8a8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_l8a8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l8a8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -3752,7 +4329,7 @@ util_format_l16_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_l16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          uint16_t rgb;
@@ -3855,7 +4432,7 @@ util_format_a16_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_a16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          uint16_t a;
@@ -3958,7 +4535,7 @@ util_format_i16_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_i16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_i16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          uint16_t rgba;
@@ -4089,7 +4666,7 @@ util_format_l16a16_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_l16a16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l16a16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -4228,7 +4805,7 @@ util_format_a8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, cons
 }
 
 static inline void
-util_format_a8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          int8_t a;
@@ -4331,7 +4908,7 @@ util_format_l8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, cons
 }
 
 static inline void
-util_format_l8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          int8_t rgb;
@@ -4462,7 +5039,7 @@ util_format_l8a8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_l8a8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l8a8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -4601,7 +5178,7 @@ util_format_i8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, cons
 }
 
 static inline void
-util_format_i8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_i8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          int8_t rgba;
@@ -4704,7 +5281,7 @@ util_format_a16_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_a16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          int16_t a;
@@ -4807,7 +5384,7 @@ util_format_l16_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_l16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          int16_t rgb;
@@ -4938,7 +5515,7 @@ util_format_l16a16_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_l16a16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l16a16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -5077,7 +5654,7 @@ util_format_i16_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_i16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_i16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          int16_t rgba;
@@ -5179,7 +5756,7 @@ util_format_a16_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_a16_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a16_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          union util_format_a16_float pixel;
          memcpy(&pixel, src, sizeof pixel);
@@ -5279,7 +5856,7 @@ util_format_l16_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_l16_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l16_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          union util_format_l16_float pixel;
          memcpy(&pixel, src, sizeof pixel);
@@ -5402,7 +5979,7 @@ util_format_l16a16_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_l16a16_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l16a16_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_l16a16_float pixel;
@@ -5528,7 +6105,7 @@ util_format_i16_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_i16_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_i16_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          union util_format_i16_float pixel;
          memcpy(&pixel, src, sizeof pixel);
@@ -5628,7 +6205,7 @@ util_format_a32_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_a32_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a32_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          union util_format_a32_float pixel;
          memcpy(&pixel, src, sizeof pixel);
@@ -5728,7 +6305,7 @@ util_format_l32_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_l32_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l32_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          union util_format_l32_float pixel;
          memcpy(&pixel, src, sizeof pixel);
@@ -5851,7 +6428,7 @@ util_format_l32a32_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_l32a32_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l32a32_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_l32a32_float pixel;
@@ -5977,7 +6554,7 @@ util_format_i32_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_i32_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_i32_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          union util_format_i32_float pixel;
          memcpy(&pixel, src, sizeof pixel);
@@ -6078,7 +6655,7 @@ util_format_l8_srgb_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, const
 }
 
 static inline void
-util_format_l8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          uint8_t rgb;
@@ -6209,7 +6786,7 @@ util_format_l8a8_srgb_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_l8a8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l8a8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -6373,7 +6950,7 @@ util_format_r8g8b8_srgb_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, c
 }
 
 static inline void
-util_format_r8g8b8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r8g8b8_srgb pixel;
@@ -6546,7 +7123,7 @@ util_format_r8g8b8a8_srgb_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride,
 }
 
 static inline void
-util_format_r8g8b8a8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8a8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -6749,7 +7326,7 @@ util_format_a8b8g8r8_srgb_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride,
 }
 
 static inline void
-util_format_a8b8g8r8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a8b8g8r8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -6946,7 +7523,7 @@ util_format_x8b8g8r8_srgb_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride,
 }
 
 static inline void
-util_format_x8b8g8r8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_x8b8g8r8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -7139,7 +7716,7 @@ util_format_b8g8r8a8_srgb_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride,
 }
 
 static inline void
-util_format_b8g8r8a8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b8g8r8a8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -7336,7 +7913,7 @@ util_format_b8g8r8x8_srgb_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride,
 }
 
 static inline void
-util_format_b8g8r8x8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b8g8r8x8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -7529,7 +8106,7 @@ util_format_a8r8g8b8_srgb_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride,
 }
 
 static inline void
-util_format_a8r8g8b8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a8r8g8b8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -7726,7 +8303,7 @@ util_format_x8r8g8b8_srgb_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride,
 }
 
 static inline void
-util_format_x8r8g8b8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_x8r8g8b8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -7913,7 +8490,7 @@ util_format_r8sg8sb8ux8u_norm_pack_rgba_float(uint8_t *dst_row, unsigned dst_str
 }
 
 static inline void
-util_format_r8sg8sb8ux8u_norm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8sg8sb8ux8u_norm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -8106,7 +8683,7 @@ util_format_r10sg10sb10sa2u_norm_pack_rgba_float(uint8_t *dst_row, unsigned dst_
 }
 
 static inline void
-util_format_r10sg10sb10sa2u_norm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r10sg10sb10sa2u_norm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -8301,7 +8878,7 @@ util_format_r5sg5sb6u_norm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_r5sg5sb6u_norm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r5sg5sb6u_norm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -8449,7 +9026,7 @@ util_format_r64_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r64_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r64_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          union util_format_r64_float pixel;
          memcpy(&pixel, src, sizeof pixel);
@@ -8571,7 +9148,7 @@ util_format_r64g64_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r64g64_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r64g64_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r64g64_float pixel;
@@ -8723,7 +9300,7 @@ util_format_r64g64b64_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_strid
 }
 
 static inline void
-util_format_r64g64b64_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r64g64b64_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r64g64b64_float pixel;
@@ -8881,7 +9458,7 @@ util_format_r64g64b64a64_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_st
 }
 
 static inline void
-util_format_r64g64b64a64_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r64g64b64a64_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r64g64b64a64_float pixel;
@@ -9011,7 +9588,7 @@ util_format_r32_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r32_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          union util_format_r32_float pixel;
          memcpy(&pixel, src, sizeof pixel);
@@ -9134,7 +9711,7 @@ util_format_r32g32_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r32g32_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32_float pixel;
@@ -9286,7 +9863,7 @@ util_format_r32g32b32_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_strid
 }
 
 static inline void
-util_format_r32g32b32_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32_float pixel;
@@ -9444,7 +10021,7 @@ util_format_r32g32b32a32_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_st
 }
 
 static inline void
-util_format_r32g32b32a32_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32a32_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32a32_float pixel;
@@ -9575,7 +10152,7 @@ util_format_r32_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r32_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint32_t value = *(const uint32_t *)src;
          uint32_t r;
@@ -9700,7 +10277,7 @@ util_format_r32g32_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r32g32_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32_unorm pixel;
@@ -9852,7 +10429,7 @@ util_format_r32g32b32_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_strid
 }
 
 static inline void
-util_format_r32g32b32_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32_unorm pixel;
@@ -10010,7 +10587,7 @@ util_format_r32g32b32a32_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_st
 }
 
 static inline void
-util_format_r32g32b32a32_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32a32_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32a32_unorm pixel;
@@ -10141,7 +10718,7 @@ util_format_r32_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, c
 }
 
 static inline void
-util_format_r32_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint32_t value = *(const uint32_t *)src;
          uint32_t r;
@@ -10266,7 +10843,7 @@ util_format_r32g32_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_r32g32_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32_uscaled pixel;
@@ -10418,7 +10995,7 @@ util_format_r32g32b32_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_str
 }
 
 static inline void
-util_format_r32g32b32_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32_uscaled pixel;
@@ -10576,7 +11153,7 @@ util_format_r32g32b32a32_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_
 }
 
 static inline void
-util_format_r32g32b32a32_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32a32_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32a32_uscaled pixel;
@@ -10707,7 +11284,7 @@ util_format_r32_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r32_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint32_t value = *(const uint32_t *)src;
          int32_t r;
@@ -10832,7 +11409,7 @@ util_format_r32g32_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r32g32_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32_snorm pixel;
@@ -10984,7 +11561,7 @@ util_format_r32g32b32_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_strid
 }
 
 static inline void
-util_format_r32g32b32_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32_snorm pixel;
@@ -11142,7 +11719,7 @@ util_format_r32g32b32a32_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_st
 }
 
 static inline void
-util_format_r32g32b32a32_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32a32_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32a32_snorm pixel;
@@ -11273,7 +11850,7 @@ util_format_r32_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, c
 }
 
 static inline void
-util_format_r32_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint32_t value = *(const uint32_t *)src;
          int32_t r;
@@ -11398,7 +11975,7 @@ util_format_r32g32_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_r32g32_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32_sscaled pixel;
@@ -11550,7 +12127,7 @@ util_format_r32g32b32_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_str
 }
 
 static inline void
-util_format_r32g32b32_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32_sscaled pixel;
@@ -11708,7 +12285,7 @@ util_format_r32g32b32a32_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_
 }
 
 static inline void
-util_format_r32g32b32a32_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32a32_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32a32_sscaled pixel;
@@ -11838,7 +12415,7 @@ util_format_r16_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r16_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          union util_format_r16_float pixel;
          memcpy(&pixel, src, sizeof pixel);
@@ -11961,7 +12538,7 @@ util_format_r16g16_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r16g16_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16_float pixel;
@@ -12113,7 +12690,7 @@ util_format_r16g16b16_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_strid
 }
 
 static inline void
-util_format_r16g16b16_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16_float pixel;
@@ -12272,7 +12849,7 @@ util_format_r16g16b16a16_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_st
 }
 
 static inline void
-util_format_r16g16b16a16_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16a16_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16a16_float pixel;
@@ -12403,7 +12980,7 @@ util_format_r16_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          uint16_t r;
@@ -12534,7 +13111,7 @@ util_format_r16g16_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r16g16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -12698,7 +13275,7 @@ util_format_r16g16b16_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_strid
 }
 
 static inline void
-util_format_r16g16b16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16_unorm pixel;
@@ -12857,7 +13434,7 @@ util_format_r16g16b16a16_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_st
 }
 
 static inline void
-util_format_r16g16b16a16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16a16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16a16_unorm pixel;
@@ -12988,7 +13565,7 @@ util_format_r16_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, c
 }
 
 static inline void
-util_format_r16_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          uint16_t r;
@@ -13119,7 +13696,7 @@ util_format_r16g16_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_r16g16_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -13283,7 +13860,7 @@ util_format_r16g16b16_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_str
 }
 
 static inline void
-util_format_r16g16b16_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16_uscaled pixel;
@@ -13442,7 +14019,7 @@ util_format_r16g16b16a16_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_
 }
 
 static inline void
-util_format_r16g16b16a16_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16a16_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16a16_uscaled pixel;
@@ -13573,7 +14150,7 @@ util_format_r16_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          int16_t r;
@@ -13704,7 +14281,7 @@ util_format_r16g16_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r16g16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -13868,7 +14445,7 @@ util_format_r16g16b16_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_strid
 }
 
 static inline void
-util_format_r16g16b16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16_snorm pixel;
@@ -14027,7 +14604,7 @@ util_format_r16g16b16a16_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_st
 }
 
 static inline void
-util_format_r16g16b16a16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16a16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16a16_snorm pixel;
@@ -14158,7 +14735,7 @@ util_format_r16_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, c
 }
 
 static inline void
-util_format_r16_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          int16_t r;
@@ -14289,7 +14866,7 @@ util_format_r16g16_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_r16g16_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -14453,7 +15030,7 @@ util_format_r16g16b16_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_str
 }
 
 static inline void
-util_format_r16g16b16_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16_sscaled pixel;
@@ -14612,7 +15189,7 @@ util_format_r16g16b16a16_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_
 }
 
 static inline void
-util_format_r16g16b16a16_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16a16_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16a16_sscaled pixel;
@@ -14743,7 +15320,7 @@ util_format_r8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, cons
 }
 
 static inline void
-util_format_r8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          uint8_t r;
@@ -14874,7 +15451,7 @@ util_format_r8g8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_r8g8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -15038,7 +15615,7 @@ util_format_r8g8b8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r8g8b8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r8g8b8_unorm pixel;
@@ -15211,7 +15788,7 @@ util_format_r8g8b8a8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_r8g8b8a8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8a8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -15370,7 +15947,7 @@ util_format_r8_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_r8_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          uint8_t r;
@@ -15501,7 +16078,7 @@ util_format_r8g8_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r8g8_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -15665,7 +16242,7 @@ util_format_r8g8b8_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_r8g8b8_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r8g8b8_uscaled pixel;
@@ -15838,7 +16415,7 @@ util_format_r8g8b8a8_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stri
 }
 
 static inline void
-util_format_r8g8b8a8_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8a8_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -15997,7 +16574,7 @@ util_format_r8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, cons
 }
 
 static inline void
-util_format_r8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          int8_t r;
@@ -16128,7 +16705,7 @@ util_format_r8g8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_r8g8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -16292,7 +16869,7 @@ util_format_r8g8b8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r8g8b8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r8g8b8_snorm pixel;
@@ -16465,7 +17042,7 @@ util_format_r8g8b8a8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_r8g8b8a8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8a8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -16624,7 +17201,7 @@ util_format_r8_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_r8_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          int8_t r;
@@ -16755,7 +17332,7 @@ util_format_r8g8_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r8g8_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -16919,7 +17496,7 @@ util_format_r8g8b8_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_r8g8b8_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r8g8b8_sscaled pixel;
@@ -17092,7 +17669,7 @@ util_format_r8g8b8a8_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_stri
 }
 
 static inline void
-util_format_r8g8b8a8_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8a8_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -17250,7 +17827,7 @@ util_format_r32_fixed_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r32_fixed_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32_fixed_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          union util_format_r32_fixed pixel;
          memcpy(&pixel, src, sizeof pixel);
@@ -17373,7 +17950,7 @@ util_format_r32g32_fixed_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r32g32_fixed_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32_fixed_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32_fixed pixel;
@@ -17525,7 +18102,7 @@ util_format_r32g32b32_fixed_pack_rgba_float(uint8_t *dst_row, unsigned dst_strid
 }
 
 static inline void
-util_format_r32g32b32_fixed_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32_fixed_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32_fixed pixel;
@@ -17683,7 +18260,7 @@ util_format_r32g32b32a32_fixed_pack_rgba_float(uint8_t *dst_row, unsigned dst_st
 }
 
 static inline void
-util_format_r32g32b32a32_fixed_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32a32_fixed_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32a32_fixed pixel;
@@ -17852,7 +18429,7 @@ util_format_r10g10b10x2_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_s
 }
 
 static inline void
-util_format_r10g10b10x2_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r10g10b10x2_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -18039,7 +18616,7 @@ util_format_r10g10b10x2_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_str
 }
 
 static inline void
-util_format_r10g10b10x2_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r10g10b10x2_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -18216,7 +18793,7 @@ util_format_a4r4_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_a4r4_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a4r4_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint8_t value = *(const uint8_t *)src;
@@ -18383,7 +18960,7 @@ util_format_r4a4_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_r4a4_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r4a4_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint8_t value = *(const uint8_t *)src;
@@ -18550,7 +19127,7 @@ util_format_r8a8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_r8a8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8a8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -18717,7 +19294,7 @@ util_format_a8r8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_a8r8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a8r8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -18900,7 +19477,7 @@ util_format_r10g10b10a2_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_s
 }
 
 static inline void
-util_format_r10g10b10a2_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r10g10b10a2_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -19103,7 +19680,7 @@ util_format_r10g10b10a2_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_s
 }
 
 static inline void
-util_format_r10g10b10a2_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r10g10b10a2_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -19306,7 +19883,7 @@ util_format_r10g10b10a2_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_str
 }
 
 static inline void
-util_format_r10g10b10a2_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r10g10b10a2_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -19509,7 +20086,7 @@ util_format_b10g10r10a2_uscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_s
 }
 
 static inline void
-util_format_b10g10r10a2_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b10g10r10a2_uscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -19712,7 +20289,7 @@ util_format_b10g10r10a2_sscaled_pack_rgba_float(uint8_t *dst_row, unsigned dst_s
 }
 
 static inline void
-util_format_b10g10r10a2_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b10g10r10a2_sscaled_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -19915,7 +20492,7 @@ util_format_b10g10r10a2_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_str
 }
 
 static inline void
-util_format_b10g10r10a2_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b10g10r10a2_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -20074,7 +20651,7 @@ util_format_r8_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const u
 }
 
 static inline void
-util_format_r8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          uint8_t r;
@@ -20205,7 +20782,7 @@ util_format_r8g8_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const
 }
 
 static inline void
-util_format_r8g8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -20369,7 +20946,7 @@ util_format_r8g8b8_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r8g8b8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r8g8b8_uint pixel;
@@ -20542,7 +21119,7 @@ util_format_r8g8b8a8_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, c
 }
 
 static inline void
-util_format_r8g8b8a8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8a8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -20701,7 +21278,7 @@ util_format_r8_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const int
 }
 
 static inline void
-util_format_r8_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          int8_t r;
@@ -20832,7 +21409,7 @@ util_format_r8g8_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const i
 }
 
 static inline void
-util_format_r8g8_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -20996,7 +21573,7 @@ util_format_r8g8b8_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const
 }
 
 static inline void
-util_format_r8g8b8_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r8g8b8_sint pixel;
@@ -21169,7 +21746,7 @@ util_format_r8g8b8a8_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r8g8b8a8_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8a8_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -21328,7 +21905,7 @@ util_format_r16_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const 
 }
 
 static inline void
-util_format_r16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          uint16_t r;
@@ -21459,7 +22036,7 @@ util_format_r16g16_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r16g16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -21623,7 +22200,7 @@ util_format_r16g16b16_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r16g16b16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16_uint pixel;
@@ -21782,7 +22359,7 @@ util_format_r16g16b16a16_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_strid
 }
 
 static inline void
-util_format_r16g16b16a16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16a16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16a16_uint pixel;
@@ -21913,7 +22490,7 @@ util_format_r16_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const in
 }
 
 static inline void
-util_format_r16_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          int16_t r;
@@ -22044,7 +22621,7 @@ util_format_r16g16_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const
 }
 
 static inline void
-util_format_r16g16_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -22208,7 +22785,7 @@ util_format_r16g16b16_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_r16g16b16_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16_sint pixel;
@@ -22367,7 +22944,7 @@ util_format_r16g16b16a16_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride,
 }
 
 static inline void
-util_format_r16g16b16a16_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16a16_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16a16_sint pixel;
@@ -22498,7 +23075,7 @@ util_format_r32_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const 
 }
 
 static inline void
-util_format_r32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint32_t value = *(const uint32_t *)src;
          uint32_t r;
@@ -22623,7 +23200,7 @@ util_format_r32g32_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r32g32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32_uint pixel;
@@ -22775,7 +23352,7 @@ util_format_r32g32b32_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r32g32b32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32_uint pixel;
@@ -22933,7 +23510,7 @@ util_format_r32g32b32a32_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_strid
 }
 
 static inline void
-util_format_r32g32b32a32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32a32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32a32_uint pixel;
@@ -23064,7 +23641,7 @@ util_format_r32_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const in
 }
 
 static inline void
-util_format_r32_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint32_t value = *(const uint32_t *)src;
          int32_t r;
@@ -23189,7 +23766,7 @@ util_format_r32g32_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const
 }
 
 static inline void
-util_format_r32g32_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32_sint pixel;
@@ -23341,7 +23918,7 @@ util_format_r32g32b32_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_r32g32b32_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32_sint pixel;
@@ -23499,7 +24076,7 @@ util_format_r32g32b32a32_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride,
 }
 
 static inline void
-util_format_r32g32b32a32_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32a32_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32a32_sint pixel;
@@ -23630,7 +24207,7 @@ util_format_a8_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const u
 }
 
 static inline void
-util_format_a8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          uint8_t a;
@@ -23733,7 +24310,7 @@ util_format_i8_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const u
 }
 
 static inline void
-util_format_i8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_i8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          uint8_t rgba;
@@ -23836,7 +24413,7 @@ util_format_l8_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const u
 }
 
 static inline void
-util_format_l8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          uint8_t rgb;
@@ -23967,7 +24544,7 @@ util_format_l8a8_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const
 }
 
 static inline void
-util_format_l8a8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l8a8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -24106,7 +24683,7 @@ util_format_a8_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const int
 }
 
 static inline void
-util_format_a8_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a8_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          int8_t a;
@@ -24209,7 +24786,7 @@ util_format_i8_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const int
 }
 
 static inline void
-util_format_i8_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_i8_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          int8_t rgba;
@@ -24312,7 +24889,7 @@ util_format_l8_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const int
 }
 
 static inline void
-util_format_l8_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l8_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint8_t value = *(const uint8_t *)src;
          int8_t rgb;
@@ -24443,7 +25020,7 @@ util_format_l8a8_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const i
 }
 
 static inline void
-util_format_l8a8_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l8a8_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -24582,7 +25159,7 @@ util_format_a16_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const 
 }
 
 static inline void
-util_format_a16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          uint16_t a;
@@ -24685,7 +25262,7 @@ util_format_i16_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const 
 }
 
 static inline void
-util_format_i16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_i16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          uint16_t rgba;
@@ -24788,7 +25365,7 @@ util_format_l16_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const 
 }
 
 static inline void
-util_format_l16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          uint16_t rgb;
@@ -24919,7 +25496,7 @@ util_format_l16a16_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_l16a16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l16a16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -25058,7 +25635,7 @@ util_format_a16_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const in
 }
 
 static inline void
-util_format_a16_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a16_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          int16_t a;
@@ -25161,7 +25738,7 @@ util_format_i16_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const in
 }
 
 static inline void
-util_format_i16_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_i16_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          int16_t rgba;
@@ -25264,7 +25841,7 @@ util_format_l16_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const in
 }
 
 static inline void
-util_format_l16_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l16_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint16_t value = *(const uint16_t *)src;
          int16_t rgb;
@@ -25395,7 +25972,7 @@ util_format_l16a16_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const
 }
 
 static inline void
-util_format_l16a16_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l16a16_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -25534,7 +26111,7 @@ util_format_a32_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const 
 }
 
 static inline void
-util_format_a32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint32_t value = *(const uint32_t *)src;
          uint32_t a;
@@ -25637,7 +26214,7 @@ util_format_i32_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const 
 }
 
 static inline void
-util_format_i32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_i32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint32_t value = *(const uint32_t *)src;
          uint32_t rgba;
@@ -25740,7 +26317,7 @@ util_format_l32_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const 
 }
 
 static inline void
-util_format_l32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint32_t value = *(const uint32_t *)src;
          uint32_t rgb;
@@ -25865,7 +26442,7 @@ util_format_l32a32_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_l32a32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l32a32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_l32a32_uint pixel;
@@ -25992,7 +26569,7 @@ util_format_a32_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const in
 }
 
 static inline void
-util_format_a32_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a32_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint32_t value = *(const uint32_t *)src;
          int32_t a;
@@ -26095,7 +26672,7 @@ util_format_i32_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const in
 }
 
 static inline void
-util_format_i32_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_i32_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint32_t value = *(const uint32_t *)src;
          int32_t rgba;
@@ -26198,7 +26775,7 @@ util_format_l32_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const in
 }
 
 static inline void
-util_format_l32_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l32_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
          uint32_t value = *(const uint32_t *)src;
          int32_t rgb;
@@ -26323,7 +26900,7 @@ util_format_l32a32_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const
 }
 
 static inline void
-util_format_l32a32_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_l32a32_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_l32a32_sint pixel;
@@ -26494,7 +27071,7 @@ util_format_b10g10r10a2_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_b10g10r10a2_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b10g10r10a2_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -26691,7 +27268,7 @@ util_format_r8g8b8x8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_r8g8b8x8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8x8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -26878,7 +27455,7 @@ util_format_r8g8b8x8_srgb_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride,
 }
 
 static inline void
-util_format_r8g8b8x8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8x8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -27065,7 +27642,7 @@ util_format_r8g8b8x8_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, c
 }
 
 static inline void
-util_format_r8g8b8x8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8x8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -27252,7 +27829,7 @@ util_format_r8g8b8x8_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r8g8b8x8_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8g8b8x8_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -27439,7 +28016,7 @@ util_format_b10g10r10x2_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_str
 }
 
 static inline void
-util_format_b10g10r10x2_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b10g10r10x2_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -27616,7 +28193,7 @@ util_format_r16g16b16x16_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_st
 }
 
 static inline void
-util_format_r16g16b16x16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16x16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16x16_unorm pixel;
@@ -27773,7 +28350,7 @@ util_format_r16g16b16x16_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_st
 }
 
 static inline void
-util_format_r16g16b16x16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16x16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16x16_snorm pixel;
@@ -27930,7 +28507,7 @@ util_format_r16g16b16x16_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_st
 }
 
 static inline void
-util_format_r16g16b16x16_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16x16_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16x16_float pixel;
@@ -28087,7 +28664,7 @@ util_format_r16g16b16x16_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_strid
 }
 
 static inline void
-util_format_r16g16b16x16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16x16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16x16_uint pixel;
@@ -28244,7 +28821,7 @@ util_format_r16g16b16x16_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride,
 }
 
 static inline void
-util_format_r16g16b16x16_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16g16b16x16_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16g16b16x16_sint pixel;
@@ -28400,7 +28977,7 @@ util_format_r32g32b32x32_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_st
 }
 
 static inline void
-util_format_r32g32b32x32_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32x32_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32x32_float pixel;
@@ -28556,7 +29133,7 @@ util_format_r32g32b32x32_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_strid
 }
 
 static inline void
-util_format_r32g32b32x32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32x32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32x32_uint pixel;
@@ -28712,7 +29289,7 @@ util_format_r32g32b32x32_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride,
 }
 
 static inline void
-util_format_r32g32b32x32_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32g32b32x32_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32g32b32x32_sint pixel;
@@ -28869,7 +29446,7 @@ util_format_r8a8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_r8a8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8a8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -29036,7 +29613,7 @@ util_format_r16a16_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r16a16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16a16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -29203,7 +29780,7 @@ util_format_r16a16_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r16a16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16a16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -29364,7 +29941,7 @@ util_format_r16a16_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r16a16_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16a16_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r16a16_float pixel;
@@ -29513,7 +30090,7 @@ util_format_r32a32_float_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_r32a32_float_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32a32_float_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32a32_float pixel;
@@ -29668,7 +30245,7 @@ util_format_r8a8_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, const
 }
 
 static inline void
-util_format_r8a8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8a8_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -29835,7 +30412,7 @@ util_format_r8a8_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const i
 }
 
 static inline void
-util_format_r8a8_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r8a8_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -30002,7 +30579,7 @@ util_format_r16a16_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r16a16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16a16_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -30169,7 +30746,7 @@ util_format_r16a16_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const
 }
 
 static inline void
-util_format_r16a16_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r16a16_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -30330,7 +30907,7 @@ util_format_r32a32_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_r32a32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32a32_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32a32_uint pixel;
@@ -30479,7 +31056,7 @@ util_format_r32a32_sint_pack_signed(uint8_t *dst_row, unsigned dst_stride, const
 }
 
 static inline void
-util_format_r32a32_sint_fetch_signed(int *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r32a32_sint_fetch_signed(int *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          union util_format_r32a32_sint pixel;
@@ -30650,7 +31227,7 @@ util_format_r10g10b10a2_uint_pack_unsigned(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_r10g10b10a2_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_r10g10b10a2_uint_fetch_unsigned(unsigned *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -30845,7 +31422,7 @@ util_format_b5g6r5_srgb_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, c
 }
 
 static inline void
-util_format_b5g6r5_srgb_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_b5g6r5_srgb_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -31022,7 +31599,7 @@ util_format_a8l8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_a8l8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a8l8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -31189,7 +31766,7 @@ util_format_a8l8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_a8l8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a8l8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -31356,7 +31933,7 @@ util_format_a8l8_srgb_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, con
 }
 
 static inline void
-util_format_a8l8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a8l8_srgb_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -31523,7 +32100,7 @@ util_format_a16l16_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_a16l16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a16l16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -31690,7 +32267,7 @@ util_format_g8r8_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_g8r8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_g8r8_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -31857,7 +32434,7 @@ util_format_g8r8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, co
 }
 
 static inline void
-util_format_g8r8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_g8r8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint16_t value = *(const uint16_t *)src;
@@ -32024,7 +32601,7 @@ util_format_g16r16_unorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_g16r16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_g16r16_unorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -32191,7 +32768,7 @@ util_format_g16r16_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride, 
 }
 
 static inline void
-util_format_g16r16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_g16r16_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -32374,7 +32951,7 @@ util_format_a8b8g8r8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_a8b8g8r8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_a8b8g8r8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -32571,7 +33148,7 @@ util_format_x8b8g8r8_snorm_pack_rgba_float(uint8_t *dst_row, unsigned dst_stride
 }
 
 static inline void
-util_format_x8b8g8r8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, unsigned i, unsigned j)
+util_format_x8b8g8r8_snorm_fetch_rgba_float(float *dst, const uint8_t *src, UNUSED unsigned i, UNUSED unsigned j)
 {
 #ifdef PIPE_ARCH_BIG_ENDIAN
          uint32_t value = *(const uint32_t *)src;
@@ -33273,6 +33850,130 @@ util_format_b5g5r5a1_unorm_description = {
 };
 
 const struct util_format_description
+util_format_x1b5g5r5_unorm_description = {
+   PIPE_FORMAT_X1B5G5R5_UNORM,
+   "PIPE_FORMAT_X1B5G5R5_UNORM",
+   "x1b5g5r5_unorm",
+   {1, 1, 16},	/* block */
+   UTIL_FORMAT_LAYOUT_PLAIN,
+   4,	/* nr_channels */
+   FALSE,	/* is_array */
+   TRUE,	/* is_bitmask */
+   FALSE,	/* is_mixed */
+#ifdef PIPE_ARCH_BIG_ENDIAN
+   {
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 11},	/* x = r */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 6},	/* y = g */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 1},	/* z = b */
+      {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 1, 0}	/* w = x */
+   },
+#else
+   {
+      {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 1, 0},	/* x = x */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 1},	/* y = b */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 6},	/* z = g */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 11}	/* w = r */
+   },
+#endif
+#ifdef PIPE_ARCH_BIG_ENDIAN
+   {
+      PIPE_SWIZZLE_X,	/* r */
+      PIPE_SWIZZLE_Y,	/* g */
+      PIPE_SWIZZLE_Z,	/* b */
+      PIPE_SWIZZLE_1	/* a */
+   },
+#else
+   {
+      PIPE_SWIZZLE_W,	/* r */
+      PIPE_SWIZZLE_Z,	/* g */
+      PIPE_SWIZZLE_Y,	/* b */
+      PIPE_SWIZZLE_1	/* a */
+   },
+#endif
+   UTIL_FORMAT_COLORSPACE_RGB,
+   &util_format_x1b5g5r5_unorm_unpack_rgba_8unorm,
+   &util_format_x1b5g5r5_unorm_pack_rgba_8unorm,
+   NULL, /* fetch_rgba_8unorm */
+   &util_format_x1b5g5r5_unorm_unpack_rgba_float,
+   &util_format_x1b5g5r5_unorm_pack_rgba_float,
+   &util_format_x1b5g5r5_unorm_fetch_rgba_float,
+   NULL, /* unpack_z_32unorm */
+   NULL, /* pack_z_32unorm */
+   NULL, /* unpack_z_float */
+   NULL, /* pack_z_float */
+   NULL, /* unpack_s_8uint */
+   NULL, /* pack_s_8uint */
+   NULL, /* unpack_rgba_uint */
+   NULL, /* pack_rgba_uint */
+   NULL, /* unpack_rgba_sint */
+   NULL, /* pack_rgba_sint */
+   NULL, /* fetch_rgba_uint */
+   NULL  /* fetch_rgba_sint */
+};
+
+const struct util_format_description
+util_format_a1b5g5r5_unorm_description = {
+   PIPE_FORMAT_A1B5G5R5_UNORM,
+   "PIPE_FORMAT_A1B5G5R5_UNORM",
+   "a1b5g5r5_unorm",
+   {1, 1, 16},	/* block */
+   UTIL_FORMAT_LAYOUT_PLAIN,
+   4,	/* nr_channels */
+   FALSE,	/* is_array */
+   TRUE,	/* is_bitmask */
+   FALSE,	/* is_mixed */
+#ifdef PIPE_ARCH_BIG_ENDIAN
+   {
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 11},	/* x = r */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 6},	/* y = g */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 1},	/* z = b */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 1, 0}	/* w = a */
+   },
+#else
+   {
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 1, 0},	/* x = a */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 1},	/* y = b */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 6},	/* z = g */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 11}	/* w = r */
+   },
+#endif
+#ifdef PIPE_ARCH_BIG_ENDIAN
+   {
+      PIPE_SWIZZLE_X,	/* r */
+      PIPE_SWIZZLE_Y,	/* g */
+      PIPE_SWIZZLE_Z,	/* b */
+      PIPE_SWIZZLE_W	/* a */
+   },
+#else
+   {
+      PIPE_SWIZZLE_W,	/* r */
+      PIPE_SWIZZLE_Z,	/* g */
+      PIPE_SWIZZLE_Y,	/* b */
+      PIPE_SWIZZLE_X	/* a */
+   },
+#endif
+   UTIL_FORMAT_COLORSPACE_RGB,
+   &util_format_a1b5g5r5_unorm_unpack_rgba_8unorm,
+   &util_format_a1b5g5r5_unorm_pack_rgba_8unorm,
+   NULL, /* fetch_rgba_8unorm */
+   &util_format_a1b5g5r5_unorm_unpack_rgba_float,
+   &util_format_a1b5g5r5_unorm_pack_rgba_float,
+   &util_format_a1b5g5r5_unorm_fetch_rgba_float,
+   NULL, /* unpack_z_32unorm */
+   NULL, /* pack_z_32unorm */
+   NULL, /* unpack_z_float */
+   NULL, /* pack_z_float */
+   NULL, /* unpack_s_8uint */
+   NULL, /* pack_s_8uint */
+   NULL, /* unpack_rgba_uint */
+   NULL, /* pack_rgba_uint */
+   NULL, /* unpack_rgba_sint */
+   NULL, /* pack_rgba_sint */
+   NULL, /* fetch_rgba_uint */
+   NULL  /* fetch_rgba_sint */
+};
+
+const struct util_format_description
 util_format_b4g4r4a4_unorm_description = {
    PIPE_FORMAT_B4G4R4A4_UNORM,
    "PIPE_FORMAT_B4G4R4A4_UNORM",
@@ -33506,6 +34207,68 @@ util_format_r10g10b10a2_unorm_description = {
    &util_format_r10g10b10a2_unorm_unpack_rgba_float,
    &util_format_r10g10b10a2_unorm_pack_rgba_float,
    &util_format_r10g10b10a2_unorm_fetch_rgba_float,
+   NULL, /* unpack_z_32unorm */
+   NULL, /* pack_z_32unorm */
+   NULL, /* unpack_z_float */
+   NULL, /* pack_z_float */
+   NULL, /* unpack_s_8uint */
+   NULL, /* pack_s_8uint */
+   NULL, /* unpack_rgba_uint */
+   NULL, /* pack_rgba_uint */
+   NULL, /* unpack_rgba_sint */
+   NULL, /* pack_rgba_sint */
+   NULL, /* fetch_rgba_uint */
+   NULL  /* fetch_rgba_sint */
+};
+
+const struct util_format_description
+util_format_r10g10b10x2_unorm_description = {
+   PIPE_FORMAT_R10G10B10X2_UNORM,
+   "PIPE_FORMAT_R10G10B10X2_UNORM",
+   "r10g10b10x2_unorm",
+   {1, 1, 32},	/* block */
+   UTIL_FORMAT_LAYOUT_PLAIN,
+   4,	/* nr_channels */
+   FALSE,	/* is_array */
+   TRUE,	/* is_bitmask */
+   FALSE,	/* is_mixed */
+#ifdef PIPE_ARCH_BIG_ENDIAN
+   {
+      {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 2, 30},	/* x = x */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 10, 20},	/* y = b */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 10, 10},	/* z = g */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 10, 0}	/* w = r */
+   },
+#else
+   {
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 10, 0},	/* x = r */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 10, 10},	/* y = g */
+      {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 10, 20},	/* z = b */
+      {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 2, 30}	/* w = x */
+   },
+#endif
+#ifdef PIPE_ARCH_BIG_ENDIAN
+   {
+      PIPE_SWIZZLE_W,	/* r */
+      PIPE_SWIZZLE_Z,	/* g */
+      PIPE_SWIZZLE_Y,	/* b */
+      PIPE_SWIZZLE_1	/* a */
+   },
+#else
+   {
+      PIPE_SWIZZLE_X,	/* r */
+      PIPE_SWIZZLE_Y,	/* g */
+      PIPE_SWIZZLE_Z,	/* b */
+      PIPE_SWIZZLE_1	/* a */
+   },
+#endif
+   UTIL_FORMAT_COLORSPACE_RGB,
+   &util_format_r10g10b10x2_unorm_unpack_rgba_8unorm,
+   &util_format_r10g10b10x2_unorm_pack_rgba_8unorm,
+   NULL, /* fetch_rgba_8unorm */
+   &util_format_r10g10b10x2_unorm_unpack_rgba_float,
+   &util_format_r10g10b10x2_unorm_pack_rgba_float,
+   &util_format_r10g10b10x2_unorm_fetch_rgba_float,
    NULL, /* unpack_z_32unorm */
    NULL, /* pack_z_32unorm */
    NULL, /* unpack_z_float */
@@ -43499,6 +44262,68 @@ util_format_nv21_description = {
 };
 
 const struct util_format_description
+util_format_p016_description = {
+   PIPE_FORMAT_P016,
+   "PIPE_FORMAT_P016",
+   "p016",
+   {1, 1, 32},	/* block */
+   UTIL_FORMAT_LAYOUT_OTHER,
+   2,	/* nr_channels */
+   FALSE,	/* is_array */
+   FALSE,	/* is_bitmask */
+   FALSE,	/* is_mixed */
+#ifdef PIPE_ARCH_BIG_ENDIAN
+   {
+      {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 16, 16},	/* x = x */
+      {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 16, 0},	/* y = y */
+      {0, 0, 0, 0, 0},
+      {0, 0, 0, 0, 0}
+   },
+#else
+   {
+      {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 16, 0},	/* x = x */
+      {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 16, 16},	/* y = y */
+      {0, 0, 0, 0, 0},
+      {0, 0, 0, 0, 0}
+   },
+#endif
+#ifdef PIPE_ARCH_BIG_ENDIAN
+   {
+      PIPE_SWIZZLE_X,	/* y */
+      PIPE_SWIZZLE_Y,	/* u */
+      PIPE_SWIZZLE_Z,	/* v */
+      PIPE_SWIZZLE_W	/* ignored */
+   },
+#else
+   {
+      PIPE_SWIZZLE_X,	/* y */
+      PIPE_SWIZZLE_Y,	/* u */
+      PIPE_SWIZZLE_Z,	/* v */
+      PIPE_SWIZZLE_W	/* ignored */
+   },
+#endif
+   UTIL_FORMAT_COLORSPACE_YUV,
+   &util_format_p016_unpack_rgba_8unorm,
+   &util_format_p016_pack_rgba_8unorm,
+   NULL, /* fetch_rgba_8unorm */
+   &util_format_p016_unpack_rgba_float,
+   &util_format_p016_pack_rgba_float,
+   &util_format_p016_fetch_rgba_float,
+   NULL, /* unpack_z_32unorm */
+   NULL, /* pack_z_32unorm */
+   NULL, /* unpack_z_float */
+   NULL, /* pack_z_float */
+   NULL, /* unpack_s_8uint */
+   NULL, /* pack_s_8uint */
+   NULL, /* unpack_rgba_uint */
+   NULL, /* pack_rgba_uint */
+   NULL, /* unpack_rgba_sint */
+   NULL, /* pack_rgba_sint */
+   NULL, /* fetch_rgba_uint */
+   NULL  /* fetch_rgba_sint */
+};
+
+const struct util_format_description
 util_format_a4r4_unorm_description = {
    PIPE_FORMAT_A4R4_UNORM,
    "PIPE_FORMAT_A4R4_UNORM",
@@ -48984,6 +49809,10 @@ util_format_description(enum pipe_format format)
       return &util_format_b5g5r5x1_unorm_description;
    case PIPE_FORMAT_B5G5R5A1_UNORM:
       return &util_format_b5g5r5a1_unorm_description;
+   case PIPE_FORMAT_X1B5G5R5_UNORM:
+      return &util_format_x1b5g5r5_unorm_description;
+   case PIPE_FORMAT_A1B5G5R5_UNORM:
+      return &util_format_a1b5g5r5_unorm_description;
    case PIPE_FORMAT_B4G4R4A4_UNORM:
       return &util_format_b4g4r4a4_unorm_description;
    case PIPE_FORMAT_B4G4R4X4_UNORM:
@@ -48992,6 +49821,8 @@ util_format_description(enum pipe_format format)
       return &util_format_b5g6r5_unorm_description;
    case PIPE_FORMAT_R10G10B10A2_UNORM:
       return &util_format_r10g10b10a2_unorm_description;
+   case PIPE_FORMAT_R10G10B10X2_UNORM:
+      return &util_format_r10g10b10x2_unorm_description;
    case PIPE_FORMAT_B10G10R10A2_UNORM:
       return &util_format_b10g10r10a2_unorm_description;
    case PIPE_FORMAT_B2G3R3_UNORM:
@@ -49376,6 +50207,8 @@ util_format_description(enum pipe_format format)
       return &util_format_nv12_description;
    case PIPE_FORMAT_NV21:
       return &util_format_nv21_description;
+   case PIPE_FORMAT_P016:
+      return &util_format_p016_description;
    case PIPE_FORMAT_A4R4_UNORM:
       return &util_format_a4r4_unorm_description;
    case PIPE_FORMAT_R4A4_UNORM:

@@ -233,8 +233,8 @@ name##_rx( struct NineDevice9 *device, struct csmt_instruction *instr ) \
     name##_priv( \
         device ARGS_FOR_CALL( __VA_ARGS__ ) \
     ); \
-    ARGS_FOR_UNBIND( __VA_ARGS__ ) \
     p_atomic_dec(args->counter); \
+    ARGS_FOR_UNBIND( __VA_ARGS__ ) \
     return 0; \
 } \
 \
@@ -402,7 +402,18 @@ name##_priv( struct NineDevice9 *device ARGS_FOR_DECLARATION( __VA_ARGS__ ) )
         ,\
         y
 
-#define ARG_BIND_BUF(x, y) \
+#define ARG_BIND_VBUF(x, y) \
+        x _##y ,\
+        memcpy(&args->_##y , y, sizeof(x)); \
+        args->_##y.buffer.resource = NULL; \
+        pipe_resource_reference(&args->_##y.buffer.resource, y->buffer.resource); ,\
+        x *y ,\
+        &args->_##y ,\
+        pipe_resource_reference(&args->_##y.buffer.resource, NULL); ,\
+        ,\
+        y
+
+#define ARG_BIND_IBUF(x, y) \
         x _##y ,\
         memcpy(&args->_##y , y, sizeof(x)); \
         args->_##y.buffer = NULL; \

@@ -9,9 +9,10 @@ AM_CFLAGS = \
 	$(GALLIUM_DRIVER_CFLAGS) \
 	$(FREEDRENO_CFLAGS)
 
+MKDIR_GEN = $(AM_V_at)$(MKDIR_P) $(@D)
 ir3/ir3_nir_trig.c: ir3/ir3_nir_trig.py $(top_srcdir)/src/compiler/nir/nir_algebraic.py
 	$(MKDIR_GEN)
-	$(AM_V_GEN) PYTHONPATH=$(top_srcdir)/src/compiler/nir $(PYTHON2) $(PYTHON_FLAGS) $(srcdir)/ir3/ir3_nir_trig.py > $@ || ($(RM) $@; false)
+	$(AM_V_GEN) $(PYTHON2) $(PYTHON_FLAGS) $(srcdir)/ir3/ir3_nir_trig.py -p $(top_srcdir)/src/compiler/nir > $@ || ($(RM) $@; false)
 
 noinst_LTLIBRARIES = libfreedreno.la
 
@@ -44,3 +45,5 @@ ir3_compiler_LDADD = \
 	$(top_builddir)/src/mesa/libmesagallium.la \
 	$(GALLIUM_COMMON_LIB_DEPS) \
 	$(FREEDRENO_LIBS)
+
+EXTRA_DIST += meson.build

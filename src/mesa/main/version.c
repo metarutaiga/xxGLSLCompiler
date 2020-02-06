@@ -327,7 +327,6 @@ compute_version(const struct gl_extensions *extensions,
                          extensions->ARB_gpu_shader5 &&
                          extensions->ARB_gpu_shader_fp64 &&
                          extensions->ARB_sample_shading &&
-                         extensions->ARB_shader_subroutine &&
                          extensions->ARB_tessellation_shader &&
                          extensions->ARB_texture_buffer_object_rgb32 &&
                          extensions->ARB_texture_cube_map_array &&
@@ -353,6 +352,7 @@ compute_version(const struct gl_extensions *extensions,
                          extensions->ARB_transform_feedback_instanced);
    const bool ver_4_3 = (ver_4_2 &&
                          consts->GLSLVersion >= 430 &&
+                         consts->Program[MESA_SHADER_VERTEX].MaxUniformBlocks >= 14 &&
                          extensions->ARB_ES3_compatibility &&
                          extensions->ARB_arrays_of_arrays &&
                          extensions->ARB_compute_shader &&
@@ -386,8 +386,24 @@ compute_version(const struct gl_extensions *extensions,
                          extensions->ARB_derivative_control &&
                          extensions->ARB_shader_texture_image_samples &&
                          extensions->NV_texture_barrier);
+   const bool ver_4_6 = (ver_4_5 &&
+                         consts->GLSLVersion >= 460 &&
+                         /* extensions->ARB_gl_spirv */ 0 &&
+                         /* extensions->ARB_spirv_extensions */ 0 &&
+                         extensions->ARB_indirect_parameters &&
+                         extensions->ARB_pipeline_statistics_query &&
+                         extensions->ARB_polygon_offset_clamp &&
+                         extensions->ARB_shader_atomic_counter_ops &&
+                         extensions->ARB_shader_draw_parameters &&
+                         extensions->ARB_shader_group_vote &&
+                         extensions->ARB_texture_filter_anisotropic &&
+                         extensions->ARB_transform_feedback_overflow_query);
 
-   if (ver_4_5) {
+   if (ver_4_6) {
+      major = 4;
+      minor = 6;
+   }
+   else if (ver_4_5) {
       major = 4;
       minor = 5;
    }
@@ -500,7 +516,6 @@ compute_version_es2(const struct gl_extensions *extensions,
                          extensions->ARB_texture_float &&
                          extensions->ARB_texture_rg &&
                          extensions->ARB_depth_buffer_float &&
-                         extensions->EXT_draw_buffers2 &&
                          /* extensions->ARB_framebuffer_object && */
                          extensions->EXT_framebuffer_sRGB &&
                          extensions->EXT_packed_float &&
@@ -530,6 +545,7 @@ compute_version_es2(const struct gl_extensions *extensions,
                          extensions->ARB_gpu_shader5 &&
                          extensions->EXT_shader_integer_mix);
    const bool ver_3_2 = (ver_3_1 &&
+                         extensions->EXT_draw_buffers2 &&
                          extensions->KHR_blend_equation_advanced &&
                          extensions->KHR_robustness &&
                          extensions->KHR_texture_compression_astc_ldr &&
@@ -566,8 +582,10 @@ _mesa_get_version(const struct gl_extensions *extensions,
    case API_OPENGL_COMPAT:
       /* Disable GLSL 1.40 and later for legacy contexts.
        * This disallows creation of the GL 3.1 compatibility context. */
-      if (consts->GLSLVersion > 130) {
-         consts->GLSLVersion = 130;
+      if (!consts->AllowHigherCompatVersion) {
+         if (consts->GLSLVersion > 130) {
+            consts->GLSLVersion = 130;
+         }
       }
       /* fall through */
    case API_OPENGL_CORE:
@@ -633,4 +651,17 @@ _mesa_compute_version(struct gl_context *ctx)
       create_version_string(ctx, "OpenGL ES ");
       break;
    }
+}
+
+
+void
+_mesa_get_driver_uuid(struct gl_context *ctx, GLint *uuid)
+{
+   ctx->Driver.GetDriverUuid(ctx, (char*) uuid);
+}
+
+void
+_mesa_get_device_uuid(struct gl_context *ctx, GLint *uuid)
+{
+   ctx->Driver.GetDeviceUuid(ctx, (char*) uuid);
 }
