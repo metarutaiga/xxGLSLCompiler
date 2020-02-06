@@ -98,3 +98,9 @@ main(int argc, char * const* argv)
 
    return status;
 }
+
+extern "C" void
+_mesa_error_no_memory(const char *caller)
+{
+
+}

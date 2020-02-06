@@ -39,8 +39,6 @@
 #define U_MATH_H
 
 
-#include "pipe/p_compiler.h"
-
 #include "c99_math.h"
 #include <assert.h>
 #include <float.h>
@@ -52,6 +50,8 @@
 extern "C" {
 #endif
 
+typedef unsigned char ubyte;
+typedef unsigned char boolean;
 
 #ifndef M_SQRT2
 #define M_SQRT2 1.41421356237309504880

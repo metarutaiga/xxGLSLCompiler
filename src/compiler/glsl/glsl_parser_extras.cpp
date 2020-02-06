@@ -27,7 +27,6 @@
 
 #include "main/core.h" /* for struct gl_context */
 #include "main/context.h"
-#include "main/debug_output.h"
 #include "main/formats.h"
 #include "main/shaderobj.h"
 #include "util/u_atomic.h" /* for p_atomic_cmpxchg */

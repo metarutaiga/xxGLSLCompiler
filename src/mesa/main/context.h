@@ -52,7 +52,6 @@
 #include "imports.h"
 #include "extensions.h"
 #include "mtypes.h"
-#include "vbo/vbo.h"
 
 
 #ifdef __cplusplus
