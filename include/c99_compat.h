@@ -177,6 +177,36 @@ test_c99_compat_h(const void * restrict a,
 
 #  endif /* __GNUC__ */
 
+#  ifdef _MSC_VER
+#    include <intrin.h>
+#    define __builtin_clz           __lzcnt
+#    define __builtin_clzll         __lzcnt64
+#    define __builtin_ctz           _tzcnt_u32
+#    define __builtin_ctzll         _tzcnt_u64
+#    define __builtin_ffs(value)    (value ? __builtin_ctz(value) + 1 : 0)
+#    define __builtin_ffsll(value)  (value ? __builtin_ctzll(value) + 1 : 0)
+#    define __builtin_popcount      __popcnt
+#    define __builtin_popcountll    __popcnt64
+#    define __builtin_bswap32       _byteswap_ulong
+#    define __builtin_bswap64       _byteswap_uint64
+
+#    if (_M_IX86 || _M_ARM)
+#      define __lzcnt64(value)      ((value) >> 32 ? __lzcnt((int)((value) >> 32)) : __lzcnt((int)(value)) + 32)
+#      define _tzcnt_u64(value)     ((value) ? _tzcnt_u32((int)(value)) : _tzcnt_u32((int)((value) >> 32)) + 32)
+#      define __popcnt64(value)     (__popcnt((int)(value)) + __popcnt((int)((value) >> 32)))
+#    endif
+
+#    define HAVE___BUILTIN_CLZ 1
+#    define HAVE___BUILTIN_CLZLL 1
+#    define HAVE___BUILTIN_CTZ 1
+#    define HAVE___BUILTIN_FFS 1
+#    define HAVE___BUILTIN_FFSLL 1
+#    define HAVE___BUILTIN_POPCOUNT 1
+#    define HAVE___BUILTIN_POPCOUNTLL 1
+#    define HAVE___BUILTIN_BSWAP32 1
+#    define HAVE___BUILTIN_BSWAP64 1
+#  endif /* _MSC_VER */
+
 #endif /* HAVE_SCONS */
 
 
