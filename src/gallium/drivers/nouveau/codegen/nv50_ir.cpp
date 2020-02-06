@@ -274,6 +274,8 @@ LValue::isUniform() const
    if (defs.size() > 1)
       return false;
    Instruction *insn = getInsn();
+   if (!insn)
+      return false;
    // let's not try too hard here for now ...
    return !insn->srcExists(1) && insn->getSrc(0)->isUniform();
 }
@@ -1119,6 +1121,7 @@ Program::Program(Type type, Target *arch)
    binSize = 0;
 
    maxGPR = -1;
+   fp64 = false;
 
    main = new Function(this, "MAIN", ~0);
    calls.insert(&main->call);
@@ -1240,6 +1243,9 @@ nv50_ir_generate_code(struct nv50_ir_prog_info *info)
    prog->optLevel = info->optLevel;
 
    switch (info->bin.sourceRep) {
+   case PIPE_SHADER_IR_NIR:
+      ret = prog->makeFromNIR(info) ? 0 : -2;
+      break;
    case PIPE_SHADER_IR_TGSI:
       ret = prog->makeFromTGSI(info) ? 0 : -2;
       break;

@@ -63,6 +63,8 @@ source_lists = env.ParseSourceList('Makefile.sources')
 for l in ('LIBGLCPP_FILES', 'LIBGLSL_FILES'):
     glsl_sources += source_lists[l]
 
+glsl_sources += env.StaticObject("glsl/glcpp/pp_standalone_scaffolding.c")
+
 if env['msvc']:
     env.Prepend(CPPPATH = ['#/src/getopt'])
     env.PrependUnique(LIBS = [getopt])
@@ -88,6 +90,13 @@ mesa_objs = env.StaticObject([
 compiler_objs += mesa_objs
 
 # GLSL generated sources
+env.CodeGenerate(
+    target = 'glsl/float64_glsl.h',
+    script = 'glsl/xxd.py',
+    source = ['glsl/float64.glsl'],
+    command = python_cmd + ' $SCRIPT $SOURCE $TARGET -n float64_source',
+)
+
 env.CodeGenerate(
     target = 'glsl/ir_expression_operation.h',
     script = 'glsl/ir_expression_operation.py',

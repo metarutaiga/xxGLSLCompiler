@@ -45,7 +45,7 @@
 #include "va_private.h"
 
 #include <va/va_drmcommon.h>
-#include <drm-uapi/drm_fourcc.h>
+#include "drm-uapi/drm_fourcc.h"
 
 static const enum pipe_format vpp_surface_formats[] = {
    PIPE_FORMAT_B8G8R8A8_UNORM, PIPE_FORMAT_R8G8B8A8_UNORM,
@@ -565,7 +565,7 @@ surface_from_external_memory(VADriverContextP ctx, vlVaSurface *surface,
    struct pipe_resource res_templ;
    struct winsys_handle whandle;
    struct pipe_resource *resources[VL_NUM_COMPONENTS];
-   const enum pipe_format *resource_formats = NULL;
+   enum pipe_format resource_formats[VL_NUM_COMPONENTS];
    VAStatus result;
    int i;
 
@@ -584,9 +584,7 @@ surface_from_external_memory(VADriverContextP ctx, vlVaSurface *surface,
    if (memory_attribute->num_planes > VL_NUM_COMPONENTS)
       return VA_STATUS_ERROR_INVALID_PARAMETER;
 
-   resource_formats = vl_video_buffer_formats(pscreen, templat->buffer_format);
-   if (!resource_formats)
-      return VA_STATUS_ERROR_INVALID_PARAMETER;
+   vl_get_video_buffer_formats(pscreen, templat->buffer_format, resource_formats);
 
    memset(&res_templ, 0, sizeof(res_templ));
    res_templ.target = PIPE_TEXTURE_2D;
@@ -756,18 +754,28 @@ vlVaCreateSurfaces2(VADriverContextP ctx, unsigned int format,
 
    memset(&templat, 0, sizeof(templat));
 
-   templat.buffer_format = pscreen->get_video_param(
-      pscreen,
-      PIPE_VIDEO_PROFILE_UNKNOWN,
-      PIPE_VIDEO_ENTRYPOINT_BITSTREAM,
-      PIPE_VIDEO_CAP_PREFERED_FORMAT
-   );
-   templat.interlaced = pscreen->get_video_param(
-      pscreen,
-      PIPE_VIDEO_PROFILE_UNKNOWN,
-      PIPE_VIDEO_ENTRYPOINT_BITSTREAM,
-      PIPE_VIDEO_CAP_PREFERS_INTERLACED
-   );
+   if (format == VA_RT_FORMAT_YUV420_10BPP)
+   {
+      templat.buffer_format = PIPE_FORMAT_P010;
+      templat.interlaced = false;
+   }
+   else
+   {
+      templat.buffer_format = pscreen->get_video_param(
+         pscreen,
+         PIPE_VIDEO_PROFILE_UNKNOWN,
+         PIPE_VIDEO_ENTRYPOINT_BITSTREAM,
+         PIPE_VIDEO_CAP_PREFERED_FORMAT
+      );
+      templat.interlaced = pscreen->get_video_param(
+         pscreen,
+         PIPE_VIDEO_PROFILE_UNKNOWN,
+         PIPE_VIDEO_ENTRYPOINT_BITSTREAM,
+         PIPE_VIDEO_CAP_PREFERS_INTERLACED
+      );
+   }
+   
+
 
    if (expected_fourcc) {
       enum pipe_format expected_format = VaFourccToPipeFormat(expected_fourcc);

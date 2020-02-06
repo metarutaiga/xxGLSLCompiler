@@ -28,7 +28,7 @@
 #include "util/u_string.h"
 #include "util/u_memory.h"
 #include "util/u_inlines.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 
 #include "freedreno_program.h"
 
@@ -37,49 +37,12 @@
 #include "fd4_texture.h"
 #include "fd4_format.h"
 
-static struct ir3_shader *
-create_shader_stateobj(struct pipe_context *pctx, const struct pipe_shader_state *cso,
-		gl_shader_stage type)
-{
-	struct fd_context *ctx = fd_context(pctx);
-	struct ir3_compiler *compiler = ctx->screen->compiler;
-	return ir3_shader_create(compiler, cso, type, &ctx->debug);
-}
-
-static void *
-fd4_fp_state_create(struct pipe_context *pctx,
-		const struct pipe_shader_state *cso)
-{
-	return create_shader_stateobj(pctx, cso, MESA_SHADER_FRAGMENT);
-}
-
-static void
-fd4_fp_state_delete(struct pipe_context *pctx, void *hwcso)
-{
-	struct ir3_shader *so = hwcso;
-	ir3_shader_destroy(so);
-}
-
-static void *
-fd4_vp_state_create(struct pipe_context *pctx,
-		const struct pipe_shader_state *cso)
-{
-	return create_shader_stateobj(pctx, cso, MESA_SHADER_VERTEX);
-}
-
-static void
-fd4_vp_state_delete(struct pipe_context *pctx, void *hwcso)
-{
-	struct ir3_shader *so = hwcso;
-	ir3_shader_destroy(so);
-}
-
 static void
 emit_shader(struct fd_ringbuffer *ring, const struct ir3_shader_variant *so)
 {
 	const struct ir3_info *si = &so->info;
 	enum a4xx_state_block sb = fd4_stage2shadersb(so->type);
-	enum adreno_state_src src;
+	enum a4xx_state_src src;
 	uint32_t i, sz, *bin;
 
 	if (fd_mesa_debug & FD_DBG_DIRECT) {
@@ -245,7 +208,7 @@ fd4_program_emit(struct fd_ringbuffer *ring, struct fd4_emit *emit,
 	face_regid      = ir3_find_sysval_regid(s[FS].v, SYSTEM_VALUE_FRONT_FACE);
 	coord_regid     = ir3_find_sysval_regid(s[FS].v, SYSTEM_VALUE_FRAG_COORD);
 	zwcoord_regid   = (coord_regid == regid(63,0)) ? regid(63,0) : (coord_regid + 2);
-	vcoord_regid    = ir3_find_sysval_regid(s[FS].v, SYSTEM_VALUE_VARYING_COORD);
+	vcoord_regid    = ir3_find_sysval_regid(s[FS].v, SYSTEM_VALUE_BARYCENTRIC_PERSP_PIXEL);
 
 	/* we could probably divide this up into things that need to be
 	 * emitted if frag-prog is dirty vs if vert-prog is dirty..
@@ -448,7 +411,7 @@ fd4_program_emit(struct fd_ringbuffer *ring, struct fd4_emit *emit,
 		OUT_RING(ring, A4XX_SP_FS_MRT_REG_REGID(color_regid[i]) |
 				A4XX_SP_FS_MRT_REG_MRTFORMAT(format) |
 				COND(srgb, A4XX_SP_FS_MRT_REG_COLOR_SRGB) |
-				COND(emit->key.half_precision,
+				COND(color_regid[i] & HALF_REG_ID,
 					A4XX_SP_FS_MRT_REG_HALF_PRECISION));
 	}
 
@@ -569,11 +532,6 @@ fd4_program_emit(struct fd_ringbuffer *ring, struct fd4_emit *emit,
 void
 fd4_prog_init(struct pipe_context *pctx)
 {
-	pctx->create_fs_state = fd4_fp_state_create;
-	pctx->delete_fs_state = fd4_fp_state_delete;
-
-	pctx->create_vs_state = fd4_vp_state_create;
-	pctx->delete_vs_state = fd4_vp_state_delete;
-
+	ir3_prog_init(pctx);
 	fd_prog_init(pctx);
 }

@@ -139,13 +139,16 @@ NineBindTextureToDevice( struct NineDevice9 *device,
     struct NineBaseTexture9 *old = *slot;
 
     if (tex) {
-        if ((tex->managed.dirty | tex->dirty_mip) && LIST_IS_EMPTY(&tex->list))
+        if ((tex->managed.dirty | tex->dirty_mip) && list_is_empty(&tex->list))
             list_add(&tex->list, &device->update_textures);
 
         tex->bind_count++;
     }
-    if (old)
+    if (old) {
         old->bind_count--;
+        if (!old->bind_count)
+            list_delinit(&old->list);
+    }
 
     nine_bind(slot, tex);
 }
@@ -160,7 +163,7 @@ NineBaseTexture9_Dump( struct NineBaseTexture9 *This ) { }
 
 #define BASETEX_REGISTER_UPDATE(t) do { \
     if (((t)->managed.dirty | ((t)->dirty_mip)) && (t)->bind_count) \
-        if (LIST_IS_EMPTY(&(t)->list)) \
+        if (list_is_empty(&(t)->list)) \
             list_add(&(t)->list, &(t)->base.base.device->update_textures); \
     } while(0)
 

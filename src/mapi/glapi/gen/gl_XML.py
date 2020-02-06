@@ -49,7 +49,7 @@ def parse_GL_API( file_name, factory = None ):
     # that are not part of the ABI.
 
     for func in api.functionIterateByCategory():
-        if func.assign_offset:
+        if func.assign_offset and func.offset < 0:
             func.offset = api.next_offset;
             api.next_offset += 1
 
@@ -565,7 +565,14 @@ class gl_parameter(object):
 
 
     def size_string(self, use_parens = 1):
-        s = self.size()
+        base_size_str = ""
+
+        count = self.get_element_count()
+        if count:
+            base_size_str = "%d * " % count
+
+        base_size_str += "sizeof(%s)" % ( self.get_base_type_string() )
+
         if self.counter or self.count_parameter_list:
             list = [ "compsize" ]
 
@@ -574,8 +581,8 @@ class gl_parameter(object):
             elif self.counter:
                 list = [ self.counter ]
 
-            if s > 1:
-                list.append( str(s) )
+            if self.size() > 1:
+                list.append( base_size_str )
 
             if len(list) > 1 and use_parens :
                 return "safe_mul(%s)" % ", ".join(list)
@@ -585,7 +592,7 @@ class gl_parameter(object):
         elif self.is_image():
             return "compsize"
         else:
-            return str(s)
+            return base_size_str
 
 
     def format_string(self):
@@ -683,8 +690,12 @@ class gl_function( gl_item ):
 
             if name in static_data.offsets and static_data.offsets[name] <= static_data.MAX_OFFSETS:
                 self.offset = static_data.offsets[name]
+            elif name in static_data.offsets and static_data.offsets[name] > static_data.MAX_OFFSETS:
+                self.offset = static_data.offsets[name]
+                self.assign_offset = True
             else:
-                self.offset = -1
+                if self.exec_flavor != "skip":
+                    raise RuntimeError("Entry-point %s is missing offset in static_data.py. Add one at the bottom of the list." % (name))
                 self.assign_offset = self.exec_flavor != "skip" or name in static_data.unused_functions
 
         if not self.name:

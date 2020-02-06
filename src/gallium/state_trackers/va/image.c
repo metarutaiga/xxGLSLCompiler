@@ -197,10 +197,13 @@ vlVaDeriveImage(VADriverContextP ctx, VASurfaceID surface, VAImage *image)
    vlVaSurface *surf;
    vlVaBuffer *img_buf;
    VAImage *img;
+   struct pipe_screen *screen;
    struct pipe_surface **surfaces;
    int w;
    int h;
    int i;
+   unsigned stride = 0;
+   unsigned offset = 0;
 
    if (!ctx)
       return VA_STATUS_ERROR_INVALID_CONTEXT;
@@ -210,10 +213,19 @@ vlVaDeriveImage(VADriverContextP ctx, VASurfaceID surface, VAImage *image)
    if (!drv)
       return VA_STATUS_ERROR_INVALID_CONTEXT;
 
+   screen = VL_VA_PSCREEN(ctx);
+
+   if (!screen)
+      return VA_STATUS_ERROR_INVALID_CONTEXT;
+
    surf = handle_table_get(drv->htab, surface);
 
-   if (!surf || !surf->buffer || surf->buffer->interlaced)
+   if (!surf || !surf->buffer)
       return VA_STATUS_ERROR_INVALID_SURFACE;
+
+   if (surf->buffer->interlaced &&
+      surf->buffer->buffer_format != PIPE_FORMAT_NV12)
+     return VA_STATUS_ERROR_OPERATION_FAILED;
 
    surfaces = surf->buffer->get_surfaces(surf->buffer);
    if (!surfaces || !surfaces[0]->texture)
@@ -225,10 +237,12 @@ vlVaDeriveImage(VADriverContextP ctx, VASurfaceID surface, VAImage *image)
 
    img->format.fourcc = PipeFormatToVaFourcc(surf->buffer->buffer_format);
    img->buf = VA_INVALID_ID;
-   img->width = surf->buffer->width;
-   img->height = surf->buffer->height;
+   /* Use the visible dimensions. */
+   img->width = surf->templat.width;
+   img->height = surf->templat.height;
    img->num_palette_entries = 0;
    img->entry_bytes = 0;
+   /* Image data size is computed using internal dimensions. */
    w = align(surf->buffer->width, 2);
    h = align(surf->buffer->height, 2);
 
@@ -239,38 +253,94 @@ vlVaDeriveImage(VADriverContextP ctx, VASurfaceID surface, VAImage *image)
       }
    }
 
+   mtx_lock(&drv->mutex);
+   if (screen->resource_get_info) {
+      screen->resource_get_info(screen, surfaces[0]->texture, &stride,
+                                &offset);
+      if (!stride)
+         offset = 0;
+   }
+
+   img->num_planes = 1;
+   img->offsets[0] = offset;
+   img->data_size  = img->pitches[0] * h;
+
    switch (img->format.fourcc) {
    case VA_FOURCC('U','Y','V','Y'):
    case VA_FOURCC('Y','U','Y','V'):
-      img->num_planes = 1;
-      img->pitches[0] = w * 2;
-      img->offsets[0] = 0;
-      img->data_size  = w * h * 2;
+      img->pitches[0] = stride > 0 ? stride : w * 2;
+      assert(img->pitches[0] >= (w * 2));
       break;
 
    case VA_FOURCC('B','G','R','A'):
    case VA_FOURCC('R','G','B','A'):
    case VA_FOURCC('B','G','R','X'):
    case VA_FOURCC('R','G','B','X'):
-      img->num_planes = 1;
-      img->pitches[0] = w * 4;
+      img->pitches[0] = stride > 0 ? stride : w * 4;
+      assert(img->pitches[0] >= (w * 4));
+      break;
+
+   case VA_FOURCC('P','0','1','0'):
+   case VA_FOURCC('P','0','1','6'):
+   case VA_FOURCC('N','V','1','2'):
+      if (surf->buffer->interlaced) {
+         struct pipe_video_buffer *new_buffer;
+         struct u_rect src_rect, dst_rect;
+
+         surf->templat.interlaced = false;
+         new_buffer = drv->pipe->create_video_buffer(drv->pipe, &surf->templat);
+
+         /* convert the interlaced to the progressive */
+         src_rect.x0 = dst_rect.x0 = 0;
+         src_rect.x1 = dst_rect.x1 = surf->templat.width;
+         src_rect.y0 = dst_rect.y0 = 0;
+         src_rect.y1 = dst_rect.y1 = surf->templat.height;
+
+         vl_compositor_yuv_deint_full(&drv->cstate, &drv->compositor,
+                           surf->buffer, new_buffer,
+                           &src_rect, &dst_rect,
+                           VL_COMPOSITOR_WEAVE);
+
+         surf->buffer->destroy(surf->buffer);
+         surf->buffer = new_buffer;
+
+         /* recalculate the values now that we have a new surface */
+         surfaces = surf->buffer->get_surfaces(surf->buffer);
+         if (screen->resource_get_info) {
+            screen->resource_get_info(screen, surfaces[0]->texture, &stride,
+                                    &offset);
+            if (!stride)
+               offset = 0;
+         }
+
+         w = align(surf->buffer->width, 2);
+         h = align(surf->buffer->height, 2);
+      }
+
+      img->num_planes = 2;
+      img->pitches[0] = stride > 0 ? stride : w;
       img->offsets[0] = 0;
-      img->data_size  = w * h * 4;
+      img->pitches[1] = stride > 0 ? stride : w;
+      img->offsets[1] = (stride > 0 ? stride : w) * h;
+      img->data_size  = (stride > 0 ? stride : w) * h * 3 / 2;
       break;
 
    default:
-      /* VaDeriveImage is designed for contiguous planes. */
+      /* VaDeriveImage only supports contiguous planes. But there is now a
+         more generic api vlVaExportSurfaceHandle. */
       FREE(img);
-      return VA_STATUS_ERROR_INVALID_IMAGE_FORMAT;
+      mtx_unlock(&drv->mutex);
+      return VA_STATUS_ERROR_OPERATION_FAILED;
    }
+
 
    img_buf = CALLOC(1, sizeof(vlVaBuffer));
    if (!img_buf) {
       FREE(img);
+      mtx_unlock(&drv->mutex);
       return VA_STATUS_ERROR_ALLOCATION_FAILED;
    }
 
-   mtx_lock(&drv->mutex);
    img->image_id = handle_table_add(drv->htab, img);
 
    img_buf->type = VAImageBufferType;
@@ -382,13 +452,20 @@ vlVaGetImage(VADriverContextP ctx, VASurfaceID surface, int x, int y,
       return VA_STATUS_ERROR_OPERATION_FAILED;
    }
 
+
    if (format != surf->buffer->buffer_format) {
       /* support NV12 to YV12 and IYUV conversion now only */
       if ((format == PIPE_FORMAT_YV12 &&
-          surf->buffer->buffer_format == PIPE_FORMAT_NV12) ||
-          (format == PIPE_FORMAT_IYUV &&
-          surf->buffer->buffer_format == PIPE_FORMAT_NV12))
+         surf->buffer->buffer_format == PIPE_FORMAT_NV12) ||
+         (format == PIPE_FORMAT_IYUV &&
+         surf->buffer->buffer_format == PIPE_FORMAT_NV12))
          convert = true;
+      else if (format == PIPE_FORMAT_NV12 &&
+         (surf->buffer->buffer_format == PIPE_FORMAT_P010 ||
+          surf->buffer->buffer_format == PIPE_FORMAT_P016)) {
+         mtx_unlock(&drv->mutex);
+         return VA_STATUS_ERROR_OPERATION_FAILED;
+      }
       else {
          mtx_unlock(&drv->mutex);
          return VA_STATUS_ERROR_OPERATION_FAILED;

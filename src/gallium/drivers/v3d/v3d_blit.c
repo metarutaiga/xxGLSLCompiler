@@ -21,7 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_surface.h"
 #include "util/u_blitter.h"
 #include "v3d_context.h"
@@ -172,6 +172,7 @@ v3d_blitter_save(struct v3d_context *v3d)
         util_blitter_save_vertex_buffer_slot(v3d->blitter, v3d->vertexbuf.vb);
         util_blitter_save_vertex_elements(v3d->blitter, v3d->vtx);
         util_blitter_save_vertex_shader(v3d->blitter, v3d->prog.bind_vs);
+        util_blitter_save_geometry_shader(v3d->blitter, v3d->prog.bind_gs);
         util_blitter_save_so_targets(v3d->blitter, v3d->streamout.num_targets,
                                      v3d->streamout.targets);
         util_blitter_save_rasterizer(v3d->blitter, v3d->rasterizer);
@@ -380,8 +381,8 @@ v3d_tfu(struct pipe_context *pctx,
         if (dst_base_slice->tiling == VC5_TILING_RASTER)
                 return false;
 
-        v3d_flush_jobs_writing_resource(v3d, psrc);
-        v3d_flush_jobs_reading_resource(v3d, pdst);
+        v3d_flush_jobs_writing_resource(v3d, psrc, V3D_FLUSH_DEFAULT);
+        v3d_flush_jobs_reading_resource(v3d, pdst, V3D_FLUSH_DEFAULT);
 
         struct drm_v3d_submit_tfu tfu = {
                 .ios = (height << 16) | width,
@@ -457,7 +458,7 @@ v3d_tfu(struct pipe_context *pctx,
         return true;
 }
 
-boolean
+bool
 v3d_generate_mipmap(struct pipe_context *pctx,
                     struct pipe_resource *prsc,
                     enum pipe_format format,
@@ -491,7 +492,8 @@ v3d_tfu_blit(struct pipe_context *pctx, const struct pipe_blit_info *info)
         if ((info->mask & PIPE_MASK_RGBA) == 0)
                 return false;
 
-        if (info->dst.box.x != 0 ||
+        if (info->scissor_enable ||
+            info->dst.box.x != 0 ||
             info->dst.box.y != 0 ||
             info->dst.box.width != dst_width ||
             info->dst.box.height != dst_height ||
@@ -536,5 +538,6 @@ v3d_blit(struct pipe_context *pctx, const struct pipe_blit_info *blit_info)
          * run into unexpected OOMs when blits are used for a large series of
          * texture uploads before using the textures.
          */
-        v3d_flush_jobs_writing_resource(v3d, info.dst.resource);
+        v3d_flush_jobs_writing_resource(v3d, info.dst.resource,
+                                        V3D_FLUSH_DEFAULT);
 }

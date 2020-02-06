@@ -167,7 +167,8 @@ lower_array(nir_builder *b, nir_intrinsic_instr *intr, nir_variable *var,
                         intr->num_components, intr->dest.ssa.bit_size, NULL);
 
       if (intr->intrinsic == nir_intrinsic_interp_deref_at_offset ||
-          intr->intrinsic == nir_intrinsic_interp_deref_at_sample) {
+          intr->intrinsic == nir_intrinsic_interp_deref_at_sample ||
+          intr->intrinsic == nir_intrinsic_interp_deref_at_vertex) {
          nir_src_copy(&element_intr->src[1], &intr->src[1],
                       &element_intr->instr);
       }
@@ -212,8 +213,8 @@ deref_has_indirect(nir_builder *b, nir_variable *var, nir_deref_path *path)
  * indirect indexing.
  */
 static void
-create_indirects_mask(nir_shader *shader, uint64_t *indirects,
-                      uint64_t *patch_indirects, nir_variable_mode mode)
+create_indirects_mask(nir_shader *shader,
+                      BITSET_WORD *indirects, nir_variable_mode mode)
 {
    nir_foreach_function(function, shader) {
       if (function->impl) {
@@ -232,7 +233,8 @@ create_indirects_mask(nir_shader *shader, uint64_t *indirects,
                    intr->intrinsic != nir_intrinsic_store_deref &&
                    intr->intrinsic != nir_intrinsic_interp_deref_at_centroid &&
                    intr->intrinsic != nir_intrinsic_interp_deref_at_sample &&
-                   intr->intrinsic != nir_intrinsic_interp_deref_at_offset)
+                   intr->intrinsic != nir_intrinsic_interp_deref_at_offset &&
+                   intr->intrinsic != nir_intrinsic_interp_deref_at_vertex)
                   continue;
 
                nir_deref_instr *deref = nir_src_as_deref(intr->src[0]);
@@ -244,14 +246,9 @@ create_indirects_mask(nir_shader *shader, uint64_t *indirects,
                nir_deref_path path;
                nir_deref_path_init(&path, deref, NULL);
 
-               uint64_t loc_mask = ((uint64_t)1) << var->data.location;
-               if (var->data.patch) {
-                  if (deref_has_indirect(&b, var, &path))
-                     patch_indirects[var->data.location_frac] |= loc_mask;
-               } else {
-                  if (deref_has_indirect(&b, var, &path))
-                     indirects[var->data.location_frac] |= loc_mask;
-               }
+               int loc = var->data.location * 4 + var->data.location_frac;
+               if (deref_has_indirect(&b, var, &path))
+                  BITSET_SET(indirects, loc);
 
                nir_deref_path_finish(&path);
             }
@@ -262,7 +259,7 @@ create_indirects_mask(nir_shader *shader, uint64_t *indirects,
 
 static void
 lower_io_arrays_to_elements(nir_shader *shader, nir_variable_mode mask,
-                            uint64_t *indirects, uint64_t *patch_indirects,
+                            BITSET_WORD *indirects,
                             struct hash_table *varyings,
                             bool after_cross_stage_opts)
 {
@@ -282,7 +279,8 @@ lower_io_arrays_to_elements(nir_shader *shader, nir_variable_mode mask,
                    intr->intrinsic != nir_intrinsic_store_deref &&
                    intr->intrinsic != nir_intrinsic_interp_deref_at_centroid &&
                    intr->intrinsic != nir_intrinsic_interp_deref_at_sample &&
-                   intr->intrinsic != nir_intrinsic_interp_deref_at_offset)
+                   intr->intrinsic != nir_intrinsic_interp_deref_at_offset &&
+                   intr->intrinsic != nir_intrinsic_interp_deref_at_vertex)
                   continue;
 
                nir_deref_instr *deref = nir_src_as_deref(intr->src[0]);
@@ -291,15 +289,14 @@ lower_io_arrays_to_elements(nir_shader *shader, nir_variable_mode mask,
 
                nir_variable *var = nir_deref_instr_get_variable(deref);
 
+               /* Drivers assume compact arrays are, in fact, arrays. */
+               if (var->data.compact)
+                  continue;
+
                /* Skip indirects */
-               uint64_t loc_mask = ((uint64_t)1) << var->data.location;
-               if (var->data.patch) {
-                  if (patch_indirects[var->data.location_frac] & loc_mask)
-                     continue;
-               } else {
-                  if (indirects[var->data.location_frac] & loc_mask)
-                     continue;
-               }
+               int loc = var->data.location * 4 + var->data.location_frac;
+               if (BITSET_TEST(indirects, loc))
+                  continue;
 
                nir_variable_mode mode = var->data.mode;
 
@@ -314,7 +311,7 @@ lower_io_arrays_to_elements(nir_shader *shader, nir_variable_mode mask,
                 * TODO: Add support for struct splitting.
                 */
                if ((!glsl_type_is_array(type) && !glsl_type_is_matrix(type))||
-                   glsl_type_is_struct(glsl_without_array(type)))
+                   glsl_type_is_struct_or_ifc(glsl_without_array(type)))
                   continue;
 
                /* Skip builtins */
@@ -333,6 +330,7 @@ lower_io_arrays_to_elements(nir_shader *shader, nir_variable_mode mask,
                case nir_intrinsic_interp_deref_at_centroid:
                case nir_intrinsic_interp_deref_at_sample:
                case nir_intrinsic_interp_deref_at_offset:
+               case nir_intrinsic_interp_deref_at_vertex:
                case nir_intrinsic_load_deref:
                case nir_intrinsic_store_deref:
                   if ((mask & nir_var_shader_in && mode == nir_var_shader_in) ||
@@ -355,14 +353,14 @@ nir_lower_io_arrays_to_elements_no_indirects(nir_shader *shader,
    struct hash_table *split_inputs = _mesa_pointer_hash_table_create(NULL);
    struct hash_table *split_outputs = _mesa_pointer_hash_table_create(NULL);
 
-   uint64_t indirects[4] = {0}, patch_indirects[4] = {0};
+   BITSET_DECLARE(indirects, 4 * VARYING_SLOT_TESS_MAX) = {0};
 
-   lower_io_arrays_to_elements(shader, nir_var_shader_out, indirects,
-                               patch_indirects, split_outputs, true);
+   lower_io_arrays_to_elements(shader, nir_var_shader_out,
+                               indirects, split_outputs, true);
 
    if (!outputs_only) {
-      lower_io_arrays_to_elements(shader, nir_var_shader_in, indirects,
-                                  patch_indirects, split_inputs, true);
+      lower_io_arrays_to_elements(shader, nir_var_shader_in,
+                                  indirects, split_inputs, true);
 
       /* Remove old input from the shaders inputs list */
       hash_table_foreach(split_inputs, entry) {
@@ -393,17 +391,16 @@ nir_lower_io_arrays_to_elements(nir_shader *producer, nir_shader *consumer)
    struct hash_table *split_inputs = _mesa_pointer_hash_table_create(NULL);
    struct hash_table *split_outputs = _mesa_pointer_hash_table_create(NULL);
 
-   uint64_t indirects[4] = {0}, patch_indirects[4] = {0};
-   create_indirects_mask(producer, indirects, patch_indirects,
-                         nir_var_shader_out);
-   create_indirects_mask(consumer, indirects, patch_indirects,
-                         nir_var_shader_in);
+   BITSET_DECLARE(indirects, 4 * VARYING_SLOT_TESS_MAX) = {0};
 
-   lower_io_arrays_to_elements(producer, nir_var_shader_out, indirects,
-                               patch_indirects, split_outputs, false);
+   create_indirects_mask(producer, indirects, nir_var_shader_out);
+   create_indirects_mask(consumer, indirects, nir_var_shader_in);
 
-   lower_io_arrays_to_elements(consumer, nir_var_shader_in, indirects,
-                               patch_indirects, split_inputs, false);
+   lower_io_arrays_to_elements(producer, nir_var_shader_out,
+                               indirects, split_outputs, false);
+
+   lower_io_arrays_to_elements(consumer, nir_var_shader_in,
+                               indirects, split_inputs, false);
 
    /* Remove old input from the shaders inputs list */
    hash_table_foreach(split_inputs, entry) {

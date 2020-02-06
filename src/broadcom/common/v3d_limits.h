@@ -24,15 +24,25 @@
 #ifndef V3D_LIMITS_H
 #define V3D_LIMITS_H
 
+/* Number of channels a QPU thread executes in parallel.  Also known as
+ * gl_SubGroupSizeARB.
+ */
+#define V3D_CHANNELS 16
+
 #define V3D_MAX_FS_INPUTS 64
+#define V3D_MAX_GS_INPUTS 64
 #define V3D_MAX_VS_INPUTS 64
+#define V3D_MAX_ANY_STAGE_INPUTS MAX3(V3D_MAX_VS_INPUTS, \
+                                      V3D_MAX_GS_INPUTS, \
+                                      V3D_MAX_FS_INPUTS)
 
 /* Not specifically a hardware limit, just coordination between compiler and
  * driver.
  */
 #define V3D_MAX_TEXTURE_SAMPLERS 16
 
-#define V3D_MAX_MIP_LEVELS 12
+/* The HW can do 16384 (15), but we run into hangs when we expose that. */
+#define V3D_MAX_MIP_LEVELS 13
 
 #define V3D_MAX_SAMPLES 4
 

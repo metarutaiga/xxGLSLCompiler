@@ -51,7 +51,7 @@ namespace clover {
                        "ICD requires CL API objects to be standard layout.");
       }
 
-      const _cl_icd_dispatch *dispatch;
+      const cl_icd_dispatch *dispatch;
    };
 
    struct default_tag;

@@ -47,14 +47,19 @@ libvdpau_gallium = shared_library(
   ],
   link_whole : [libvdpau_st],
   link_with : [
-    libgalliumvlwinsys, libgalliumvl, libgallium, libmesa_util,
+    libgalliumvlwinsys, libgalliumvl, libgallium,
     libpipe_loader_static, libws_null, libwsw, libswdri, libswkmsdri,
   ],
   dependencies : [
-    dep_thread, driver_r300, driver_r600, driver_radeonsi, driver_nouveau,
+    idep_mesautil, idep_xmlconfig_headers,
+    driver_r300, driver_r600, driver_radeonsi, driver_nouveau,
   ],
   link_depends : vdpau_link_depends,
   soversion : '@0@.@1@.0'.format(VDPAU_MAJOR, VDPAU_MINOR),
+  # Will be deleted during installation, see install_megadrivers.py
+  install : true,
+  install_dir : vdpau_drivers_path,
+  name_suffix : 'so',
 )
 foreach d : [[with_gallium_r300, 'r300'],
              [with_gallium_r600, 'r600'],
@@ -66,8 +71,7 @@ foreach d : [[with_gallium_r300, 'r300'],
 endforeach
 
 meson.add_install_script(
-  prog_python.path(),
-  join_paths(meson.source_root(), 'bin/install_megadrivers.py'),
+  install_megadrivers_py.path(),
   libvdpau_gallium.full_path(),
   vdpau_drivers_path,
   vdpau_drivers,

@@ -28,7 +28,7 @@
 #include "r600_shader.h"
 #include "r600d.h"
 
-#include "util/u_format_s3tc.h"
+#include "util/format/u_format_s3tc.h"
 #include "util/u_index_modify.h"
 #include "util/u_memory.h"
 #include "util/u_upload_mgr.h"
@@ -94,6 +94,10 @@ void r600_emit_alphatest_state(struct r600_context *rctx, struct r600_atom *atom
 static void r600_memory_barrier(struct pipe_context *ctx, unsigned flags)
 {
 	struct r600_context *rctx = (struct r600_context *)ctx;
+
+	if (!(flags & ~PIPE_BARRIER_UPDATE))
+		return;
+
 	if (flags & PIPE_BARRIER_CONSTANT_BUFFER)
 		rctx->b.flags |= R600_CONTEXT_INV_CONST_CACHE;
 
@@ -415,7 +419,7 @@ static void r600_sampler_view_destroy(struct pipe_context *ctx,
 
 	if (view->tex_resource->gpu_address &&
 	    view->tex_resource->b.b.target == PIPE_BUFFER)
-		LIST_DELINIT(&view->list);
+		list_delinit(&view->list);
 
 	pipe_resource_reference(&state->texture, NULL);
 	FREE(view);
@@ -542,7 +546,8 @@ static void r600_bind_vertex_elements(struct pipe_context *ctx, void *state)
 static void r600_delete_vertex_elements(struct pipe_context *ctx, void *state)
 {
 	struct r600_fetch_shader *shader = (struct r600_fetch_shader*)state;
-	r600_resource_reference(&shader->buffer, NULL);
+	if (shader)
+		r600_resource_reference(&shader->buffer, NULL);
 	FREE(shader);
 }
 
@@ -3273,7 +3278,7 @@ static void r600_invalidate_buffer(struct pipe_context *ctx, struct pipe_resourc
 
 }
 
-static void r600_set_active_query_state(struct pipe_context *ctx, boolean enable)
+static void r600_set_active_query_state(struct pipe_context *ctx, bool enable)
 {
 	struct r600_context *rctx = (struct r600_context*)ctx;
 

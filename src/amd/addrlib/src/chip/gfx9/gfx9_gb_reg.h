@@ -1,8 +1,5 @@
-#if !defined (__GFX9_GB_REG_H__)
-#define __GFX9_GB_REG_H__
-
 /*
- * Copyright © 2007-2018 Advanced Micro Devices, Inc.
+ * Copyright © 2007-2019 Advanced Micro Devices, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -27,21 +24,25 @@
  * of the Software.
  */
 
-#include "util/u_endian.h"
+#if !defined (__GFX9_GB_REG_H__)
+#define __GFX9_GB_REG_H__
 
-#if defined(PIPE_ARCH_LITTLE_ENDIAN)
-#define LITTLEENDIAN_CPU
-#elif defined(PIPE_ARCH_BIG_ENDIAN)
-#define BIGENDIAN_CPU
-#endif
+/*
+*    gfx9_gb_reg.h
+*
+*    Register Spec Release:  1.0
+*
+*/
 
 //
 // Make sure the necessary endian defines are there.
 //
-#if defined(LITTLEENDIAN_CPU)
-#elif defined(BIGENDIAN_CPU)
-#else
-#error "BIGENDIAN_CPU or LITTLEENDIAN_CPU must be defined"
+#include "util/u_endian.h"
+
+#if UTIL_ARCH_LITTLE_ENDIAN
+#define LITTLEENDIAN_CPU
+#elif UTIL_ARCH_BIG_ENDIAN
+#define BIGENDIAN_CPU
 #endif
 
 union GB_ADDR_CONFIG {

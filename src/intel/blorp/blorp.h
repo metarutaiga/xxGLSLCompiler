@@ -160,6 +160,9 @@ blorp_buffer_copy(struct blorp_batch *batch,
                   struct blorp_address dst,
                   uint64_t size);
 
+union isl_color_value
+swizzle_color_value(union isl_color_value src, struct isl_swizzle swizzle);
+
 void
 blorp_fast_clear(struct blorp_batch *batch,
                  const struct blorp_surf *surf, enum isl_format format,
@@ -185,10 +188,11 @@ blorp_clear_depth_stencil(struct blorp_batch *batch,
                           bool clear_depth, float depth_value,
                           uint8_t stencil_mask, uint8_t stencil_value);
 bool
-blorp_can_hiz_clear_depth(uint8_t gen, enum isl_format format,
-                          uint32_t num_samples,
-                          uint32_t x0, uint32_t y0,
-                          uint32_t x1, uint32_t y1);
+blorp_can_hiz_clear_depth(const struct gen_device_info *devinfo,
+                          const struct isl_surf *surf,
+                          enum isl_aux_usage aux_usage,
+                          uint32_t level, uint32_t layer,
+                          uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1);
 void
 blorp_hiz_clear_depth_stencil(struct blorp_batch *batch,
                               const struct blorp_surf *depth,
@@ -242,6 +246,10 @@ blorp_hiz_op(struct blorp_batch *batch, struct blorp_surf *surf,
              uint32_t level, uint32_t start_layer, uint32_t num_layers,
              enum isl_aux_op op);
 
+void
+blorp_hiz_stencil_op(struct blorp_batch *batch, struct blorp_surf *stencil,
+                     uint32_t level, uint32_t start_layer,
+                     uint32_t num_layers, enum isl_aux_op op);
 #ifdef __cplusplus
 } /* end extern "C" */
 #endif /* __cplusplus */

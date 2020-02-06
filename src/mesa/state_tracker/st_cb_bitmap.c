@@ -49,6 +49,7 @@
 #include "st_cb_drawpixels.h"
 #include "st_sampler_view.h"
 #include "st_texture.h"
+#include "st_util.h"
 
 #include "pipe/p_context.h"
 #include "pipe/p_defines.h"
@@ -211,7 +212,7 @@ setup_render_state(struct gl_context *ctx,
    cso_set_rasterizer(cso, &st->bitmap.rasterizer);
 
    /* fragment shader state: TEX lookup program */
-   cso_set_fragment_shader_handle(cso, fpv->driver_shader);
+   cso_set_fragment_shader_handle(cso, fpv->base.driver_shader);
 
    /* vertex shader state: position + texcoord pass-through */
    cso_set_vertex_shader_handle(cso, st->passthrough_vs);
@@ -302,9 +303,8 @@ draw_bitmap_quad(struct gl_context *ctx, GLint x, GLint y, GLfloat z,
       /* XXX if the bitmap is larger than the max texture size, break
        * it up into chunks.
        */
-      GLuint MAYBE_UNUSED maxSize =
-         1 << (pipe->screen->get_param(pipe->screen,
-                                       PIPE_CAP_MAX_TEXTURE_2D_LEVELS) - 1);
+      ASSERTED GLuint maxSize =
+         pipe->screen->get_param(pipe->screen, PIPE_CAP_MAX_TEXTURE_2D_SIZE);
       assert(width <= (GLsizei) maxSize);
       assert(height <= (GLsizei) maxSize);
    }
@@ -564,20 +564,15 @@ init_bitmap_state(struct st_context *st)
    st->bitmap.rasterizer.depth_clip_far = 1;
 
    /* find a usable texture format */
-   if (screen->is_format_supported(screen, PIPE_FORMAT_I8_UNORM,
+   if (screen->is_format_supported(screen, PIPE_FORMAT_R8_UNORM,
                                    st->internal_target, 0, 0,
                                    PIPE_BIND_SAMPLER_VIEW)) {
-      st->bitmap.tex_format = PIPE_FORMAT_I8_UNORM;
+      st->bitmap.tex_format = PIPE_FORMAT_R8_UNORM;
    }
    else if (screen->is_format_supported(screen, PIPE_FORMAT_A8_UNORM,
                                         st->internal_target, 0, 0,
                                         PIPE_BIND_SAMPLER_VIEW)) {
       st->bitmap.tex_format = PIPE_FORMAT_A8_UNORM;
-   }
-   else if (screen->is_format_supported(screen, PIPE_FORMAT_L8_UNORM,
-                                        st->internal_target, 0, 0,
-                                        PIPE_BIND_SAMPLER_VIEW)) {
-      st->bitmap.tex_format = PIPE_FORMAT_L8_UNORM;
    }
    else {
       /* XXX support more formats */

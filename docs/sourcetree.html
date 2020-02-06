@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
   <meta http-equiv="content-type" content="text/html; charset=utf-8">
-  <title>Mesa Source Tree</title>
+  <title>Source Code Tree</title>
   <link rel="stylesheet" type="text/css" href="mesa.css">
 </head>
 <body>
 
 <div class="header">
-  <h1>The Mesa 3D Graphics Library</h1>
+  The Mesa 3D Graphics Library
 </div>
 
 <iframe src="contents.html"></iframe>
 <div class="content">
 
-<h1>Mesa source code tree overview</h1>
+<h1>Source Code Tree</h1>
 
 <p>
 This is a brief summary of Mesa's directory tree and what's contained in
@@ -49,15 +49,15 @@ each directory.
     <li><b>main</b> - The core Mesa code (mainly state management)
     <li><b>drivers</b> - Mesa drivers (not used with Gallium)
         <ul>
-	<li><b>common</b> - code which may be shared by all drivers
+        <li><b>common</b> - code which may be shared by all drivers
         <li><b>dri</b> - Direct Rendering Infrastructure drivers
            <ul>
-	   <li><b>common</b> - code shared by all DRI drivers
-	   <li><b>i915</b> - driver for Intel i915/i945
-	   <li><b>i965</b> - driver for Intel i965
-	   <li><b>radeon</b> - driver for ATI R100
-	   <li><b>r200</b> - driver for ATI R200
-	   <li>XXX more
+           <li><b>common</b> - code shared by all DRI drivers
+           <li><b>i915</b> - driver for Intel i915/i945
+           <li><b>i965</b> - driver for Intel i965
+           <li><b>radeon</b> - driver for ATI R100
+           <li><b>r200</b> - driver for ATI R200
+           <li>XXX more
            </ul>
         <li><b>x11</b> - Xlib-based software driver
         <li><b>osmesa</b> - off-screen software driver
@@ -158,7 +158,7 @@ each directory.
   <ul>
   <li><b>glx</b> - The GLX library code for building libGL using DRI drivers.
   </ul>
-<li><b>lib</b> - hardlinks to most binaries as produced by <strong>make</strong>.
+<li><b>lib</b> - hardlinks to most binaries as produced by the build system.
         These (shortcuts) are used for development purposes in conjunction with
         LD_LIBRARY_PATH and/or LIBGL_DRIVERS_PATH.
 </ul>

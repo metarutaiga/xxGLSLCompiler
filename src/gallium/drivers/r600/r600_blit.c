@@ -24,7 +24,7 @@
 #include "compute_memory_pool.h"
 #include "evergreen_compute.h"
 #include "util/u_surface.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "evergreend.h"
 
 enum r600_blitter_op /* bitmask */
@@ -522,7 +522,8 @@ static void r600_clear(struct pipe_context *ctx, unsigned buffers,
 	r600_blitter_begin(ctx, R600_CLEAR);
 	util_blitter_clear(rctx->blitter, fb->width, fb->height,
 			   util_framebuffer_get_num_layers(fb),
-			   buffers, color, depth, stencil);
+			   buffers, color, depth, stencil,
+			   util_framebuffer_get_num_samples(fb) > 1);
 	r600_blitter_end(ctx);
 
 	/* disable fast clear */

@@ -70,6 +70,7 @@ struct etna_transfer {
    struct pipe_transfer base;
    struct pipe_resource *rsc;
    void *staging;
+   void *mapped;
 };
 
 struct etna_vertexbuf_state {
@@ -87,15 +88,17 @@ struct etna_shader_state {
 enum etna_immediate_contents {
    ETNA_IMMEDIATE_UNUSED = 0,
    ETNA_IMMEDIATE_CONSTANT,
+   ETNA_IMMEDIATE_UNIFORM,
    ETNA_IMMEDIATE_TEXRECT_SCALE_X,
    ETNA_IMMEDIATE_TEXRECT_SCALE_Y,
+   ETNA_IMMEDIATE_UBO0_ADDR,
+   ETNA_IMMEDIATE_UBOMAX_ADDR = ETNA_IMMEDIATE_UBO0_ADDR + ETNA_MAX_CONST_BUF - 1,
 };
 
 struct etna_shader_uniform_info {
    enum etna_immediate_contents *imm_contents;
    uint32_t *imm_data;
    uint32_t imm_count;
-   uint32_t const_count;
 };
 
 struct etna_context {
@@ -136,9 +139,6 @@ struct etna_context {
    uint32_t prim_hwsupport;
    struct primconvert_context *primconvert;
 
-   /* list of resources used by currently-unsubmitted renders */
-   struct list_head used_resources;
-
    struct slab_child_pool transfer_pool;
    struct blitter_context *blitter;
 
@@ -164,7 +164,7 @@ struct etna_context {
    uint32_t active_sampler_views;
    uint32_t dirty_sampler_views;
    struct pipe_sampler_view *sampler_view[PIPE_MAX_SAMPLERS];
-   struct pipe_constant_buffer constant_buffer[PIPE_SHADER_TYPES];
+   struct pipe_constant_buffer constant_buffer[PIPE_SHADER_TYPES][ETNA_MAX_CONST_BUF];
    struct etna_vertexbuf_state vertex_buffer;
    struct etna_index_buffer index_buffer;
    struct etna_shader_state shader;
@@ -174,9 +174,6 @@ struct etna_context {
    struct pipe_stencil_ref stencil_ref_s;
    struct pipe_viewport_state viewport_s;
    struct pipe_scissor_state scissor_s;
-
-   /* cached state of entire GPU */
-   struct etna_3d_state gpu3d;
 
    /* stats/counters */
    struct {
@@ -193,6 +190,16 @@ struct etna_context {
 
    struct etna_bo *dummy_rt;
    struct etna_reloc dummy_rt_reloc;
+
+   /* Dummy texture descriptor (if needed) */
+   struct etna_bo *dummy_desc_bo;
+   struct etna_reloc DUMMY_DESC_ADDR;
+
+   /* set of resources used by currently-unsubmitted renders */
+   struct set *used_resources_read;
+   struct set *used_resources_write;
+
+   mtx_t lock;
 };
 
 static inline struct etna_context *

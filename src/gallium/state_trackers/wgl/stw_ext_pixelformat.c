@@ -42,7 +42,7 @@
 #include <GL/wglext.h>
 
 #include "pipe/p_compiler.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_memory.h"
 #include "stw_device.h"
 #include "stw_pixelformat.h"
@@ -487,7 +487,7 @@ wglGetPixelFormatAttribfvARB(HDC hdc, int iPixelFormat, int iLayerPlane,
    (void) hdc;
 
    for (i = 0; i < nAttributes; i++) {
-      int value;
+      int value = 0;
 
       if (!stw_query_attrib(iPixelFormat, iLayerPlane,
                              piAttributes[i], &value))

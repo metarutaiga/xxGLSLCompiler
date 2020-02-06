@@ -53,9 +53,10 @@
 #include "st_cb_texture.h"
 #include "st_format.h"
 #include "st_texture.h"
+#include "st_util.h"
 #include "st_manager.h"
 
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_inlines.h"
 #include "util/u_surface.h"
 
@@ -414,8 +415,14 @@ st_new_renderbuffer_fb(enum pipe_format format, unsigned samples, boolean sw)
    case PIPE_FORMAT_R32G32B32A32_FLOAT:
       strb->Base.InternalFormat = GL_RGBA32F;
       break;
+   case PIPE_FORMAT_R32G32B32X32_FLOAT:
+      strb->Base.InternalFormat = GL_RGB32F;
+      break;
    case PIPE_FORMAT_R16G16B16A16_FLOAT:
       strb->Base.InternalFormat = GL_RGBA16F;
+      break;
+   case PIPE_FORMAT_R16G16B16X16_FLOAT:
+      strb->Base.InternalFormat = GL_RGB16F;
       break;
    default:
       _mesa_problem(NULL,
@@ -458,7 +465,7 @@ st_update_renderbuffer_surface(struct st_context *st,
     * to determine if the rb is sRGB-capable.
     */
    boolean enable_srgb = st->ctx->Color.sRGBEnabled &&
-      _mesa_get_format_color_encoding(strb->Base.Format) == GL_SRGB;
+      _mesa_is_format_srgb(strb->Base.Format);
    enum pipe_format format = resource->format;
 
    if (strb->is_rtt) {
@@ -662,8 +669,7 @@ st_validate_attachment(struct gl_context *ctx,
    /* If the encoding is sRGB and sRGB rendering cannot be enabled,
     * check for linear format support instead.
     * Later when we create a surface, we change the format to a linear one. */
-   if (!ctx->Extensions.EXT_sRGB &&
-       _mesa_get_format_color_encoding(texFormat) == GL_SRGB) {
+   if (!ctx->Extensions.EXT_sRGB && _mesa_is_format_srgb(texFormat)) {
       const mesa_format linearFormat = _mesa_get_srgb_format_linear(texFormat);
       format = st_mesa_format_to_pipe_format(st_context(ctx), linearFormat);
    }
@@ -772,7 +778,7 @@ st_discard_framebuffer(struct gl_context *ctx, struct gl_framebuffer *fb,
    struct st_context *st = st_context(ctx);
    struct pipe_resource *prsc;
 
-   if (!att->Renderbuffer)
+   if (!att->Renderbuffer || !att->Complete)
       return;
 
    prsc = st_renderbuffer(att->Renderbuffer)->surface->texture;
@@ -857,12 +863,9 @@ st_MapRenderbuffer(struct gl_context *ctx,
    struct st_context *st = st_context(ctx);
    struct st_renderbuffer *strb = st_renderbuffer(rb);
    struct pipe_context *pipe = st->pipe;
-   const GLboolean invert = rb->Name == 0;
+   const GLboolean invert = flip_y;
    GLuint y2;
    GLubyte *map;
-
-   /* driver does not support GL_FRAMEBUFFER_FLIP_Y_MESA */
-   assert((rb->Name == 0) == flip_y);
 
    if (strb->software) {
       /* software-allocated renderbuffer (probably an accum buffer) */

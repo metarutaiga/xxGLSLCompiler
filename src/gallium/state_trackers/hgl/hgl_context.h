@@ -9,11 +9,13 @@
 #define HGL_CONTEXT_H
 
 
-#include "state_tracker/st_api.h"
-#include "state_tracker/st_manager.h"
+#include "pipe/p_format.h"
 #include "pipe/p_compiler.h"
 #include "pipe/p_screen.h"
 #include "postprocess/filters.h"
+
+#include "state_tracker/st_api.h"
+#include "state_tracker/st_manager.h"
 #include "os/os_thread.h"
 
 #include "bitmap_wrapper.h"
@@ -39,6 +41,8 @@ struct hgl_buffer
 	unsigned mask;
 
 	struct pipe_screen* screen;
+	struct pipe_surface* surface;
+
 	enum pipe_texture_target target;
 	struct pipe_resource* textures[ST_ATTACHMENT_COUNT];
 
@@ -80,6 +84,8 @@ struct hgl_context
 	struct hgl_buffer* read;
 };
 
+// hgl_buffer from statetracker interface
+struct hgl_buffer* hgl_st_framebuffer(struct st_framebuffer_iface *stfbi);
 
 // hgl state_tracker api
 struct st_api* hgl_create_st_api(void);

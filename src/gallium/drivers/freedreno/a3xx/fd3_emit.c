@@ -28,7 +28,7 @@
 #include "util/u_string.h"
 #include "util/u_memory.h"
 #include "util/u_helpers.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_viewport.h"
 
 #include "freedreno_resource.h"
@@ -215,8 +215,7 @@ emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
 				unsigned end   = fd_sampler_last_level(&view->base);
 
 				for (j = 0; j < (end - start + 1); j++) {
-					struct fd_resource_slice *slice =
-						fd_resource_slice(rsc, j + start);
+					struct fdl_slice *slice = fd_resource_slice(rsc, j + start);
 					OUT_RELOC(ring, rsc->bo, slice->offset, 0, 0);
 				}
 			}
@@ -311,18 +310,19 @@ fd3_emit_gmem_restore_tex(struct fd_ringbuffer *ring,
 
 		/* note: PIPE_BUFFER disallowed for surfaces */
 		unsigned lvl = psurf[i]->u.tex.level;
-		struct fd_resource_slice *slice = fd_resource_slice(rsc, lvl);
+		struct fdl_slice *slice = fd_resource_slice(rsc, lvl);
 
 		debug_assert(psurf[i]->u.tex.first_layer == psurf[i]->u.tex.last_layer);
 
-		OUT_RING(ring, A3XX_TEX_CONST_0_FMT(fd3_pipe2tex(format)) |
+		OUT_RING(ring, A3XX_TEX_CONST_0_TILE_MODE(rsc->layout.tile_mode) |
+				 A3XX_TEX_CONST_0_FMT(fd3_pipe2tex(format)) |
 				 A3XX_TEX_CONST_0_TYPE(A3XX_TEX_2D) |
 				 fd3_tex_swiz(format,  PIPE_SWIZZLE_X, PIPE_SWIZZLE_Y,
 							  PIPE_SWIZZLE_Z, PIPE_SWIZZLE_W));
 		OUT_RING(ring, A3XX_TEX_CONST_1_FETCHSIZE(TFETCH_DISABLE) |
 				 A3XX_TEX_CONST_1_WIDTH(psurf[i]->width) |
 				 A3XX_TEX_CONST_1_HEIGHT(psurf[i]->height));
-		OUT_RING(ring, A3XX_TEX_CONST_2_PITCH(slice->pitch * rsc->cpp) |
+		OUT_RING(ring, A3XX_TEX_CONST_2_PITCH(slice->pitch * rsc->layout.cpp) |
 				 A3XX_TEX_CONST_2_INDX(BASETABLE_SZ * i));
 		OUT_RING(ring, 0x00000000);
 	}
@@ -372,9 +372,6 @@ fd3_emit_vertex_bufs(struct fd_ringbuffer *ring, struct fd3_emit *emit)
 			continue;
 		if (vp->inputs[i].sysval) {
 			switch(vp->inputs[i].slot) {
-			case SYSTEM_VALUE_FIRST_VERTEX:
-				/* handled elsewhere */
-				break;
 			case SYSTEM_VALUE_VERTEX_ID_ZERO_BASE:
 				vertex_regid = vp->inputs[i].regid;
 				break;
@@ -440,7 +437,7 @@ fd3_emit_vertex_bufs(struct fd_ringbuffer *ring, struct fd3_emit *emit)
 					COND(isint, A3XX_VFD_DECODE_INSTR_INT) |
 					COND(switchnext, A3XX_VFD_DECODE_INSTR_SWITCHNEXT));
 
-			total_in += vp->inputs[i].ncomp;
+			total_in += util_bitcount(vp->inputs[i].compmask);
 			j++;
 		}
 	}
@@ -552,7 +549,7 @@ fd3_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 			val |= A3XX_RB_DEPTH_CONTROL_FRAG_WRITES_Z;
 			val |= A3XX_RB_DEPTH_CONTROL_EARLY_Z_DISABLE;
 		}
-		if (fp->has_kill) {
+		if (fp->no_earlyz) {
 			val |= A3XX_RB_DEPTH_CONTROL_EARLY_Z_DISABLE;
 		}
 		if (!ctx->rasterizer->depth_clip_near) {
@@ -738,7 +735,6 @@ fd3_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 			bool is_int = util_format_is_pure_integer(format);
 			bool has_alpha = util_format_has_alpha(format);
 			uint32_t control = blend->rb_mrt[i].control;
-			uint32_t blend_control = blend->rb_mrt[i].blend_control_alpha;
 
 			if (is_int) {
 				control &= (A3XX_RB_MRT_CONTROL_COMPONENT_ENABLE__MASK |
@@ -749,10 +745,7 @@ fd3_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 			if (format == PIPE_FORMAT_NONE)
 				control &= ~A3XX_RB_MRT_CONTROL_COMPONENT_ENABLE__MASK;
 
-			if (has_alpha) {
-				blend_control |= blend->rb_mrt[i].blend_control_rgb;
-			} else {
-				blend_control |= blend->rb_mrt[i].blend_control_no_alpha_rgb;
+			if (!has_alpha) {
 				control &= ~A3XX_RB_MRT_CONTROL_BLEND2;
 			}
 
@@ -772,7 +765,7 @@ fd3_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 			OUT_RING(ring, control);
 
 			OUT_PKT0(ring, REG_A3XX_RB_MRT_BLEND_CONTROL(i), 1);
-			OUT_RING(ring, blend_control |
+			OUT_RING(ring, blend->rb_mrt[i].blend_control |
 					COND(!is_float, A3XX_RB_MRT_BLEND_CONTROL_CLAMP_ENABLE));
 		}
 	}
@@ -945,17 +938,16 @@ fd3_emit_restore(struct fd_batch *batch, struct fd_ringbuffer *ring)
 	fd_hw_query_enable(batch, ring);
 }
 
-static void
-fd3_emit_ib(struct fd_ringbuffer *ring, struct fd_ringbuffer *target)
+void
+fd3_emit_init_screen(struct pipe_screen *pscreen)
 {
-	__OUT_IB(ring, true, target);
+	struct fd_screen *screen = fd_screen(pscreen);
+	screen->emit_const = fd3_emit_const;
+	screen->emit_const_bo = fd3_emit_const_bo;
+	screen->emit_ib = fd3_emit_ib;
 }
 
 void
 fd3_emit_init(struct pipe_context *pctx)
 {
-	struct fd_context *ctx = fd_context(pctx);
-	ctx->emit_const = fd3_emit_const;
-	ctx->emit_const_bo = fd3_emit_const_bo;
-	ctx->emit_ib = fd3_emit_ib;
 }

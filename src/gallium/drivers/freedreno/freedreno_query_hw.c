@@ -132,7 +132,7 @@ fd_hw_destroy_query(struct fd_context *ctx, struct fd_query *q)
 	free(hq);
 }
 
-static boolean
+static bool
 fd_hw_begin_query(struct fd_context *ctx, struct fd_query *q)
 {
 	struct fd_batch *batch = fd_context_batch(ctx);
@@ -147,7 +147,7 @@ fd_hw_begin_query(struct fd_context *ctx, struct fd_query *q)
 		resume_query(batch, hq, batch->draw);
 
 	/* add to active list: */
-	assert(list_empty(&hq->list));
+	assert(list_is_empty(&hq->list));
 	list_addtail(&hq->list, &ctx->hw_active_queries);
 
 	return true;
@@ -174,9 +174,9 @@ static void * sampptr(struct fd_hw_sample *samp, uint32_t n, void *ptr)
 	return ((char *)ptr) + (samp->tile_stride * n) + samp->offset;
 }
 
-static boolean
+static bool
 fd_hw_get_query_result(struct fd_context *ctx, struct fd_query *q,
-		boolean wait, union pipe_query_result *result)
+		bool wait, union pipe_query_result *result)
 {
 	struct fd_hw_query *hq = fd_hw_query(q);
 	const struct fd_hw_sample_provider *p = hq->provider;
@@ -184,10 +184,10 @@ fd_hw_get_query_result(struct fd_context *ctx, struct fd_query *q,
 
 	DBG("%p: wait=%d, active=%d", q, wait, q->active);
 
-	if (LIST_IS_EMPTY(&hq->periods))
+	if (list_is_empty(&hq->periods))
 		return true;
 
-	assert(LIST_IS_EMPTY(&hq->list));
+	assert(list_is_empty(&hq->list));
 	assert(!hq->period);
 
 	/* if !wait, then check the last sample (the one most likely to
@@ -209,7 +209,7 @@ fd_hw_get_query_result(struct fd_context *ctx, struct fd_query *q,
 			 * spin forever:
 			 */
 			if (hq->no_wait_cnt++ > 5)
-				fd_batch_flush(rsc->write_batch, false, false);
+				fd_batch_flush(rsc->write_batch);
 			return false;
 		}
 
@@ -237,7 +237,7 @@ fd_hw_get_query_result(struct fd_context *ctx, struct fd_query *q,
 		struct fd_resource *rsc = fd_resource(start->prsc);
 
 		if (rsc->write_batch)
-			fd_batch_flush(rsc->write_batch, true, false);
+			fd_batch_flush(rsc->write_batch);
 
 		/* some piglit tests at least do query with no draws, I guess: */
 		if (!rsc->bo)
@@ -266,7 +266,7 @@ static const struct fd_query_funcs hw_query_funcs = {
 };
 
 struct fd_query *
-fd_hw_create_query(struct fd_context *ctx, unsigned query_type)
+fd_hw_create_query(struct fd_context *ctx, unsigned query_type, unsigned index)
 {
 	struct fd_hw_query *hq;
 	struct fd_query *q;
@@ -289,6 +289,7 @@ fd_hw_create_query(struct fd_context *ctx, unsigned query_type)
 	q = &hq->base;
 	q->funcs = &hw_query_funcs;
 	q->type = query_type;
+	q->index = index;
 
 	return q;
 }

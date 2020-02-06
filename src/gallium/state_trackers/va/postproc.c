@@ -27,6 +27,7 @@
 
 #include "util/u_handle_table.h"
 #include "util/u_memory.h"
+#include "util/u_compute.h"
 
 #include "vl/vl_defines.h"
 #include "vl/vl_video_buffer.h"
@@ -220,7 +221,11 @@ static VAStatus vlVaPostProcBlit(vlVaDriver *drv, vlVaContext *context,
       blit.mask = PIPE_MASK_RGBA;
       blit.filter = PIPE_TEX_MIPFILTER_LINEAR;
 
-      drv->pipe->blit(drv->pipe, &blit);
+      if (drv->pipe->screen->get_param(drv->pipe->screen,
+                                       PIPE_CAP_PREFER_COMPUTE_FOR_MULTIMEDIA))
+         util_compute_blit(drv->pipe, &blit, &context->blit_cs);
+      else
+         drv->pipe->blit(drv->pipe, &blit);
    }
 
    // TODO: figure out why this is necessary for DMA-buf sharing
@@ -348,6 +353,7 @@ vlVaHandleVAProcPipelineParameterBufferType(vlVaDriver *drv, vlVaContext *contex
    dst_region = vlVaRegionDefault(param->output_region, dst_surface, &def_dst_region);
 
    if (context->target->buffer_format != PIPE_FORMAT_NV12 &&
+       context->target->buffer_format != PIPE_FORMAT_P010 &&
        context->target->buffer_format != PIPE_FORMAT_P016)
       return vlVaPostProcCompositor(drv, context, src_region, dst_region,
                                     src, context->target, deinterlace);

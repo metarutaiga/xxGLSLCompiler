@@ -78,6 +78,14 @@ glsl_get_struct_field_offset(const struct glsl_type *type,
    return type->fields.structure[index].offset;
 }
 
+const struct glsl_struct_field *
+glsl_get_struct_field_data(const struct glsl_type *type, unsigned index)
+{
+   assert(type->is_struct() || type->is_interface());
+   assert(index < type->length);
+   return &type->fields.structure[index];
+}
+
 unsigned
 glsl_get_explicit_stride(const struct glsl_type *type)
 {
@@ -145,6 +153,19 @@ glsl_get_aoa_size(const struct glsl_type *type)
 }
 
 unsigned
+glsl_count_vec4_slots(const struct glsl_type *type,
+                      bool is_gl_vertex_input, bool is_bindless)
+{
+   return type->count_vec4_slots(is_gl_vertex_input, is_bindless);
+}
+
+unsigned
+glsl_count_dword_slots(const struct glsl_type *type, bool is_bindless)
+{
+   return type->count_dword_slots(is_bindless);
+}
+
+unsigned
 glsl_count_attribute_slots(const struct glsl_type *type,
                            bool is_gl_vertex_input)
 {
@@ -155,6 +176,12 @@ unsigned
 glsl_get_component_slots(const struct glsl_type *type)
 {
    return type->component_slots();
+}
+
+unsigned
+glsl_varying_count(const struct glsl_type *type)
+{
+   return type->varying_count();
 }
 
 const char *
@@ -192,16 +219,22 @@ glsl_get_sampler_coordinate_components(const struct glsl_type *type)
 }
 
 unsigned
-glsl_get_record_location_offset(const struct glsl_type *type,
+glsl_get_struct_location_offset(const struct glsl_type *type,
                                 unsigned length)
 {
-   return type->record_location_offset(length);
+   return type->struct_location_offset(length);
 }
 
 bool
 glsl_type_is_16bit(const glsl_type *type)
 {
    return type->is_16bit();
+}
+
+bool
+glsl_type_is_32bit(const glsl_type *type)
+{
+   return type->is_32bit();
 }
 
 bool
@@ -260,6 +293,12 @@ glsl_type_is_array(const struct glsl_type *type)
 }
 
 bool
+glsl_type_is_unsized_array(const struct glsl_type *type)
+{
+   return type->is_unsized_array();
+}
+
+bool
 glsl_type_is_array_of_arrays(const struct glsl_type *type)
 {
    return type->is_array_of_arrays();
@@ -274,7 +313,19 @@ glsl_type_is_array_or_matrix(const struct glsl_type *type)
 bool
 glsl_type_is_struct(const struct glsl_type *type)
 {
-   return type->is_record() || type->is_interface();
+   return type->is_struct();
+}
+
+bool
+glsl_type_is_interface(const struct glsl_type *type)
+{
+   return type->is_interface();
+}
+
+bool
+glsl_type_is_struct_or_ifc(const struct glsl_type *type)
+{
+   return type->is_struct() || type->is_interface();
 }
 
 bool
@@ -324,6 +375,12 @@ bool
 glsl_type_is_integer(const struct glsl_type *type)
 {
    return type->is_integer();
+}
+
+bool
+glsl_type_contains_64bit(const struct glsl_type *type)
+{
+   return type->contains_64bit();
 }
 
 const glsl_type *
@@ -472,9 +529,10 @@ glsl_array_type(const glsl_type *base, unsigned elements,
 
 const glsl_type *
 glsl_struct_type(const glsl_struct_field *fields,
-                 unsigned num_fields, const char *name)
+                 unsigned num_fields, const char *name,
+                 bool packed)
 {
-   return glsl_type::get_record_instance(fields, num_fields, name);
+   return glsl_type::get_struct_instance(fields, num_fields, name, packed);
 }
 
 const glsl_type *
@@ -591,7 +649,7 @@ glsl_get_natural_size_align_bytes(const struct glsl_type *type,
       *size = 0;
       *align = 0;
       for (unsigned i = 0; i < type->length; i++) {
-         unsigned elem_size, elem_align;
+         unsigned elem_size = 0, elem_align = 0;
          glsl_get_natural_size_align_bytes(type->fields.structure[i].type,
                                            &elem_size, &elem_align);
          *align = MAX2(*align, elem_align);
@@ -600,9 +658,14 @@ glsl_get_natural_size_align_bytes(const struct glsl_type *type,
       break;
 
    case GLSL_TYPE_SAMPLER:
+   case GLSL_TYPE_IMAGE:
+      /* Bindless samplers and images. */
+      *size = 8;
+      *align = 8;
+      break;
+
    case GLSL_TYPE_ATOMIC_UINT:
    case GLSL_TYPE_SUBROUTINE:
-   case GLSL_TYPE_IMAGE:
    case GLSL_TYPE_VOID:
    case GLSL_TYPE_ERROR:
    case GLSL_TYPE_INTERFACE:
@@ -627,4 +690,91 @@ bool
 glsl_contains_atomic(const struct glsl_type *type)
 {
    return type->contains_atomic();
+}
+
+bool
+glsl_contains_opaque(const struct glsl_type *type)
+{
+   return type->contains_opaque();
+}
+
+int
+glsl_get_cl_size(const struct glsl_type *type)
+{
+   return type->cl_size();
+}
+
+int
+glsl_get_cl_alignment(const struct glsl_type *type)
+{
+   return type->cl_alignment();
+}
+
+unsigned
+glsl_type_get_sampler_count(const struct glsl_type *type)
+{
+   if (glsl_type_is_array(type)) {
+      return (glsl_get_aoa_size(type) *
+              glsl_type_get_sampler_count(glsl_without_array(type)));
+   }
+
+   if (glsl_type_is_struct_or_ifc(type)) {
+      unsigned count = 0;
+      for (unsigned i = 0; i < glsl_get_length(type); i++)
+         count += glsl_type_get_sampler_count(glsl_get_struct_field(type, i));
+      return count;
+   }
+
+   if (glsl_type_is_sampler(type))
+      return 1;
+
+   return 0;
+}
+
+unsigned
+glsl_type_get_image_count(const struct glsl_type *type)
+{
+   if (glsl_type_is_array(type)) {
+      return (glsl_get_aoa_size(type) *
+              glsl_type_get_image_count(glsl_without_array(type)));
+   }
+
+   if (glsl_type_is_struct_or_ifc(type)) {
+      unsigned count = 0;
+      for (unsigned i = 0; i < glsl_get_length(type); i++)
+         count += glsl_type_get_image_count(glsl_get_struct_field(type, i));
+      return count;
+   }
+
+   if (glsl_type_is_image(type))
+      return 1;
+
+   return 0;
+}
+
+unsigned
+glsl_get_explicit_size(const struct glsl_type *type, bool align_to_stride)
+{
+   return type->explicit_size(align_to_stride);
+}
+
+bool
+glsl_type_is_leaf(const struct glsl_type *type)
+{
+   if (glsl_type_is_struct_or_ifc(type) ||
+       (glsl_type_is_array(type) &&
+        (glsl_type_is_array(glsl_get_array_element(type)) ||
+         glsl_type_is_struct_or_ifc(glsl_get_array_element(type))))) {
+      return false;
+   } else {
+      return true;
+   }
+}
+
+const struct glsl_type *
+glsl_get_explicit_type_for_size_align(const struct glsl_type *type,
+                                      glsl_type_size_align_func type_info,
+                                      unsigned *size, unsigned *align)
+{
+   return type->get_explicit_type_for_size_align(type_info, size, align);
 }

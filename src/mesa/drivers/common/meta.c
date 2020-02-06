@@ -104,10 +104,16 @@ static void cleanup_temp_texture(struct gl_context *ctx,
                                  struct temp_texture *tex);
 static void meta_glsl_clear_cleanup(struct gl_context *ctx,
                                     struct clear_state *clear);
+static void meta_copypix_cleanup(struct gl_context *ctx,
+                                    struct copypix_state *copypix);
 static void meta_decompress_cleanup(struct gl_context *ctx,
                                     struct decompress_state *decompress);
 static void meta_drawpix_cleanup(struct gl_context *ctx,
                                  struct drawpix_state *drawpix);
+static void meta_drawtex_cleanup(struct gl_context *ctx,
+                                 struct drawtex_state *drawtex);
+static void meta_bitmap_cleanup(struct gl_context *ctx,
+                                struct bitmap_state *bitmap);
 
 void
 _mesa_meta_framebuffer_texture_image(struct gl_context *ctx,
@@ -422,10 +428,14 @@ _mesa_meta_free(struct gl_context *ctx)
    _mesa_make_current(ctx, NULL, NULL);
    _mesa_meta_glsl_blit_cleanup(ctx, &ctx->Meta->Blit);
    meta_glsl_clear_cleanup(ctx, &ctx->Meta->Clear);
+   meta_copypix_cleanup(ctx, &ctx->Meta->CopyPix);
    _mesa_meta_glsl_generate_mipmap_cleanup(ctx, &ctx->Meta->Mipmap);
    cleanup_temp_texture(ctx, &ctx->Meta->TempTex);
    meta_decompress_cleanup(ctx, &ctx->Meta->Decompress);
    meta_drawpix_cleanup(ctx, &ctx->Meta->DrawPix);
+   meta_drawtex_cleanup(ctx, &ctx->Meta->DrawTex);
+   meta_bitmap_cleanup(ctx, &ctx->Meta->Bitmap);
+
    if (old_context)
       _mesa_make_current(old_context, old_context->WinSysDrawBuffer, old_context->WinSysReadBuffer);
    else
@@ -1245,7 +1255,7 @@ init_temp_texture(struct gl_context *ctx, struct temp_texture *tex)
    else {
       /* use 2D texture, NPOT if possible */
       tex->Target = GL_TEXTURE_2D;
-      tex->MaxSize = 1 << (ctx->Const.MaxTextureLevels - 1);
+      tex->MaxSize = ctx->Const.MaxTextureSize;
       tex->NPOT = ctx->Extensions.ARB_texture_non_power_of_two;
    }
    tex->MinSize = 16;  /* 16 x 16 at least */
@@ -1465,6 +1475,8 @@ _mesa_meta_setup_drawpix_texture(struct gl_context *ctx,
          /* load image */
          _mesa_TexSubImage2D(tex->Target, 0,
                              0, 0, width, height, format, type, pixels);
+
+         _mesa_reference_buffer_object(ctx, &save_unpack_obj, NULL);
       }
    }
    else {
@@ -1594,6 +1606,17 @@ meta_glsl_clear_cleanup(struct gl_context *ctx, struct clear_state *clear)
       _mesa_reference_shader_program(ctx, &clear->IntegerShaderProg, NULL);
    }
 }
+
+static void
+meta_copypix_cleanup(struct gl_context *ctx, struct copypix_state *copypix)
+{
+   if (copypix->VAO == 0)
+      return;
+   _mesa_DeleteVertexArrays(1, &copypix->VAO);
+   copypix->VAO = 0;
+   _mesa_reference_buffer_object(ctx, &copypix->buf_obj, NULL);
+}
+
 
 /**
  * Given a bitfield of BUFFER_BIT_x draw buffers, call glDrawBuffers to
@@ -1951,6 +1974,30 @@ meta_drawpix_cleanup(struct gl_context *ctx, struct drawpix_state *drawpix)
    if (drawpix->DepthFP != 0) {
       _mesa_DeleteProgramsARB(1, &drawpix->DepthFP);
       drawpix->DepthFP = 0;
+   }
+}
+
+static void
+meta_drawtex_cleanup(struct gl_context *ctx, struct drawtex_state *drawtex)
+{
+   if (drawtex->VAO != 0) {
+      _mesa_DeleteVertexArrays(1, &drawtex->VAO);
+      drawtex->VAO = 0;
+
+      _mesa_reference_buffer_object(ctx, &drawtex->buf_obj, NULL);
+   }
+}
+
+static void
+meta_bitmap_cleanup(struct gl_context *ctx, struct bitmap_state *bitmap)
+{
+   if (bitmap->VAO != 0) {
+      _mesa_DeleteVertexArrays(1, &bitmap->VAO);
+      bitmap->VAO = 0;
+
+      _mesa_reference_buffer_object(ctx, &bitmap->buf_obj, NULL);
+
+      cleanup_temp_texture(ctx, &bitmap->Tex);
    }
 }
 
@@ -2977,6 +3024,7 @@ meta_decompress_cleanup(struct gl_context *ctx,
    }
 
    _mesa_reference_sampler_object(ctx, &decompress->samp_obj, NULL);
+   _mesa_meta_blit_shader_table_cleanup(ctx, &decompress->shaders);
 
    memset(decompress, 0, sizeof(*decompress));
 }

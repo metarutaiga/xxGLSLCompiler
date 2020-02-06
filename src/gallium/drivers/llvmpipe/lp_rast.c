@@ -628,7 +628,7 @@ rasterize_bin(struct lp_rasterizer_task *task,
 
    lp_rast_tile_end(task);
 
-
+#ifdef DEBUG
    /* Debug/Perf flags:
     */
    if (bin->head->count == 1) {
@@ -637,6 +637,7 @@ rasterize_bin(struct lp_rasterizer_task *task,
       else if (bin->head->cmd[0] == LP_RAST_OP_SHADE_TILE)
          LP_COUNT(nr_pure_shade_64);
    }
+#endif
 }
 
 
@@ -789,7 +790,7 @@ thread_function(void *init_data)
    char thread_name[16];
    unsigned fpstate;
 
-   util_snprintf(thread_name, sizeof thread_name, "llvmpipe-%u", task->thread_index);
+   snprintf(thread_name, sizeof thread_name, "llvmpipe-%u", task->thread_index);
    u_thread_setname(thread_name);
 
    /* Make sure that denorms are treated like zeros. This is 
@@ -866,6 +867,10 @@ create_rast_threads(struct lp_rasterizer *rast)
       pipe_semaphore_init(&rast->tasks[i].work_done, 0);
       rast->threads[i] = u_thread_create(thread_function,
                                             (void *) &rast->tasks[i]);
+      if (!rast->threads[i]) {
+         rast->num_threads = i; /* previous thread is max */
+         break;
+      }
    }
 }
 

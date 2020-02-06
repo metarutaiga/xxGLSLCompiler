@@ -28,6 +28,21 @@
 #include "util/u_math.h"
 
 #include "ir3.h"
+#include "ir3_compiler.h"
+
+#ifdef DEBUG
+#define SCHED_DEBUG (ir3_shader_debug & IR3_DBG_SCHEDMSGS)
+#else
+#define SCHED_DEBUG 0
+#endif
+#define d(fmt, ...) do { if (SCHED_DEBUG) { \
+	printf("SCHED: "fmt"\n", ##__VA_ARGS__); \
+} } while (0)
+
+#define di(instr, fmt, ...) do { if (SCHED_DEBUG) { \
+	printf("SCHED: "fmt": ", ##__VA_ARGS__); \
+	ir3_print_instr(instr); \
+} } while (0)
 
 /*
  * Instruction Scheduling:
@@ -55,12 +70,124 @@ struct ir3_sched_ctx {
 	struct ir3_instruction *scheduled; /* last scheduled instr XXX remove*/
 	struct ir3_instruction *addr;      /* current a0.x user, if any */
 	struct ir3_instruction *pred;      /* current p0.x user, if any */
+	int live_values;                   /* estimate of current live values */
 	bool error;
 };
+
+static bool is_scheduled(struct ir3_instruction *instr)
+{
+	return !!(instr->flags & IR3_INSTR_MARK);
+}
 
 static bool is_sfu_or_mem(struct ir3_instruction *instr)
 {
 	return is_sfu(instr) || is_mem(instr);
+}
+
+static void
+unuse_each_src(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
+{
+	struct ir3_instruction *src;
+
+	foreach_ssa_src_n(src, n, instr) {
+		if (__is_false_dep(instr, n))
+			continue;
+		if (instr->block != src->block)
+			continue;
+		if ((src->opc == OPC_META_COLLECT) || (src->opc == OPC_META_SPLIT)) {
+			unuse_each_src(ctx, src);
+		} else {
+			debug_assert(src->use_count > 0);
+
+			if (--src->use_count == 0) {
+				ctx->live_values -= dest_regs(src);
+				debug_assert(ctx->live_values >= 0);
+			}
+		}
+	}
+}
+
+static void clear_cache(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr);
+static void use_instr(struct ir3_instruction *instr);
+
+/* transfers a use-count to new instruction, for cases where we
+ * "spill" address or predicate.  Note this might cause the
+ * previous instruction that loaded a0.x/p0.x to become live
+ * again, when we previously thought it was dead.
+ */
+static void
+transfer_use(struct ir3_sched_ctx *ctx, struct ir3_instruction *orig_instr,
+		struct ir3_instruction *new_instr)
+{
+	struct ir3_instruction *src;
+
+	debug_assert(is_scheduled(orig_instr));
+
+	foreach_ssa_src_n(src, n, new_instr) {
+		if (__is_false_dep(new_instr, n))
+			continue;
+		ctx->live_values += dest_regs(src);
+		use_instr(src);
+	}
+
+	clear_cache(ctx, orig_instr);
+}
+
+static void
+use_each_src(struct ir3_instruction *instr)
+{
+	struct ir3_instruction *src;
+
+	foreach_ssa_src_n(src, n, instr) {
+		if (__is_false_dep(instr, n))
+			continue;
+		use_instr(src);
+	}
+}
+
+static void
+use_instr(struct ir3_instruction *instr)
+{
+	if ((instr->opc == OPC_META_COLLECT) || (instr->opc == OPC_META_SPLIT)) {
+		use_each_src(instr);
+	} else {
+		instr->use_count++;
+	}
+}
+
+static void
+update_live_values(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
+{
+	if ((instr->opc == OPC_META_COLLECT) || (instr->opc == OPC_META_SPLIT))
+		return;
+
+	ctx->live_values += dest_regs(instr);
+	unuse_each_src(ctx, instr);
+}
+
+static void
+update_use_count(struct ir3 *ir)
+{
+	foreach_block (block, &ir->block_list) {
+		foreach_instr (instr, &block->instr_list) {
+			instr->use_count = 0;
+		}
+	}
+
+	foreach_block (block, &ir->block_list) {
+		foreach_instr (instr, &block->instr_list) {
+			if ((instr->opc == OPC_META_COLLECT) || (instr->opc == OPC_META_SPLIT))
+				continue;
+
+			use_each_src(instr);
+		}
+	}
+
+	/* Shader outputs are also used:
+	 */
+	struct ir3_instruction *out;
+	foreach_output(out, ir)
+		use_instr(out);
 }
 
 #define NULL_INSTR ((void *)~0)
@@ -68,7 +195,7 @@ static bool is_sfu_or_mem(struct ir3_instruction *instr)
 static void
 clear_cache(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
 {
-	list_for_each_entry (struct ir3_instruction, instr2, &ctx->depth_list, node) {
+	foreach_instr (instr2, &ctx->depth_list) {
 		if ((instr2->data == instr) || (instr2->data == NULL_INSTR) || !instr)
 			instr2->data = NULL;
 	}
@@ -102,8 +229,12 @@ schedule(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
 
 	instr->flags |= IR3_INSTR_MARK;
 
+	di(instr, "schedule");
+
 	list_addtail(&instr->node, &instr->block->instr_list);
 	ctx->scheduled = instr;
+
+	update_live_values(ctx, instr);
 
 	if (writes_addr(instr) || writes_pred(instr) || is_input(instr)) {
 		clear_cache(ctx, NULL);
@@ -154,7 +285,7 @@ distance(struct ir3_block *block, struct ir3_instruction *instr,
 {
 	unsigned d = 0;
 
-	list_for_each_entry_rev (struct ir3_instruction, n, &block->instr_list, node) {
+	foreach_instr_rev (n, &block->instr_list) {
 		if ((n == instr) || (d >= maxd))
 			return d;
 		/* NOTE: don't count branch/jump since we don't know yet if they will
@@ -180,10 +311,11 @@ distance(struct ir3_block *block, struct ir3_instruction *instr,
 		/* (ab)use block->data to prevent recursion: */
 		block->data = block;
 
-		for (unsigned i = 0; i < block->predecessors_count; i++) {
+		set_foreach(block->predecessors, entry) {
+			struct ir3_block *pred = (struct ir3_block *)entry->key;
 			unsigned n;
 
-			n = distance(block->predecessors[i], instr, min, pred);
+			n = distance(pred, instr, min, pred);
 
 			min = MIN2(min, n);
 		}
@@ -255,11 +387,6 @@ struct ir3_sched_notes {
 	bool addr_conflict, pred_conflict;
 };
 
-static bool is_scheduled(struct ir3_instruction *instr)
-{
-	return !!(instr->flags & IR3_INSTR_MARK);
-}
-
 /* could an instruction be scheduled if specified ssa src was scheduled? */
 static bool
 could_sched(struct ir3_instruction *instr, struct ir3_instruction *src)
@@ -281,6 +408,8 @@ static bool
 check_instr(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
 		struct ir3_instruction *instr)
 {
+	debug_assert(!is_scheduled(instr));
+
 	/* For instructions that write address register we need to
 	 * make sure there is at least one instruction that uses the
 	 * addr value which is otherwise ready.
@@ -378,7 +507,7 @@ find_instr_recursive(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
 
 	/* find unscheduled srcs: */
 	foreach_ssa_src(src, instr) {
-		if (!is_scheduled(src)) {
+		if (!is_scheduled(src) && (src->block == instr->block)) {
 			debug_assert(nsrcs < ARRAY_SIZE(srcs));
 			srcs[nsrcs++] = src;
 		}
@@ -410,13 +539,63 @@ find_instr_recursive(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
 	return NULL;
 }
 
+/* find net change to live values if instruction were scheduled: */
+static int
+live_effect(struct ir3_instruction *instr)
+{
+	struct ir3_instruction *src;
+	int new_live = dest_regs(instr);
+	int old_live = 0;
+
+	foreach_ssa_src_n(src, n, instr) {
+		if (__is_false_dep(instr, n))
+			continue;
+
+		if (instr->block != src->block)
+			continue;
+
+		/* for split, just pass things along to the real src: */
+		if (src->opc == OPC_META_SPLIT)
+			src = ssa(src->regs[1]);
+
+		/* for collect, if this is the last use of *each* src,
+		 * then it will decrease the live values, since RA treats
+		 * them as a whole:
+		 */
+		if (src->opc == OPC_META_COLLECT) {
+			struct ir3_instruction *src2;
+			bool last_use = true;
+
+			foreach_ssa_src(src2, src) {
+				if (src2->use_count > 1) {
+					last_use = false;
+					break;
+				}
+			}
+
+			if (last_use)
+				old_live += dest_regs(src);
+
+		} else {
+			debug_assert(src->use_count > 0);
+
+			if (src->use_count == 1) {
+				old_live += dest_regs(src);
+			}
+		}
+	}
+
+	return new_live - old_live;
+}
+
 /* find instruction to schedule: */
 static struct ir3_instruction *
 find_eligible_instr(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
 		bool soft)
 {
 	struct ir3_instruction *best_instr = NULL;
-	unsigned min_delay = ~0;
+	int best_rank = INT_MAX;      /* lower is better */
+	unsigned deepest = 0;
 
 	/* TODO we'd really rather use the list/array of block outputs.  But we
 	 * don't have such a thing.  Recursing *every* instruction in the list
@@ -424,25 +603,88 @@ find_eligible_instr(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
 	 * get traversed both when they appear as ssa src to a later instruction
 	 * as well as where they appear in the depth_list.
 	 */
-	list_for_each_entry_rev (struct ir3_instruction, instr, &ctx->depth_list, node) {
+	foreach_instr_rev (instr, &ctx->depth_list) {
 		struct ir3_instruction *candidate;
-		unsigned delay;
 
 		candidate = find_instr_recursive(ctx, notes, instr);
 		if (!candidate)
 			continue;
 
-		delay = delay_calc(ctx->block, candidate, soft, false);
-		if (delay < min_delay) {
-			best_instr = candidate;
-			min_delay = delay;
+		if (is_meta(candidate))
+			return candidate;
+
+		deepest = MAX2(deepest, candidate->depth);
+	}
+
+	/* traverse the list a second time.. but since we cache the result of
+	 * find_instr_recursive() it isn't as bad as it looks.
+	 */
+	foreach_instr_rev (instr, &ctx->depth_list) {
+		struct ir3_instruction *candidate;
+
+		candidate = find_instr_recursive(ctx, notes, instr);
+		if (!candidate)
+			continue;
+
+		/* determine net change to # of live values: */
+		int le = live_effect(candidate);
+
+		/* if there is a net increase in # of live values, then apply some
+		 * threshold to avoid instructions getting scheduled *too* early
+		 * and increasing register pressure.
+		 */
+		if (le >= 1) {
+			unsigned threshold;
+
+			if (ctx->live_values > 4*4) {
+				threshold = 4;
+			} else {
+				threshold = 6;
+			}
+
+			/* Filter out any "shallow" instructions which would otherwise
+			 * tend to get scheduled too early to fill delay slots even
+			 * when they are not needed for a while.  There will probably
+			 * be later delay slots that they could just as easily fill.
+			 *
+			 * A classic case where this comes up is frag shaders that
+			 * write a constant value (like 1.0f) to one of the channels
+			 * of the output color(s).  Since the mov from immed has no
+			 * dependencies, it would otherwise get scheduled early to
+			 * fill delay slots, occupying a register until the end of
+			 * the program.
+			 */
+			if ((deepest - candidate->depth) > threshold)
+				continue;
 		}
 
-		if (min_delay == 0)
-			break;
+		int rank = delay_calc(ctx->block, candidate, soft, false);
+
+		/* if too many live values, prioritize instructions that reduce the
+		 * number of live values:
+		 */
+		if (ctx->live_values > 16*4) {
+			rank = le;
+		} else if (ctx->live_values > 4*4) {
+			rank += le;
+		}
+
+		if (rank < best_rank) {
+			best_instr = candidate;
+			best_rank = rank;
+		}
 	}
 
 	return best_instr;
+}
+
+static struct ir3_instruction *
+split_instr(struct ir3_sched_ctx *ctx, struct ir3_instruction *orig_instr)
+{
+	struct ir3_instruction *new_instr = ir3_instr_clone(orig_instr);
+	ir3_insert_by_depth(new_instr, &ctx->depth_list);
+	transfer_use(ctx, orig_instr, new_instr);
+	return new_instr;
 }
 
 /* "spill" the address register by remapping any unscheduled
@@ -475,10 +717,11 @@ split_addr(struct ir3_sched_ctx *ctx)
 		 */
 		if (indirect->address == ctx->addr) {
 			if (!new_addr) {
-				new_addr = ir3_instr_clone(ctx->addr);
+				new_addr = split_instr(ctx, ctx->addr);
 				/* original addr is scheduled, but new one isn't: */
 				new_addr->flags &= ~IR3_INSTR_MARK;
 			}
+			indirect->address = NULL;
 			ir3_instr_set_address(indirect, new_addr);
 		}
 	}
@@ -519,7 +762,7 @@ split_pred(struct ir3_sched_ctx *ctx)
 		 */
 		if (ssa(predicated->regs[1]) == ctx->pred) {
 			if (!new_pred) {
-				new_pred = ir3_instr_clone(ctx->pred);
+				new_pred = split_instr(ctx, ctx->pred);
 				/* original pred is scheduled, but new one isn't: */
 				new_pred->flags &= ~IR3_INSTR_MARK;
 			}
@@ -552,19 +795,30 @@ sched_block(struct ir3_sched_ctx *ctx, struct ir3_block *block)
 	list_inithead(&block->instr_list);
 	list_inithead(&ctx->depth_list);
 
-	/* first a pre-pass to schedule all meta:input instructions
-	 * (which need to appear first so that RA knows the register is
-	 * occupied), and move remaining to depth sorted list:
+	/* First schedule all meta:input instructions, followed by
+	 * tex-prefetch.  We want all of the instructions that load
+	 * values into registers before the shader starts to go
+	 * before any other instructions.  But in particular we
+	 * want inputs to come before prefetches.  This is because
+	 * a FS's bary_ij input may not actually be live in the
+	 * shader, but it should not be scheduled on top of any
+	 * other input (but can be overwritten by a tex prefetch)
+	 *
+	 * Finally, move all the remaining instructions to the depth-
+	 * list
 	 */
-	list_for_each_entry_safe (struct ir3_instruction, instr, &unscheduled_list, node) {
-		if (instr->opc == OPC_META_INPUT) {
+	foreach_instr_safe (instr, &unscheduled_list)
+		if (instr->opc == OPC_META_INPUT)
 			schedule(ctx, instr);
-		} else {
-			ir3_insert_by_depth(instr, &ctx->depth_list);
-		}
-	}
 
-	while (!list_empty(&ctx->depth_list)) {
+	foreach_instr_safe (instr, &unscheduled_list)
+		if (instr->opc == OPC_META_TEX_PREFETCH)
+			schedule(ctx, instr);
+
+	foreach_instr_safe (instr, &unscheduled_list)
+		ir3_insert_by_depth(instr, &ctx->depth_list);
+
+	while (!list_is_empty(&ctx->depth_list)) {
 		struct ir3_sched_notes notes = {0};
 		struct ir3_instruction *instr;
 
@@ -574,6 +828,8 @@ sched_block(struct ir3_sched_ctx *ctx, struct ir3_block *block)
 
 		if (instr) {
 			unsigned delay = delay_calc(ctx->block, instr, false, false);
+
+			d("delay=%u", delay);
 
 			/* and if we run out of instructions that can be scheduled,
 			 * then it is time for nop's:
@@ -683,11 +939,12 @@ sched_intra_block(struct ir3_sched_ctx *ctx, struct ir3_block *block)
 
 	ctx->block = block;
 
-	list_for_each_entry_safe (struct ir3_instruction, instr, &block->instr_list, node) {
+	foreach_instr_safe (instr, &block->instr_list) {
 		unsigned delay = 0;
 
-		for (unsigned i = 0; i < block->predecessors_count; i++) {
-			unsigned d = delay_calc(block->predecessors[i], instr, false, true);
+		set_foreach(block->predecessors, entry) {
+			struct ir3_block *pred = (struct ir3_block *)entry->key;
+			unsigned d = delay_calc(pred, instr, false, true);
 			delay = MAX2(d, delay);
 		}
 
@@ -712,18 +969,35 @@ int ir3_sched(struct ir3 *ir)
 	struct ir3_sched_ctx ctx = {0};
 
 	ir3_clear_mark(ir);
+	update_use_count(ir);
 
-	list_for_each_entry (struct ir3_block, block, &ir->block_list, node) {
+	foreach_block (block, &ir->block_list) {
+		ctx.live_values = 0;
 		sched_block(&ctx, block);
 	}
 
-	list_for_each_entry (struct ir3_block, block, &ir->block_list, node) {
+	foreach_block (block, &ir->block_list) {
 		sched_intra_block(&ctx, block);
 	}
 
 	if (ctx.error)
 		return -1;
+
 	return 0;
+}
+
+static unsigned
+get_array_id(struct ir3_instruction *instr)
+{
+	/* The expectation is that there is only a single array
+	 * src or dst, ir3_cp should enforce this.
+	 */
+
+	for (unsigned i = 0; i < instr->regs_count; i++)
+		if (instr->regs[i]->flags & IR3_REG_ARRAY)
+			return instr->regs[i]->array.id;
+
+	unreachable("this was unexpected");
 }
 
 /* does instruction 'prior' need to be scheduled before 'instr'? */
@@ -738,7 +1012,22 @@ depends_on(struct ir3_instruction *instr, struct ir3_instruction *prior)
 	if (((instr->barrier_class & IR3_BARRIER_EVERYTHING) && prior->barrier_class) ||
 			((prior->barrier_class & IR3_BARRIER_EVERYTHING) && instr->barrier_class))
 		return true;
-	return !!(instr->barrier_class & prior->barrier_conflict);
+
+	if (instr->barrier_class & prior->barrier_conflict) {
+		if (!(instr->barrier_class & ~(IR3_BARRIER_ARRAY_R | IR3_BARRIER_ARRAY_W))) {
+			/* if only array barrier, then we can further limit false-deps
+			 * by considering the array-id, ie reads/writes to different
+			 * arrays do not depend on each other (no aliasing)
+			 */
+			if (get_array_id(instr) != get_array_id(prior)) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	return false;
 }
 
 static void
@@ -802,7 +1091,7 @@ add_barrier_deps(struct ir3_block *block, struct ir3_instruction *instr)
 static void
 calculate_deps(struct ir3_block *block)
 {
-	list_for_each_entry (struct ir3_instruction, instr, &block->instr_list, node) {
+	foreach_instr (instr, &block->instr_list) {
 		if (instr->barrier_class) {
 			add_barrier_deps(block, instr);
 		}
@@ -812,7 +1101,7 @@ calculate_deps(struct ir3_block *block)
 void
 ir3_sched_add_deps(struct ir3 *ir)
 {
-	list_for_each_entry (struct ir3_block, block, &ir->block_list, node) {
+	foreach_block (block, &ir->block_list) {
 		calculate_deps(block);
 	}
 }

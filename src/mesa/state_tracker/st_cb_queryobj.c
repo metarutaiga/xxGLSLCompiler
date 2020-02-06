@@ -36,6 +36,7 @@
 #include "main/imports.h"
 #include "main/compiler.h"
 #include "main/context.h"
+#include "main/queryobj.h"
 
 #include "pipe/p_context.h"
 #include "pipe/p_defines.h"
@@ -45,6 +46,7 @@
 #include "st_cb_queryobj.h"
 #include "st_cb_bitmap.h"
 #include "st_cb_bufferobjects.h"
+#include "st_util.h"
 
 
 static struct gl_query_object *
@@ -85,7 +87,7 @@ st_DeleteQuery(struct gl_context *ctx, struct gl_query_object *q)
 
    free_queries(pipe, stq);
 
-   free(stq);
+   _mesa_delete_query(ctx, q);
 }
 
 static int
@@ -219,6 +221,9 @@ st_BeginQuery(struct gl_context *ctx, struct gl_query_object *q)
       return;
    }
 
+   if (stq->type != PIPE_QUERY_TIMESTAMP)
+      st->active_queries++;
+
    assert(stq->type == type);
 }
 
@@ -226,7 +231,8 @@ st_BeginQuery(struct gl_context *ctx, struct gl_query_object *q)
 static void
 st_EndQuery(struct gl_context *ctx, struct gl_query_object *q)
 {
-   struct pipe_context *pipe = st_context(ctx)->pipe;
+   struct st_context *st = st_context(ctx);
+   struct pipe_context *pipe = st->pipe;
    struct st_query_object *stq = st_query_object(q);
    bool ret = false;
 
@@ -246,6 +252,9 @@ st_EndQuery(struct gl_context *ctx, struct gl_query_object *q)
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glEndQuery");
       return;
    }
+
+   if (stq->type != PIPE_QUERY_TIMESTAMP)
+      st->active_queries--;
 }
 
 

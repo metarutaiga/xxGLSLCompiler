@@ -1,5 +1,5 @@
 /*
- * Copyright © 2007-2018 Advanced Micro Devices, Inc.
+ * Copyright © 2007-2019 Advanced Micro Devices, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -307,7 +307,9 @@ typedef union _ADDR_CREATE_FLAGS
         UINT_32 checkLast2DLevel       : 1;    ///< Check the last 2D mip sub level
         UINT_32 useHtileSliceAlign     : 1;    ///< Do htile single slice alignment
         UINT_32 allowLargeThickTile    : 1;    ///< Allow 64*thickness*bytesPerPixel > rowSize
-        UINT_32 reserved               : 25;   ///< Reserved bits for future use
+        UINT_32 forceDccAndTcCompat    : 1;    ///< Force enable DCC and TC compatibility
+        UINT_32 nonPower2MemConfig     : 1;    ///< Physical video memory size is not power of 2
+        UINT_32 reserved               : 23;   ///< Reserved bits for future use
     };
 
     UINT_32 value;
@@ -346,9 +348,6 @@ typedef struct _ADDR_REGISTER_VALUE
                                  ///< CI registers-------------------------------------------------
     const UINT_32* pMacroTileConfig;    ///< Global macro tile mode table
     UINT_32  noOfMacroEntries;   ///< Number of entries in pMacroTileConfig
-
-                                 ///< GFX9 HW parameters
-    UINT_32  blockVarSizeLog2;   ///< SW_VAR_* block size
 } ADDR_REGISTER_VALUE;
 
 /**
@@ -2265,17 +2264,17 @@ ADDR_E_RETURNCODE ADDR_API AddrComputeDccInfo(
 
 /**
 ****************************************************************************************************
-*   ADDR_GET_MAX_ALINGMENTS_OUTPUT
+*   ADDR_GET_MAX_ALIGNMENTS_OUTPUT
 *
 *   @brief
 *       Output structure of AddrGetMaxAlignments
 ****************************************************************************************************
 */
-typedef struct _ADDR_GET_MAX_ALINGMENTS_OUTPUT
+typedef struct _ADDR_GET_MAX_ALIGNMENTS_OUTPUT
 {
     UINT_32 size;                   ///< Size of this structure in bytes
     UINT_32 baseAlign;              ///< Maximum base alignment in bytes
-} ADDR_GET_MAX_ALINGMENTS_OUTPUT;
+} ADDR_GET_MAX_ALIGNMENTS_OUTPUT;
 
 /**
 ****************************************************************************************************
@@ -2287,7 +2286,7 @@ typedef struct _ADDR_GET_MAX_ALINGMENTS_OUTPUT
 */
 ADDR_E_RETURNCODE ADDR_API AddrGetMaxAlignments(
     ADDR_HANDLE                     hLib,
-    ADDR_GET_MAX_ALINGMENTS_OUTPUT* pOut);
+    ADDR_GET_MAX_ALIGNMENTS_OUTPUT* pOut);
 
 /**
 ****************************************************************************************************
@@ -2299,7 +2298,7 @@ ADDR_E_RETURNCODE ADDR_API AddrGetMaxAlignments(
 */
 ADDR_E_RETURNCODE ADDR_API AddrGetMaxMetaAlignments(
     ADDR_HANDLE                     hLib,
-    ADDR_GET_MAX_ALINGMENTS_OUTPUT* pOut);
+    ADDR_GET_MAX_ALIGNMENTS_OUTPUT* pOut);
 
 /**
 ****************************************************************************************************
@@ -2879,6 +2878,9 @@ typedef struct _ADDR2_COMPUTE_CMASKINFO_INPUT
     UINT_32             unalignedWidth;     ///< Color surface original width
     UINT_32             unalignedHeight;    ///< Color surface original height
     UINT_32             numSlices;          ///< Number of slices of color buffer
+    UINT_32             numMipLevels;       ///< Number of mip levels
+    UINT_32             firstMipIdInTail;   ///< The id of first mip in tail, if no mip is in tail,
+                                            ///  it should be number of mip levels
 } ADDR2_COMPUTE_CMASK_INFO_INPUT;
 
 /**
@@ -2904,7 +2906,9 @@ typedef struct _ADDR2_COMPUTE_CMASK_INFO_OUTPUT
     UINT_32    metaBlkWidth;  ///< Meta block width
     UINT_32    metaBlkHeight; ///< Meta block height
 
-    UINT_32    metaBlkNumPerSlice; ///< Number of metablock within one slice
+    UINT_32    metaBlkNumPerSlice;  ///< Number of metablock within one slice
+
+    ADDR2_META_MIP_INFO* pMipInfo;  ///< CMASK mip information
 } ADDR2_COMPUTE_CMASK_INFO_OUTPUT;
 
 /**
@@ -3543,12 +3547,14 @@ typedef union _ADDR2_BLOCK_SET
 {
     struct
     {
-        UINT_32 micro       : 1;   // 256B block for 2D resource
-        UINT_32 macro4KB    : 1;   // 4KB for 2D/3D resource
-        UINT_32 macro64KB   : 1;   // 64KB for 2D/3D resource
-        UINT_32 var         : 1;   // VAR block
-        UINT_32 linear      : 1;   // Linear block
-        UINT_32 reserved    : 27;
+        UINT_32 micro          : 1;   // 256B block for 2D resource
+        UINT_32 macroThin4KB   : 1;   // Thin 4KB for 2D/3D resource
+        UINT_32 macroThick4KB  : 1;   // Thick 4KB for 3D resource
+        UINT_32 macroThin64KB  : 1;   // Thin 64KB for 2D/3D resource
+        UINT_32 macroThick64KB : 1;   // Thick 64KB for 3D resource
+        UINT_32 var            : 1;   // VAR block
+        UINT_32 linear         : 1;   // Linear block
+        UINT_32 reserved       : 25;
     };
 
     UINT_32 value;
@@ -3588,38 +3594,38 @@ typedef union _ADDR2_SWMODE_SET
 {
     struct
     {
-        UINT_32 swLinear   : 1;
-        UINT_32 sw256B_S   : 1;
-        UINT_32 sw256B_D   : 1;
-        UINT_32 sw256B_R   : 1;
-        UINT_32 sw4KB_Z    : 1;
-        UINT_32 sw4KB_S    : 1;
-        UINT_32 sw4KB_D    : 1;
-        UINT_32 sw4KB_R    : 1;
-        UINT_32 sw64KB_Z   : 1;
-        UINT_32 sw64KB_S   : 1;
-        UINT_32 sw64KB_D   : 1;
-        UINT_32 sw64KB_R   : 1;
-        UINT_32 swVar_Z    : 1;
-        UINT_32 swVar_S    : 1;
-        UINT_32 swVar_D    : 1;
-        UINT_32 swVar_R    : 1;
-        UINT_32 sw64KB_Z_T : 1;
-        UINT_32 sw64KB_S_T : 1;
-        UINT_32 sw64KB_D_T : 1;
-        UINT_32 sw64KB_R_T : 1;
-        UINT_32 sw4KB_Z_X  : 1;
-        UINT_32 sw4KB_S_X  : 1;
-        UINT_32 sw4KB_D_X  : 1;
-        UINT_32 sw4KB_R_X  : 1;
-        UINT_32 sw64KB_Z_X : 1;
-        UINT_32 sw64KB_S_X : 1;
-        UINT_32 sw64KB_D_X : 1;
-        UINT_32 sw64KB_R_X : 1;
-        UINT_32 swVar_Z_X  : 1;
-        UINT_32 swVar_S_X  : 1;
-        UINT_32 swVar_D_X  : 1;
-        UINT_32 swVar_R_X  : 1;
+        UINT_32 swLinear    : 1;
+        UINT_32 sw256B_S    : 1;
+        UINT_32 sw256B_D    : 1;
+        UINT_32 sw256B_R    : 1;
+        UINT_32 sw4KB_Z     : 1;
+        UINT_32 sw4KB_S     : 1;
+        UINT_32 sw4KB_D     : 1;
+        UINT_32 sw4KB_R     : 1;
+        UINT_32 sw64KB_Z    : 1;
+        UINT_32 sw64KB_S    : 1;
+        UINT_32 sw64KB_D    : 1;
+        UINT_32 sw64KB_R    : 1;
+        UINT_32 swReserved0 : 1;
+        UINT_32 swReserved1 : 1;
+        UINT_32 swReserved2 : 1;
+        UINT_32 swReserved3 : 1;
+        UINT_32 sw64KB_Z_T  : 1;
+        UINT_32 sw64KB_S_T  : 1;
+        UINT_32 sw64KB_D_T  : 1;
+        UINT_32 sw64KB_R_T  : 1;
+        UINT_32 sw4KB_Z_X   : 1;
+        UINT_32 sw4KB_S_X   : 1;
+        UINT_32 sw4KB_D_X   : 1;
+        UINT_32 sw4KB_R_X   : 1;
+        UINT_32 sw64KB_Z_X  : 1;
+        UINT_32 sw64KB_S_X  : 1;
+        UINT_32 sw64KB_D_X  : 1;
+        UINT_32 sw64KB_R_X  : 1;
+        UINT_32 swVar_Z_X   : 1;
+        UINT_32 swReserved4 : 1;
+        UINT_32 swReserved5 : 1;
+        UINT_32 swVar_R_X   : 1;
     };
 
     UINT_32 value;

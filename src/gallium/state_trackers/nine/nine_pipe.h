@@ -29,7 +29,7 @@
 #include "pipe/p_state.h" /* pipe_box */
 #include "util/macros.h"
 #include "util/u_rect.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "nine_helpers.h"
 
 struct cso_context;
@@ -376,6 +376,10 @@ d3dmultisample_type_check(struct pipe_screen *screen,
 
     if (levels)
         *levels = 1;
+
+    /* Ignores multisamplequality */
+    if (*multisample == D3DMULTISAMPLE_NONE)
+        return D3D_OK;
 
     if (*multisample == D3DMULTISAMPLE_NONMASKABLE) {
         if (depth_stencil_format(format))

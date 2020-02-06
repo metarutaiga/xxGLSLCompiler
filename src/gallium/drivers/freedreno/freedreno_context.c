@@ -49,11 +49,19 @@ fd_context_flush(struct pipe_context *pctx, struct pipe_fence_handle **fencep,
 
 	DBG("%p: flush: flags=%x\n", ctx->batch, flags);
 
+	/* In some sequence of events, we can end up with a last_fence that is
+	 * not an "fd" fence, which results in eglDupNativeFenceFDANDROID()
+	 * errors.
+	 *
+	 */
+	if (flags & PIPE_FLUSH_FENCE_FD)
+		fd_fence_ref(&ctx->last_fence, NULL);
+
 	/* if no rendering since last flush, ie. app just decided it needed
 	 * a fence, re-use the last one:
 	 */
 	if (ctx->last_fence) {
-		fd_fence_ref(pctx->screen, &fence, ctx->last_fence);
+		fd_fence_ref(&fence, ctx->last_fence);
 		goto out;
 	}
 
@@ -61,15 +69,13 @@ fd_context_flush(struct pipe_context *pctx, struct pipe_fence_handle **fencep,
 		return;
 
 	/* Take a ref to the batch's fence (batch can be unref'd when flushed: */
-	fd_fence_ref(pctx->screen, &fence, batch->fence);
+	fd_fence_ref(&fence, batch->fence);
 
-	/* TODO is it worth trying to figure out if app is using fence-fd's, to
-	 * avoid requesting one every batch?
-	 */
-	batch->needs_out_fence_fd = true;
+	if (flags & PIPE_FLUSH_FENCE_FD)
+		batch->needs_out_fence_fd = true;
 
 	if (!ctx->screen->reorder) {
-		fd_batch_flush(batch, true, false);
+		fd_batch_flush(batch);
 	} else if (flags & PIPE_FLUSH_DEFERRED) {
 		fd_bc_flush_deferred(&ctx->screen->batch_cache, ctx);
 	} else {
@@ -78,16 +84,25 @@ fd_context_flush(struct pipe_context *pctx, struct pipe_fence_handle **fencep,
 
 out:
 	if (fencep)
-		fd_fence_ref(pctx->screen, fencep, fence);
+		fd_fence_ref(fencep, fence);
 
-	fd_fence_ref(pctx->screen, &ctx->last_fence, fence);
+	fd_fence_ref(&ctx->last_fence, fence);
 
-	fd_fence_ref(pctx->screen, &fence, NULL);
+	fd_fence_ref(&fence, NULL);
 }
 
 static void
 fd_texture_barrier(struct pipe_context *pctx, unsigned flags)
 {
+	if (flags == PIPE_TEXTURE_BARRIER_FRAMEBUFFER) {
+		struct fd_context *ctx = fd_context(pctx);
+
+		if (ctx->framebuffer_barrier) {
+			ctx->framebuffer_barrier(ctx);
+			return;
+		}
+	}
+
 	/* On devices that could sample from GMEM we could possibly do better.
 	 * Or if we knew that we were doing GMEM bypass we could just emit a
 	 * cache flush, perhaps?  But we don't know if future draws would cause
@@ -99,6 +114,9 @@ fd_texture_barrier(struct pipe_context *pctx, unsigned flags)
 static void
 fd_memory_barrier(struct pipe_context *pctx, unsigned flags)
 {
+	if (!(flags & ~PIPE_BARRIER_UPDATE))
+		return;
+
 	fd_context_flush(pctx, NULL, 0);
 	/* TODO do we need to check for persistently mapped buffers and fd_bo_cpu_prep()?? */
 }
@@ -150,10 +168,7 @@ fd_context_destroy(struct pipe_context *pctx)
 
 	DBG("");
 
-	fd_fence_ref(pctx->screen, &ctx->last_fence, NULL);
-
-	if (ctx->screen->reorder && util_queue_is_initialized(&ctx->flush_queue))
-		util_queue_destroy(&ctx->flush_queue);
+	fd_fence_ref(&ctx->last_fence, NULL);
 
 	util_copy_framebuffer_state(&ctx->framebuffer, NULL);
 	fd_batch_reference(&ctx->batch, NULL);  /* unref current batch */
@@ -175,15 +190,16 @@ fd_context_destroy(struct pipe_context *pctx)
 
 	slab_destroy_child(&ctx->transfer_pool);
 
-	for (i = 0; i < ARRAY_SIZE(ctx->vsc_pipe); i++) {
-		struct fd_vsc_pipe *pipe = &ctx->vsc_pipe[i];
-		if (!pipe->bo)
+	for (i = 0; i < ARRAY_SIZE(ctx->vsc_pipe_bo); i++) {
+		if (!ctx->vsc_pipe_bo[i])
 			break;
-		fd_bo_del(pipe->bo);
+		fd_bo_del(ctx->vsc_pipe_bo[i]);
 	}
 
 	fd_device_del(ctx->dev);
 	fd_pipe_del(ctx->pipe);
+
+	mtx_destroy(&ctx->gmem_lock);
 
 	if (fd_mesa_debug & (FD_DBG_BSTAT | FD_DBG_MSGS)) {
 		printf("batch_total=%u, batch_sysmem=%u, batch_gmem=%u, batch_nondraw=%u, batch_restore=%u\n",
@@ -203,6 +219,39 @@ fd_set_debug_callback(struct pipe_context *pctx,
 		ctx->debug = *cb;
 	else
 		memset(&ctx->debug, 0, sizeof(ctx->debug));
+}
+
+static uint32_t
+fd_get_reset_count(struct fd_context *ctx, bool per_context)
+{
+	uint64_t val;
+	enum fd_param_id param =
+		per_context ? FD_CTX_FAULTS : FD_GLOBAL_FAULTS;
+	int ret = fd_pipe_get_param(ctx->pipe, param, &val);
+	debug_assert(!ret);
+	return val;
+}
+
+static enum pipe_reset_status
+fd_get_device_reset_status(struct pipe_context *pctx)
+{
+	struct fd_context *ctx = fd_context(pctx);
+	int context_faults = fd_get_reset_count(ctx, true);
+	int global_faults  = fd_get_reset_count(ctx, false);
+	enum pipe_reset_status status;
+
+	if (context_faults != ctx->context_reset_count) {
+		status = PIPE_GUILTY_CONTEXT_RESET;
+	} else if (global_faults != ctx->global_reset_count) {
+		status = PIPE_INNOCENT_CONTEXT_RESET;
+	} else {
+		status = PIPE_NO_RESET;
+	}
+
+	ctx->context_reset_count = context_faults;
+	ctx->global_reset_count = global_faults;
+
+	return status;
 }
 
 /* TODO we could combine a few of these small buffers (solid_vbuf,
@@ -301,11 +350,18 @@ fd_context_init(struct fd_context *ctx, struct pipe_screen *pscreen,
 	ctx->screen = screen;
 	ctx->pipe = fd_pipe_new2(screen->dev, FD_PIPE_3D, prio);
 
+	if (fd_device_version(screen->dev) >= FD_VERSION_ROBUSTNESS) {
+		ctx->context_reset_count = fd_get_reset_count(ctx, true);
+		ctx->global_reset_count = fd_get_reset_count(ctx, false);
+	}
+
 	ctx->primtypes = primtypes;
 	ctx->primtype_mask = 0;
 	for (i = 0; i < PIPE_PRIM_MAX; i++)
 		if (primtypes[i])
 			ctx->primtype_mask |= (1 << i);
+
+	(void) mtx_init(&ctx->gmem_lock, mtx_plain);
 
 	/* need some sane default in case state tracker doesn't
 	 * set some state:
@@ -318,6 +374,7 @@ fd_context_init(struct fd_context *ctx, struct pipe_screen *pscreen,
 	pctx->flush = fd_context_flush;
 	pctx->emit_string_marker = fd_emit_string_marker;
 	pctx->set_debug_callback = fd_set_debug_callback;
+	pctx->get_device_reset_status = fd_get_device_reset_status;
 	pctx->create_fence_fd = fd_create_fence_fd;
 	pctx->fence_server_sync = fd_fence_server_sync;
 	pctx->texture_barrier = fd_texture_barrier;

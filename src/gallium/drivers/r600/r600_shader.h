@@ -45,7 +45,7 @@ struct r600_shader_io {
 	unsigned		name;
 	unsigned		gpr;
 	unsigned		done;
-	int			sid;
+	unsigned		sid;
 	int			spi_sid;
 	unsigned		interpolate;
 	unsigned		ij_index;
@@ -54,6 +54,7 @@ struct r600_shader_io {
 	unsigned		back_color_input;
 	unsigned		write_mask;
 	int			ring_offset;
+	unsigned		uses_interpolate_at_centroid;
 };
 
 struct r600_shader_atomic {

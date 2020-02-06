@@ -55,12 +55,13 @@
 #include "st_debug.h"
 #include "st_draw.h"
 #include "st_program.h"
+#include "st_util.h"
 
 #include "pipe/p_context.h"
 #include "pipe/p_defines.h"
 #include "util/u_cpu_detect.h"
 #include "util/u_inlines.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_prim.h"
 #include "util/u_draw.h"
 #include "util/u_upload_mgr.h"
@@ -88,7 +89,7 @@ setup_primitive_restart(struct gl_context *ctx, struct pipe_draw_info *info)
          _mesa_primitive_restart_index(ctx, index_size);
 
       /* Enable primitive restart only when the restart index can have an
-       * effect. This is required for correctness in radeonsi VI support.
+       * effect. This is required for correctness in radeonsi GFX8 support.
        * Other hardware may also benefit from taking a faster, non-restart path
        * when possible.
        */
@@ -181,9 +182,6 @@ st_draw_vbo(struct gl_context *ctx,
    unsigned start = 0;
 
    prepare_draw(st, ctx);
-
-   if (st->vertex_array_out_of_memory)
-      return;
 
    /* Initialize pipe_draw_info. */
    info.primitive_restart = false;
@@ -288,9 +286,6 @@ st_indirect_draw_vbo(struct gl_context *ctx,
 
    assert(stride);
    prepare_draw(st, ctx);
-
-   if (st->vertex_array_out_of_memory)
-      return;
 
    memset(&indirect, 0, sizeof(indirect));
    util_draw_init_info(&info);

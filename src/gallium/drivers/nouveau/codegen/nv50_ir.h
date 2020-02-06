@@ -1284,6 +1284,7 @@ public:
    inline void del(Function *fn, int& id) { allFuncs.remove(id); }
    inline void add(Value *rval, int& id) { allRValues.insert(rval, id); }
 
+   bool makeFromNIR(struct nv50_ir_prog_info *);
    bool makeFromTGSI(struct nv50_ir_prog_info *);
    bool convertToSSA();
    bool optimizeSSA(int level);
@@ -1311,6 +1312,7 @@ public:
    uint32_t tlsSize; // size required for FILE_MEMORY_LOCAL
 
    int maxGPR;
+   bool fp64;
 
    MemoryPool mem_Instruction;
    MemoryPool mem_CmpInstruction;

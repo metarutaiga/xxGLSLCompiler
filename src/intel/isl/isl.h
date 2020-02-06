@@ -167,6 +167,7 @@ enum isl_format {
    ISL_FORMAT_B10G10R10A2_UNORM =                              209,
    ISL_FORMAT_B10G10R10A2_UNORM_SRGB =                         210,
    ISL_FORMAT_R11G11B10_FLOAT =                                211,
+   ISL_FORMAT_R10G10B10_FLOAT_A2_UNORM =                       213,
    ISL_FORMAT_R32_SINT =                                       214,
    ISL_FORMAT_R32_UINT =                                       215,
    ISL_FORMAT_R32_FLOAT =                                      216,
@@ -388,6 +389,11 @@ enum isl_format {
    ISL_FORMAT_GEN9_CCS_32BPP,
    ISL_FORMAT_GEN9_CCS_64BPP,
    ISL_FORMAT_GEN9_CCS_128BPP,
+   ISL_FORMAT_GEN12_CCS_8BPP_Y0,
+   ISL_FORMAT_GEN12_CCS_16BPP_Y0,
+   ISL_FORMAT_GEN12_CCS_32BPP_Y0,
+   ISL_FORMAT_GEN12_CCS_64BPP_Y0,
+   ISL_FORMAT_GEN12_CCS_128BPP_Y0,
 
    /* An upper bound on the supported format enumerations */
    ISL_NUM_FORMATS,
@@ -464,6 +470,7 @@ enum isl_tiling {
    ISL_TILING_Ys, /**< Standard 64K tiling. The 's' means "sixty-four". */
    ISL_TILING_HIZ, /**< Tiling format for HiZ surfaces */
    ISL_TILING_CCS, /**< Tiling format for CCS surfaces */
+   ISL_TILING_GEN12_CCS, /**< Tiling format for Gen12 CCS surfaces */
 };
 
 /**
@@ -479,6 +486,7 @@ typedef uint32_t isl_tiling_flags_t;
 #define ISL_TILING_Ys_BIT                 (1u << ISL_TILING_Ys)
 #define ISL_TILING_HIZ_BIT                (1u << ISL_TILING_HIZ)
 #define ISL_TILING_CCS_BIT                (1u << ISL_TILING_CCS)
+#define ISL_TILING_GEN12_CCS_BIT          (1u << ISL_TILING_GEN12_CCS)
 #define ISL_TILING_ANY_MASK               (~0u)
 #define ISL_TILING_NON_LINEAR_MASK        (~ISL_TILING_LINEAR_BIT)
 
@@ -601,6 +609,21 @@ enum isl_aux_usage {
     * @invariant isl_surf::samples == 1
     */
    ISL_AUX_USAGE_CCS_E,
+
+   /** The auxiliary surface provides full lossless media color compression
+    *
+    * @invariant isl_surf::samples == 1
+    */
+   ISL_AUX_USAGE_MC,
+
+   /** The auxiliary surface is a HiZ surface and CCS is also enabled */
+   ISL_AUX_USAGE_HIZ_CCS,
+
+   /** The auxiliary surface is an MCS and CCS is also enabled
+    *
+    * @invariant isl_surf::samples > 1
+    */
+   ISL_AUX_USAGE_MCS_CCS,
 };
 
 /**
@@ -861,7 +884,7 @@ typedef uint8_t isl_channel_mask_t;
 /**
  * @brief A channel select (also known as texture swizzle) value
  */
-enum isl_channel_select {
+enum PACKED isl_channel_select {
    ISL_CHANNEL_SELECT_ZERO = 0,
    ISL_CHANNEL_SELECT_ONE = 1,
    ISL_CHANNEL_SELECT_RED = 4,
@@ -992,6 +1015,11 @@ struct isl_device {
       uint8_t stencil_offset;
       uint8_t hiz_offset;
    } ds;
+
+   struct {
+      uint32_t internal;
+      uint32_t external;
+   } mocs;
 };
 
 struct isl_extent2d {
@@ -1176,7 +1204,7 @@ struct isl_surf {
 
    /**
     * Physical extent of the surface's base level, in units of physical
-    * surface samples and aligned to the format's compression block.
+    * surface samples.
     *
     * Consider isl_dim_layout as an operator that transforms a logical surface
     * layout to a physical surface layout. Then
@@ -1361,6 +1389,11 @@ struct isl_buffer_fill_state_info {
     */
    enum isl_format format;
 
+   /**
+    * The swizzle to use in the surface state
+    */
+   struct isl_swizzle swizzle;
+
    uint32_t stride_B;
 };
 
@@ -1417,6 +1450,11 @@ struct isl_depth_stencil_hiz_emit_info {
     * The depth clear value
     */
    float depth_clear_value;
+
+   /**
+    * Track stencil aux usage for Gen >= 12
+    */
+   enum isl_aux_usage stencil_aux_usage;
 };
 
 extern const struct isl_format_layout isl_format_layouts[];
@@ -1497,6 +1535,9 @@ isl_format_has_int_channel(enum isl_format fmt)
    return isl_format_has_uint_channel(fmt) ||
           isl_format_has_sint_channel(fmt);
 }
+
+bool isl_format_has_color_component(enum isl_format fmt,
+                                    int component) ATTRIBUTE_CONST;
 
 unsigned isl_format_get_num_channels(enum isl_format fmt);
 
@@ -1612,6 +1653,13 @@ bool
 isl_has_matching_typed_storage_image_format(const struct gen_device_info *devinfo,
                                             enum isl_format fmt);
 
+static inline enum isl_tiling
+isl_tiling_flag_to_enum(isl_tiling_flags_t flag)
+{
+   assert(__builtin_popcount(flag) == 1);
+   return (enum isl_tiling) (__builtin_ffs(flag) - 1);
+}
+
 static inline bool
 isl_tiling_is_any_y(enum isl_tiling tiling)
 {
@@ -1629,6 +1677,44 @@ isl_tiling_to_i915_tiling(enum isl_tiling tiling);
 
 enum isl_tiling 
 isl_tiling_from_i915_tiling(uint32_t tiling);
+
+static inline bool
+isl_aux_usage_has_hiz(enum isl_aux_usage usage)
+{
+   return usage == ISL_AUX_USAGE_HIZ ||
+          usage == ISL_AUX_USAGE_HIZ_CCS;
+}
+
+static inline bool
+isl_aux_usage_has_mcs(enum isl_aux_usage usage)
+{
+   return usage == ISL_AUX_USAGE_MCS ||
+          usage == ISL_AUX_USAGE_MCS_CCS;
+}
+
+static inline bool
+isl_aux_usage_has_ccs(enum isl_aux_usage usage)
+{
+   return usage == ISL_AUX_USAGE_CCS_D ||
+          usage == ISL_AUX_USAGE_CCS_E ||
+          usage == ISL_AUX_USAGE_MC ||
+          usage == ISL_AUX_USAGE_HIZ_CCS ||
+          usage == ISL_AUX_USAGE_MCS_CCS;
+}
+
+static inline bool
+isl_aux_state_has_valid_primary(enum isl_aux_state state)
+{
+   return state == ISL_AUX_STATE_RESOLVED ||
+          state == ISL_AUX_STATE_PASS_THROUGH ||
+          state == ISL_AUX_STATE_AUX_INVALID;
+}
+
+static inline bool
+isl_aux_state_has_valid_aux(enum isl_aux_state state)
+{
+   return state != ISL_AUX_STATE_AUX_INVALID;
+}
 
 const struct isl_drm_modifier_info * ATTRIBUTE_CONST
 isl_drm_modifier_get_info(uint64_t modifier);
@@ -1810,7 +1896,8 @@ isl_surf_get_mcs_surf(const struct isl_device *dev,
 bool
 isl_surf_get_ccs_surf(const struct isl_device *dev,
                       const struct isl_surf *surf,
-                      struct isl_surf *ccs_surf,
+                      struct isl_surf *aux_surf,
+                      struct isl_surf *extra_aux_surf,
                       uint32_t row_pitch_B /**< Ignored if 0 */);
 
 #define isl_surf_fill_state(dev, state, ...) \
@@ -1875,6 +1962,34 @@ isl_surf_get_image_alignment_sa(const struct isl_surf *surf)
    return isl_extent3d(fmtl->bw * surf->image_alignment_el.w,
                        fmtl->bh * surf->image_alignment_el.h,
                        fmtl->bd * surf->image_alignment_el.d);
+}
+
+/**
+ * Logical extent of level 0 in units of surface elements.
+ */
+static inline struct isl_extent4d
+isl_surf_get_logical_level0_el(const struct isl_surf *surf)
+{
+   const struct isl_format_layout *fmtl = isl_format_get_layout(surf->format);
+
+   return isl_extent4d(DIV_ROUND_UP(surf->logical_level0_px.w, fmtl->bw),
+                       DIV_ROUND_UP(surf->logical_level0_px.h, fmtl->bh),
+                       DIV_ROUND_UP(surf->logical_level0_px.d, fmtl->bd),
+                       surf->logical_level0_px.a);
+}
+
+/**
+ * Physical extent of level 0 in units of surface elements.
+ */
+static inline struct isl_extent4d
+isl_surf_get_phys_level0_el(const struct isl_surf *surf)
+{
+   const struct isl_format_layout *fmtl = isl_format_get_layout(surf->format);
+
+   return isl_extent4d(DIV_ROUND_UP(surf->phys_level0_sa.w, fmtl->bw),
+                       DIV_ROUND_UP(surf->phys_level0_sa.h, fmtl->bh),
+                       DIV_ROUND_UP(surf->phys_level0_sa.d, fmtl->bd),
+                       surf->phys_level0_sa.a);
 }
 
 /**
@@ -1990,6 +2105,27 @@ isl_surf_get_image_offset_B_tile_sa(const struct isl_surf *surf,
                                     uint32_t *y_offset_sa);
 
 /**
+ * Calculate the range in bytes occupied by a subimage, to the nearest tile.
+ *
+ * The range returned will be the smallest memory range in which the give
+ * subimage fits, rounded to even tiles.  Intel images do not usually have a
+ * direct subimage -> range mapping so the range returned may contain data
+ * from other sub-images.  The returned range is a half-open interval where
+ * all of the addresses within the subimage are < end_tile_B.
+ *
+ * @invariant level < surface levels
+ * @invariant logical_array_layer < logical array length of surface
+ * @invariant logical_z_offset_px < logical depth of surface at level
+ */
+void
+isl_surf_get_image_range_B_tile(const struct isl_surf *surf,
+                                uint32_t level,
+                                uint32_t logical_array_layer,
+                                uint32_t logical_z_offset_px,
+                                uint32_t *start_tile_B,
+                                uint32_t *end_tile_B);
+
+/**
  * Create an isl_surf that represents a particular subimage in the surface.
  *
  * The newly created surface will have a single miplevel and array slice.  The
@@ -2070,6 +2206,14 @@ isl_tiling_get_intratile_offset_sa(enum isl_tiling tiling,
 uint32_t
 isl_surf_get_depth_format(const struct isl_device *dev,
                           const struct isl_surf *surf);
+
+/**
+ * @brief determines if a surface supports writing through HIZ to the CCS.
+ */
+bool
+isl_surf_supports_hiz_ccs_wt(const struct gen_device_info *dev,
+                             const struct isl_surf *surf,
+                             enum isl_aux_usage aux_usage);
 
 /**
  * @brief performs a copy from linear to tiled surface

@@ -108,9 +108,9 @@ static int
 _eglAddDRMDevice(drmDevicePtr device, _EGLDevice **out_dev)
 {
    _EGLDevice *dev;
+   const int wanted_nodes = 1 << DRM_NODE_RENDER | 1 << DRM_NODE_PRIMARY;
 
-   if ((device->available_nodes & (1 << DRM_NODE_PRIMARY |
-                                   1 << DRM_NODE_RENDER)) == 0)
+   if ((device->available_nodes & wanted_nodes) != wanted_nodes)
       return -1;
 
    dev = _eglGlobal.DeviceList;
@@ -211,7 +211,11 @@ _eglDeviceSupports(_EGLDevice *dev, _EGLDeviceExtension ext)
 const char *
 _eglGetDRMDeviceRenderNode(_EGLDevice *dev)
 {
+#ifdef HAVE_LIBDRM
    return dev->device->nodes[DRM_NODE_RENDER];
+#else
+   return NULL;
+#endif
 }
 
 EGLBoolean
@@ -253,7 +257,7 @@ _eglQueryDeviceStringEXT(_EGLDevice *dev, EGLint name)
 static int
 _eglRefreshDeviceList(void)
 {
-   MAYBE_UNUSED _EGLDevice *dev;
+   ASSERTED _EGLDevice *dev;
    int count = 0;
 
    dev = _eglGlobal.DeviceList;
@@ -305,11 +309,23 @@ _eglQueryDevicesEXT(EGLint max_devices,
       goto out;
    }
 
+   /* Push the first device (the software one) to the end of the list.
+    * Sending it to the user only if they've requested the full list.
+    *
+    * By default, the user is likely to pick the first device so having the
+    * software (aka least performant) one is not a good idea.
+    */
    *num_devices = MIN2(num_devs, max_devices);
 
-   for (i = 0, dev = devs; i < *num_devices; i++) {
+   for (i = 0, dev = devs->Next; dev && i < max_devices; i++) {
       devices[i] = dev;
       dev = dev->Next;
+   }
+
+   /* User requested the full device list, add the sofware device. */
+   if (max_devices >= num_devs) {
+      assert(_eglDeviceSupports(devs, _EGL_DEVICE_SOFTWARE));
+      devices[num_devs - 1] = devs;
    }
 
 out:

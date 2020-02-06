@@ -120,10 +120,15 @@ _mesa_check_query(struct gl_context *ctx, struct gl_query_object *q)
 
 
 /**
- * Delete a query object.  Called via ctx->Driver.DeleteQuery().
+ * Delete a query object.  Called via ctx->Driver.DeleteQuery(), if not
+ * overwritten by driver.  In the latter case, called from the driver
+ * after all driver-specific clean-up has been done.
  * Not removed from hash table here.
+ *
+ * \param ctx GL context to wich query object belongs.
+ * \param q query object due to be deleted.
  */
-static void
+void
 _mesa_delete_query(struct gl_context *ctx, struct gl_query_object *q)
 {
    free(q->Label);
@@ -658,11 +663,21 @@ _mesa_GetQueryIndexediv(GLenum target, GLuint index, GLenum pname,
     * <pname> is not CURRENT_QUERY_EXT."
     *
     * Same rule is present also in ES 3.2 spec.
+    *
+    * EXT_disjoint_timer_query extends this with GL_QUERY_COUNTER_BITS.
     */
-   if (_mesa_is_gles(ctx) && pname != GL_CURRENT_QUERY) {
-      _mesa_error(ctx, GL_INVALID_ENUM, "glGetQueryivEXT(%s)",
-                  _mesa_enum_to_string(pname));
-      return;
+   if (_mesa_is_gles(ctx)) {
+      switch (pname) {
+      case GL_CURRENT_QUERY:
+         break;
+      case GL_QUERY_COUNTER_BITS:
+         if (_mesa_has_EXT_disjoint_timer_query(ctx))
+            break;
+         /* fallthrough */
+      default:
+         _mesa_error(ctx, GL_INVALID_ENUM, "glGetQueryivEXT(%s)",
+                     _mesa_enum_to_string(pname));
+      }
    }
 
    if (target == GL_TIMESTAMP) {

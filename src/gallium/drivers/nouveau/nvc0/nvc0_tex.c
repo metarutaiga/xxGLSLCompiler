@@ -27,7 +27,7 @@
 #include "nv50/g80_texture.xml.h"
 #include "nv50/g80_defs.xml.h"
 
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 
 #define NVE4_TIC_ENTRY_INVALID 0x000fffff
 #define NVE4_TSC_ENTRY_INVALID 0xfff00000
@@ -948,7 +948,7 @@ nvc0_mark_image_range_valid(const struct pipe_image_view *view)
 
    assert(view->resource->target == PIPE_BUFFER);
 
-   util_range_add(&res->valid_buffer_range,
+   util_range_add(&res->base, &res->valid_buffer_range,
                   view->u.buf.offset,
                   view->u.buf.offset + view->u.buf.size);
 }
@@ -1051,21 +1051,13 @@ nve4_set_surface_info(struct nouveau_pushbuf *push,
    } else {
       struct nv50_miptree *mt = nv50_miptree(&res->base);
       struct nv50_miptree_level *lvl = &mt->level[view->u.tex.level];
-      const unsigned z = view->u.tex.first_layer;
+      unsigned z = view->u.tex.first_layer;
 
-      if (z) {
-         if (mt->layout_3d) {
-            address += nvc0_mt_zslice_offset(mt, view->u.tex.level, z);
-            /* doesn't work if z passes z-tile boundary */
-            if (depth > 1) {
-               pipe_debug_message(&nvc0->base.debug, CONFORMANCE,
-                                  "3D images are not really supported!");
-               debug_printf("3D images are not really supported!\n");
-            }
-         } else {
-            address += mt->layer_stride * z;
-         }
+      if (!mt->layout_3d) {
+         address += mt->layer_stride * z;
+         z = 0;
       }
+
       address += lvl->offset;
 
       info[0]  = address >> 8;
@@ -1080,7 +1072,8 @@ nve4_set_surface_info(struct nouveau_pushbuf *push,
       info[6]  = depth - 1;
       info[6] |= (lvl->tile_mode & 0xf00) << 21;
       info[6] |= NVC0_TILE_SHIFT_Z(lvl->tile_mode) << 22;
-      info[7]  = 0;
+      info[7]  = mt->layout_3d ? 1 : 0;
+      info[7] |= z << 16;
       info[14] = mt->ms_x;
       info[15] = mt->ms_y;
    }
@@ -1440,7 +1433,15 @@ gm107_create_image_handle(struct pipe_context *pipe,
 
    nvc0->screen->tic.lock[tic->id / 32] |= 1 << (tic->id % 32);
 
-   return 0x100000000ULL | tic->id;
+   // Compute handle. This will include the TIC as well as some additional
+   // info regarding the bound 3d surface layer, if applicable.
+   uint64_t handle = 0x100000000ULL | tic->id;
+   struct nv04_resource *res = nv04_resource(view->resource);
+   if (res->base.target == PIPE_TEXTURE_3D) {
+      handle |= 1 << 11;
+      handle |= view->u.tex.first_layer << (11 + 16);
+   }
+   return handle;
 
 fail:
    FREE(tic);
@@ -1479,7 +1480,7 @@ gm107_make_image_handle_resident(struct pipe_context *pipe, uint64_t handle,
       res->flags = (access & 3) << 8;
       if (res->buf->base.target == PIPE_BUFFER &&
           access & PIPE_IMAGE_ACCESS_WRITE)
-         util_range_add(&res->buf->valid_buffer_range,
+         util_range_add(&res->buf->base, &res->buf->valid_buffer_range,
                         tic->pipe.u.buf.offset,
                         tic->pipe.u.buf.offset + tic->pipe.u.buf.size);
       list_add(&res->list, &nvc0->img_head);

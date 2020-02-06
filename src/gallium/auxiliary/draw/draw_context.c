@@ -38,14 +38,14 @@
 #include "util/u_inlines.h"
 #include "util/u_helpers.h"
 #include "util/u_prim.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "draw_context.h"
 #include "draw_pipe.h"
 #include "draw_prim_assembler.h"
 #include "draw_vs.h"
 #include "draw_gs.h"
 
-#if HAVE_LLVM
+#ifdef LLVM_AVAILABLE
 #include "gallivm/lp_bld_init.h"
 #include "gallivm/lp_bld_limits.h"
 #include "draw_llvm.h"
@@ -63,6 +63,15 @@ draw_get_option_use_llvm(void)
 }
 #endif
 
+bool
+draw_has_llvm(void)
+{
+#ifdef LLVM_AVAILABLE
+   return draw_get_option_use_llvm();
+#else
+   return false;
+#endif
+}
 
 /**
  * Create new draw module context with gallivm state for LLVM JIT.
@@ -78,7 +87,7 @@ draw_create_context(struct pipe_context *pipe, void *context,
    /* we need correct cpu caps for disabling denorms in draw_vbo() */
    util_cpu_detect();
 
-#if HAVE_LLVM
+#ifdef LLVM_AVAILABLE
    if (try_llvm && draw_get_option_use_llvm()) {
       draw->llvm = draw_llvm_create(draw, (LLVMContextRef)context);
    }
@@ -112,7 +121,7 @@ draw_create(struct pipe_context *pipe)
 }
 
 
-#if HAVE_LLVM
+#ifdef LLVM_AVAILABLE
 struct draw_context *
 draw_create_with_llvm_context(struct pipe_context *pipe,
                               void *context)
@@ -220,7 +229,7 @@ void draw_destroy( struct draw_context *draw )
    draw_pt_destroy( draw );
    draw_vs_destroy( draw );
    draw_gs_destroy( draw );
-#ifdef HAVE_LLVM
+#ifdef LLVM_AVAILABLE
    if (draw->llvm)
       draw_llvm_destroy( draw->llvm );
 #endif
@@ -464,6 +473,32 @@ draw_set_mapped_constant_buffer(struct draw_context *draw,
    }
 }
 
+void
+draw_set_mapped_shader_buffer(struct draw_context *draw,
+                              enum pipe_shader_type shader_type,
+                              unsigned slot,
+                              const void *buffer,
+                              unsigned size )
+{
+   debug_assert(shader_type == PIPE_SHADER_VERTEX ||
+                shader_type == PIPE_SHADER_GEOMETRY);
+   debug_assert(slot < PIPE_MAX_SHADER_BUFFERS);
+
+   draw_do_flush(draw, DRAW_FLUSH_PARAMETER_CHANGE);
+
+   switch (shader_type) {
+   case PIPE_SHADER_VERTEX:
+      draw->pt.user.vs_ssbos[slot] = buffer;
+      draw->pt.user.vs_ssbos_size[slot] = size;
+      break;
+   case PIPE_SHADER_GEOMETRY:
+      draw->pt.user.gs_ssbos[slot] = buffer;
+      draw->pt.user.gs_ssbos_size[slot] = size;
+      break;
+   default:
+      assert(0 && "invalid shader type in draw_set_mapped_shader_buffer");
+   }
+}
 
 /**
  * Tells the draw module to draw points with triangles if their size
@@ -950,6 +985,8 @@ draw_set_mapped_so_targets(struct draw_context *draw,
 {
    int i;
 
+   draw_do_flush( draw, DRAW_FLUSH_STATE_CHANGE );
+
    for (i = 0; i < num_targets; i++)
       draw->so.targets[i] = targets[i];
    for (i = num_targets; i < PIPE_MAX_SO_BUFFERS; i++)
@@ -999,10 +1036,31 @@ draw_set_samplers(struct draw_context *draw,
 
    draw->num_samplers[shader_stage] = num;
 
-#ifdef HAVE_LLVM
+#ifdef LLVM_AVAILABLE
    if (draw->llvm)
       draw_llvm_set_sampler_state(draw, shader_stage);
 #endif
+}
+
+void
+draw_set_images(struct draw_context *draw,
+                enum pipe_shader_type shader_stage,
+                struct pipe_image_view *views,
+                unsigned num)
+{
+   unsigned i;
+
+   debug_assert(shader_stage < PIPE_SHADER_TYPES);
+   debug_assert(num <= PIPE_MAX_SHADER_IMAGES);
+
+   draw_do_flush( draw, DRAW_FLUSH_STATE_CHANGE );
+
+   for (i = 0; i < num; ++i)
+      draw->images[shader_stage][i] = &views[i];
+   for (i = num; i < draw->num_sampler_views[shader_stage]; ++i)
+      draw->images[shader_stage][i] = NULL;
+
+   draw->num_images[shader_stage] = num;
 }
 
 void
@@ -1016,7 +1074,7 @@ draw_set_mapped_texture(struct draw_context *draw,
                         uint32_t img_stride[PIPE_MAX_TEXTURE_LEVELS],
                         uint32_t mip_offsets[PIPE_MAX_TEXTURE_LEVELS])
 {
-#ifdef HAVE_LLVM
+#ifdef LLVM_AVAILABLE
    if (draw->llvm)
       draw_llvm_set_mapped_texture(draw,
                                    shader_stage,
@@ -1024,6 +1082,26 @@ draw_set_mapped_texture(struct draw_context *draw,
                                    width, height, depth, first_level,
                                    last_level, base_ptr,
                                    row_stride, img_stride, mip_offsets);
+#endif
+}
+
+void
+draw_set_mapped_image(struct draw_context *draw,
+                      enum pipe_shader_type shader_stage,
+                      unsigned idx,
+                      uint32_t width, uint32_t height, uint32_t depth,
+                      const void *base_ptr,
+                      uint32_t row_stride,
+                      uint32_t img_stride)
+{
+#ifdef LLVM_AVAILABLE
+   if (draw->llvm)
+      draw_llvm_set_mapped_image(draw,
+                                 shader_stage,
+                                 idx,
+                                 width, height, depth,
+                                 base_ptr,
+                                 row_stride, img_stride);
 #endif
 }
 
@@ -1054,7 +1132,7 @@ int
 draw_get_shader_param(enum pipe_shader_type shader, enum pipe_shader_cap param)
 {
 
-#ifdef HAVE_LLVM
+#ifdef LLVM_AVAILABLE
    if (draw_get_option_use_llvm()) {
       switch(shader) {
       case PIPE_SHADER_VERTEX:
@@ -1084,6 +1162,15 @@ draw_collect_pipeline_statistics(struct draw_context *draw,
                                  boolean enable)
 {
    draw->collect_statistics = enable;
+}
+
+/**
+ * Enable/disable primitives generated gathering.
+ */
+void draw_collect_primitives_generated(struct draw_context *draw,
+                                       bool enable)
+{
+   draw->collect_primgen = enable;
 }
 
 /**

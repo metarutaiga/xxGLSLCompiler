@@ -1142,6 +1142,9 @@ _mesa_is_color_format(GLenum format)
       case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR:
       case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR:
       case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR:
+      case GL_ATC_RGB_AMD:
+      case GL_ATC_RGBA_EXPLICIT_ALPHA_AMD:
+      case GL_ATC_RGBA_INTERPOLATED_ALPHA_AMD:
       /* generic integer formats */
       case GL_RED_INTEGER_EXT:
       case GL_GREEN_INTEGER_EXT:
@@ -1370,10 +1373,11 @@ _mesa_is_compressed_format(const struct gl_context *ctx, GLenum format)
 
    switch (_mesa_get_format_layout(m_format)) {
    case MESA_FORMAT_LAYOUT_S3TC:
-      if (_mesa_get_format_color_encoding(m_format) == GL_LINEAR) {
+      if (!_mesa_is_format_srgb(m_format)) {
          return _mesa_has_EXT_texture_compression_s3tc(ctx);
       } else {
-         return _mesa_has_EXT_texture_sRGB(ctx) &&
+         return (_mesa_has_EXT_texture_sRGB(ctx) ||
+            _mesa_has_EXT_texture_compression_s3tc_srgb(ctx)) &&
             _mesa_has_EXT_texture_compression_s3tc(ctx);
       }
    case MESA_FORMAT_LAYOUT_FXT1:
@@ -1392,6 +1396,8 @@ _mesa_is_compressed_format(const struct gl_context *ctx, GLenum format)
              _mesa_has_EXT_texture_compression_bptc(ctx);
    case MESA_FORMAT_LAYOUT_ASTC:
       return _mesa_has_KHR_texture_compression_astc_ldr(ctx);
+   case MESA_FORMAT_LAYOUT_ATC:
+      return _mesa_has_AMD_compressed_ATC_texture(ctx);
    default:
       return GL_FALSE;
    }
@@ -3495,7 +3501,43 @@ get_swizzle_from_gl_format(GLenum format, uint8_t *swizzle)
    case GL_INTENSITY:
       set_swizzle(swizzle, 0, 0, 0, 0);
       return true;
+   case GL_DEPTH_COMPONENT:
+      set_swizzle(swizzle, 0, 6, 6, 6);
+      return true;
+   case GL_STENCIL_INDEX:
+      set_swizzle(swizzle, 6, 0, 6, 6);
+      return true;
    default:
+      return false;
+   }
+}
+
+bool
+_mesa_swap_bytes_in_type_enum(GLenum *type)
+{
+   switch (*type) {
+   case GL_UNSIGNED_INT_8_8_8_8:
+      *type = GL_UNSIGNED_INT_8_8_8_8_REV;
+      return true;
+   case GL_UNSIGNED_INT_8_8_8_8_REV:
+      *type = GL_UNSIGNED_INT_8_8_8_8;
+      return true;
+   case GL_UNSIGNED_SHORT_8_8_MESA:
+      *type = GL_UNSIGNED_SHORT_8_8_REV_MESA;
+      return true;
+   case GL_UNSIGNED_SHORT_8_8_REV_MESA:
+      *type = GL_UNSIGNED_SHORT_8_8_MESA;
+      return true;
+   case GL_BYTE:
+   case GL_UNSIGNED_BYTE:
+      /* format/types that are arrays of 8-bit values are unaffected by
+       * swapBytes.
+       */
+      return true;
+   default:
+      /* swapping bytes on 4444, 1555, or >8 bit per channel types etc. will
+       * never match a Mesa format.
+       */
       return false;
    }
 }
@@ -3523,6 +3565,9 @@ _mesa_format_from_format_and_type(GLenum format, GLenum type)
    uint8_t swizzle[4];
    bool normalized = false, is_float = false, is_signed = false;
    int num_channels = 0, type_size = 0;
+
+   if (format == GL_COLOR_INDEX)
+      return MESA_FORMAT_NONE;
 
    /* Extract array format type information from the OpenGL data type */
    switch (type) {
@@ -3571,10 +3616,24 @@ _mesa_format_from_format_and_type(GLenum format, GLenum type)
     * create the array format
     */
    if (is_array_format) {
-      normalized = !_mesa_is_enum_format_integer(format);
+      enum mesa_array_format_base_format bf;
+      switch (format) {
+      case GL_DEPTH_COMPONENT:
+         bf = MESA_ARRAY_FORMAT_BASE_FORMAT_DEPTH;
+         break;
+      case GL_STENCIL_INDEX:
+         bf = MESA_ARRAY_FORMAT_BASE_FORMAT_STENCIL;
+         break;
+      default:
+         bf = MESA_ARRAY_FORMAT_BASE_FORMAT_RGBA_VARIANTS;
+         break;
+      }
+
+      normalized = !(_mesa_is_enum_format_integer(format) ||
+                     format == GL_STENCIL_INDEX);
       num_channels = _mesa_components_in_format(format);
 
-      return MESA_ARRAY_FORMAT(type_size, is_signed, is_float,
+      return MESA_ARRAY_FORMAT(bf, type_size, is_signed, is_float,
                                normalized, num_channels,
                                swizzle[0], swizzle[1], swizzle[2], swizzle[3]);
    }
@@ -3731,7 +3790,9 @@ _mesa_format_from_format_and_type(GLenum format, GLenum type)
       break;
    case GL_UNSIGNED_INT_24_8:
       if (format == GL_DEPTH_STENCIL)
-         return MESA_FORMAT_Z24_UNORM_S8_UINT;
+         return MESA_FORMAT_S8_UINT_Z24_UNORM;
+      else if (format == GL_DEPTH_COMPONENT)
+         return MESA_FORMAT_X8_UINT_Z24_UNORM;
       break;
    case GL_FLOAT_32_UNSIGNED_INT_24_8_REV:
       if (format == GL_DEPTH_STENCIL)
@@ -3740,6 +3801,10 @@ _mesa_format_from_format_and_type(GLenum format, GLenum type)
    default:
       break;
    }
+
+   fprintf(stderr, "Unsupported format/type: %s/%s\n",
+           _mesa_enum_to_string(format),
+           _mesa_enum_to_string(type));
 
    /* If we got here it means that we could not find a Mesa format that
     * matches the GL format/type provided. We may need to add a new Mesa

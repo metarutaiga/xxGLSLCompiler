@@ -37,7 +37,7 @@
  *  data) in return.  Objects in the cache may not have relocations
  * (pointers to other BOs) in them.
  *
- * The inner workings are a simple hash table based on a CRC of the
+ * The inner workings are a simple hash table based on a FNV-1a of the
  * key data.
  *
  * Replacement is not implemented.  Instead, when the cache gets too
@@ -70,7 +70,7 @@ struct brw_cache_item {
    /** for variable-sized keys */
    GLuint key_size;
    GLuint prog_data_size;
-   const void *key;
+   const struct brw_base_prog_key *key;
 
    uint32_t offset;
    uint32_t size;
@@ -93,41 +93,12 @@ brw_stage_cache_id(gl_shader_stage stage)
    return stage_ids[stage];
 }
 
-static unsigned
-get_program_string_id(enum brw_cache_id cache_id, const void *key)
-{
-   switch (cache_id) {
-   case BRW_CACHE_VS_PROG:
-      return ((struct brw_vs_prog_key *) key)->program_string_id;
-   case BRW_CACHE_TCS_PROG:
-      return ((struct brw_tcs_prog_key *) key)->program_string_id;
-   case BRW_CACHE_TES_PROG:
-      return ((struct brw_tes_prog_key *) key)->program_string_id;
-   case BRW_CACHE_GS_PROG:
-      return ((struct brw_gs_prog_key *) key)->program_string_id;
-   case BRW_CACHE_CS_PROG:
-      return ((struct brw_cs_prog_key *) key)->program_string_id;
-   case BRW_CACHE_FS_PROG:
-      return ((struct brw_wm_prog_key *) key)->program_string_id;
-   default:
-      unreachable("no program string id for this kind of program");
-   }
-}
-
 static GLuint
 hash_key(struct brw_cache_item *item)
 {
-   GLuint *ikey = (GLuint *)item->key;
-   GLuint hash = item->cache_id, i;
-
-   assert(item->key_size % 4 == 0);
-
-   /* I'm sure this can be improved on:
-    */
-   for (i = 0; i < item->key_size/4; i++) {
-      hash ^= ikey[i];
-      hash = (hash << 5) | (hash >> 27);
-   }
+    uint32_t hash = _mesa_fnv32_1a_offset_bias;
+    hash = _mesa_fnv32_1a_accumulate(hash, item->cache_id);
+    hash = _mesa_fnv32_1a_accumulate_block(hash, item->key, item->key_size);
 
    return hash;
 }
@@ -320,7 +291,7 @@ brw_find_previous_compile(struct brw_cache *cache,
    for (unsigned i = 0; i < cache->size; i++) {
       for (struct brw_cache_item *c = cache->items[i]; c; c = c->next) {
          if (c->cache_id == cache_id &&
-             get_program_string_id(cache_id, c->key) == program_string_id) {
+             c->key->program_string_id == program_string_id) {
             return c->key;
          }
       }
@@ -429,7 +400,7 @@ brw_clear_cache(struct brw_context *brw, struct brw_cache *cache)
              c->cache_id == BRW_CACHE_GS_PROG ||
              c->cache_id == BRW_CACHE_FS_PROG ||
              c->cache_id == BRW_CACHE_CS_PROG) {
-            const void *item_prog_data = c->key + c->key_size;
+            const void *item_prog_data = ((char *)c->key) + c->key_size;
             brw_stage_prog_data_free(item_prog_data);
          }
          free((void *)c->key);

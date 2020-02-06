@@ -25,7 +25,7 @@
 
 
 #include "util/u_debug_image.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
 #include "util/u_string.h"
@@ -57,7 +57,7 @@ debug_dump_image(const char *prefix,
    unsigned char *rgb8;
    FILE *f;
 
-   util_snprintf(filename, sizeof(filename), "%s.ppm", prefix);
+   snprintf(filename, sizeof(filename), "%s.ppm", prefix);
 
    rgb8 = MALLOC(height * width * 3);
    if (!rgb8) {

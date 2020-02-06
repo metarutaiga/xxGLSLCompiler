@@ -81,10 +81,10 @@ svga_query(struct pipe_query *q)
  * VGPU9
  */
 
-static boolean
+static bool
 svga_get_query_result(struct pipe_context *pipe,
                       struct pipe_query *q,
-                      boolean wait,
+                      bool wait,
                       union pipe_query_result *result);
 
 static enum pipe_error
@@ -164,9 +164,9 @@ end_query_vgpu9(struct svga_context *svga, struct svga_query *sq)
    return ret;
 }
 
-static boolean
+static bool
 get_query_result_vgpu9(struct svga_context *svga, struct svga_query *sq,
-                       boolean wait, uint64_t *result)
+                       bool wait, uint64_t *result)
 {
    struct svga_winsys_screen *sws = svga_screen(svga->pipe.screen)->sws;
    enum pipe_error ret;
@@ -190,7 +190,7 @@ get_query_result_vgpu9(struct svga_context *svga, struct svga_query *sq,
    state = sq->queryResult->state;
    if (state == SVGA3D_QUERYSTATE_PENDING) {
       if (!wait)
-         return FALSE;
+         return false;
       sws->fence_finish(sws, sq->fence, PIPE_TIMEOUT_INFINITE,
                         SVGA_FENCE_FLAG_QUERY);
       state = sq->queryResult->state;
@@ -200,7 +200,7 @@ get_query_result_vgpu9(struct svga_context *svga, struct svga_query *sq,
           state == SVGA3D_QUERYSTATE_FAILED);
 
    *result = (uint64_t)sq->queryResult->result32;
-   return TRUE;
+   return true;
 }
 
 
@@ -626,9 +626,9 @@ end_query_vgpu10(struct svga_context *svga, struct svga_query *sq)
    return ret;
 }
 
-static boolean
+static bool
 get_query_result_vgpu10(struct svga_context *svga, struct svga_query *sq,
-                        boolean wait, void *result, int resultLen)
+                        bool wait, void *result, int resultLen)
 {
    struct svga_winsys_screen *sws = svga_screen(svga->pipe.screen)->sws;
    SVGA3dQueryState queryState;
@@ -651,7 +651,7 @@ get_query_result_vgpu10(struct svga_context *svga, struct svga_query *sq,
    if (queryState == SVGA3D_QUERYSTATE_PENDING ||
        queryState == SVGA3D_QUERYSTATE_NEW) {
       if (!wait)
-         return FALSE;
+         return false;
       sws->fence_finish(sws, sq->fence, PIPE_TIMEOUT_INFINITE,
                         SVGA_FENCE_FLAG_QUERY);
       sws->query_get_result(sws, sq->gb_query, sq->offset, &queryState, result, resultLen);
@@ -660,7 +660,7 @@ get_query_result_vgpu10(struct svga_context *svga, struct svga_query *sq,
    assert(queryState == SVGA3D_QUERYSTATE_SUCCEEDED ||
           queryState == SVGA3D_QUERYSTATE_FAILED);
 
-   return TRUE;
+   return true;
 }
 
 static struct pipe_query *
@@ -670,6 +670,7 @@ svga_create_query(struct pipe_context *pipe,
 {
    struct svga_context *svga = svga_context(pipe);
    struct svga_query *sq;
+   enum pipe_error ret;
 
    assert(query_type < SVGA_QUERY_MAX);
 
@@ -689,7 +690,10 @@ svga_create_query(struct pipe_context *pipe,
    case PIPE_QUERY_OCCLUSION_COUNTER:
       sq->svga_type = SVGA3D_QUERYTYPE_OCCLUSION;
       if (svga_have_vgpu10(svga)) {
-         define_query_vgpu10(svga, sq, sizeof(SVGADXOcclusionQueryResult));
+         ret = define_query_vgpu10(svga, sq,
+                                   sizeof(SVGADXOcclusionQueryResult));
+         if (ret != PIPE_OK)
+            goto fail;
 
          /**
           * In OpenGL, occlusion counter query can be used in conditional
@@ -703,17 +707,24 @@ svga_create_query(struct pipe_context *pipe,
          sq->predicate = svga_create_query(pipe, PIPE_QUERY_OCCLUSION_PREDICATE, index);
 
       } else {
-         define_query_vgpu9(svga, sq);
+         ret = define_query_vgpu9(svga, sq);
+         if (ret != PIPE_OK)
+            goto fail;
       }
       break;
    case PIPE_QUERY_OCCLUSION_PREDICATE:
    case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
       if (svga_have_vgpu10(svga)) {
          sq->svga_type = SVGA3D_QUERYTYPE_OCCLUSIONPREDICATE;
-         define_query_vgpu10(svga, sq, sizeof(SVGADXOcclusionPredicateQueryResult));
+         ret = define_query_vgpu10(svga, sq,
+                                   sizeof(SVGADXOcclusionPredicateQueryResult));
+         if (ret != PIPE_OK)
+            goto fail;
       } else {
          sq->svga_type = SVGA3D_QUERYTYPE_OCCLUSION;
-         define_query_vgpu9(svga, sq);
+         ret = define_query_vgpu9(svga, sq);
+         if (ret != PIPE_OK)
+            goto fail;
       }
       break;
    case PIPE_QUERY_PRIMITIVES_GENERATED:
@@ -721,14 +732,18 @@ svga_create_query(struct pipe_context *pipe,
    case PIPE_QUERY_SO_STATISTICS:
       assert(svga_have_vgpu10(svga));
       sq->svga_type = SVGA3D_QUERYTYPE_STREAMOUTPUTSTATS;
-      define_query_vgpu10(svga, sq,
-                          sizeof(SVGADXStreamOutStatisticsQueryResult));
+      ret = define_query_vgpu10(svga, sq,
+                                sizeof(SVGADXStreamOutStatisticsQueryResult));
+      if (ret != PIPE_OK)
+         goto fail;
       break;
    case PIPE_QUERY_TIMESTAMP:
       assert(svga_have_vgpu10(svga));
       sq->svga_type = SVGA3D_QUERYTYPE_TIMESTAMP;
-      define_query_vgpu10(svga, sq,
-                          sizeof(SVGADXTimestampQueryResult));
+      ret = define_query_vgpu10(svga, sq,
+                                sizeof(SVGADXTimestampQueryResult));
+      if (ret != PIPE_OK)
+         goto fail;
       break;
    case SVGA_QUERY_NUM_DRAW_CALLS:
    case SVGA_QUERY_NUM_FALLBACKS:
@@ -847,7 +862,7 @@ svga_destroy_query(struct pipe_context *pipe, struct pipe_query *q)
 }
 
 
-static boolean
+static bool
 svga_begin_query(struct pipe_context *pipe, struct pipe_query *q)
 {
    struct svga_context *svga = svga_context(pipe);
@@ -1073,17 +1088,17 @@ svga_end_query(struct pipe_context *pipe, struct pipe_query *q)
 }
 
 
-static boolean
+static bool
 svga_get_query_result(struct pipe_context *pipe,
                       struct pipe_query *q,
-                      boolean wait,
+                      bool wait,
                       union pipe_query_result *vresult)
 {
    struct svga_screen *svgascreen = svga_screen(pipe->screen);
    struct svga_context *svga = svga_context(pipe);
    struct svga_query *sq = svga_query(q);
    uint64_t *result = (uint64_t *)vresult;
-   boolean ret = TRUE;
+   bool ret = true;
 
    assert(sq);
 
@@ -1215,7 +1230,7 @@ svga_get_query_result(struct pipe_context *pipe,
 
 static void
 svga_render_condition(struct pipe_context *pipe, struct pipe_query *q,
-                      boolean condition, enum pipe_render_cond_flag mode)
+                      bool condition, enum pipe_render_cond_flag mode)
 {
    struct svga_context *svga = svga_context(pipe);
    struct svga_winsys_screen *sws = svga_screen(svga->pipe.screen)->sws;
@@ -1290,7 +1305,7 @@ svga_get_timestamp(struct pipe_context *pipe)
 
 
 static void
-svga_set_active_query_state(struct pipe_context *pipe, boolean enable)
+svga_set_active_query_state(struct pipe_context *pipe, bool enable)
 {
 }
 

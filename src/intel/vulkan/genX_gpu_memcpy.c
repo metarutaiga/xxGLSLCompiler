@@ -52,80 +52,6 @@ gcd_pow2_u64(uint64_t a, uint64_t b)
 }
 
 void
-genX(cmd_buffer_mi_memcpy)(struct anv_cmd_buffer *cmd_buffer,
-                           struct anv_address dst, struct anv_address src,
-                           uint32_t size)
-{
-   /* This memcpy operates in units of dwords. */
-   assert(size % 4 == 0);
-   assert(dst.offset % 4 == 0);
-   assert(src.offset % 4 == 0);
-
-#if GEN_GEN == 7
-   /* On gen7, the combination of commands used here(MI_LOAD_REGISTER_MEM
-    * and MI_STORE_REGISTER_MEM) can cause GPU hangs if any rendering is
-    * in-flight when they are issued even if the memory touched is not
-    * currently active for rendering.  The weird bit is that it is not the
-    * MI_LOAD/STORE_REGISTER_MEM commands which hang but rather the in-flight
-    * rendering hangs such that the next stalling command after the
-    * MI_LOAD/STORE_REGISTER_MEM commands will catch the hang.
-    *
-    * It is unclear exactly why this hang occurs.  Both MI commands come with
-    * warnings about the 3D pipeline but that doesn't seem to fully explain
-    * it.  My (Jason's) best theory is that it has something to do with the
-    * fact that we're using a GPU state register as our temporary and that
-    * something with reading/writing it is causing problems.
-    *
-    * In order to work around this issue, we emit a PIPE_CONTROL with the
-    * command streamer stall bit set.
-    */
-   cmd_buffer->state.pending_pipe_bits |= ANV_PIPE_CS_STALL_BIT;
-   genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
-#endif
-
-   for (uint32_t i = 0; i < size; i += 4) {
-#if GEN_GEN >= 8
-      anv_batch_emit(&cmd_buffer->batch, GENX(MI_COPY_MEM_MEM), cp) {
-         cp.DestinationMemoryAddress = anv_address_add(dst, i);
-         cp.SourceMemoryAddress = anv_address_add(src, i);
-      }
-#else
-      /* IVB does not have a general purpose register for command streamer
-       * commands. Therefore, we use an alternate temporary register.
-       */
-#define TEMP_REG 0x2440 /* GEN7_3DPRIM_BASE_VERTEX */
-      anv_batch_emit(&cmd_buffer->batch, GENX(MI_LOAD_REGISTER_MEM), load) {
-         load.RegisterAddress = TEMP_REG;
-         load.MemoryAddress = anv_address_add(src, i);
-      }
-      anv_batch_emit(&cmd_buffer->batch, GENX(MI_STORE_REGISTER_MEM), store) {
-         store.RegisterAddress = TEMP_REG;
-         store.MemoryAddress = anv_address_add(dst, i);
-      }
-#undef TEMP_REG
-#endif
-   }
-   return;
-}
-
-void
-genX(cmd_buffer_mi_memset)(struct anv_cmd_buffer *cmd_buffer,
-                           struct anv_address dst, uint32_t value,
-                           uint32_t size)
-{
-   /* This memset operates in units of dwords. */
-   assert(size % 4 == 0);
-   assert(dst.offset % 4 == 0);
-
-   for (uint32_t i = 0; i < size; i += 4) {
-      anv_batch_emit(&cmd_buffer->batch, GENX(MI_STORE_DATA_IMM), sdi) {
-         sdi.Address = anv_address_add(dst, i);
-         sdi.ImmediateData = value;
-      }
-   }
-}
-
-void
 genX(cmd_buffer_so_memcpy)(struct anv_cmd_buffer *cmd_buffer,
                            struct anv_address dst, struct anv_address src,
                            uint32_t size)
@@ -152,6 +78,7 @@ genX(cmd_buffer_so_memcpy)(struct anv_cmd_buffer *cmd_buffer,
       genX(cmd_buffer_config_l3)(cmd_buffer, cfg);
    }
 
+   genX(cmd_buffer_set_binding_for_gen8_vb_flush)(cmd_buffer, 32, src, size);
    genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
 
    genX(flush_pipeline_select_3d)(cmd_buffer);
@@ -223,7 +150,12 @@ genX(cmd_buffer_so_memcpy)(struct anv_cmd_buffer *cmd_buffer,
                         VK_SHADER_STAGE_VERTEX_BIT, entry_size);
 
    anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_SO_BUFFER), sob) {
+#if GEN_GEN < 12
       sob.SOBufferIndex = 0;
+#else
+      sob._3DCommandOpcode = 0;
+      sob._3DCommandSubOpcode = SO_BUFFER_INDEX_0_CMD;
+#endif
       sob.MOCS = anv_mocs_for_bo(cmd_buffer->device, dst.bo),
       sob.SurfaceBaseAddress = dst;
 
@@ -297,6 +229,9 @@ genX(cmd_buffer_so_memcpy)(struct anv_cmd_buffer *cmd_buffer,
       prim.StartInstanceLocation    = 0;
       prim.BaseVertexLocation       = 0;
    }
+
+   genX(cmd_buffer_update_dirty_vbs_for_gen8_vb_flush)(cmd_buffer, SEQUENTIAL,
+                                                       1ull << 32);
 
    cmd_buffer->state.gfx.dirty |= ANV_CMD_DIRTY_PIPELINE;
 }

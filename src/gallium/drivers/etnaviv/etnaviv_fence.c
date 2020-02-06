@@ -60,7 +60,7 @@ etna_screen_fence_reference(struct pipe_screen *pscreen,
    *ptr = fence;
 }
 
-static boolean
+static bool
 etna_screen_fence_finish(struct pipe_screen *pscreen, struct pipe_context *ctx,
                          struct pipe_fence_handle *fence, uint64_t timeout)
 {
@@ -88,7 +88,8 @@ etna_fence_server_sync(struct pipe_context *pctx,
 {
    struct etna_context *ctx = etna_context(pctx);
 
-   sync_accumulate("etnaviv", &ctx->in_fence_fd, pfence->fence_fd);
+   if (pfence->fence_fd != -1)
+      sync_accumulate("etnaviv", &ctx->in_fence_fd, pfence->fence_fd);
 }
 
 static int

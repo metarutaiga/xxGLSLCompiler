@@ -23,10 +23,71 @@
  */
 
 #include "si_build_pm4.h"
+#include "util/u_upload_mgr.h"
 #include "util/u_viewport.h"
-#include "tgsi/tgsi_scan.h"
 
 #define SI_MAX_SCISSOR 16384
+
+void si_update_ngg_small_prim_precision(struct si_context *ctx)
+{
+	if (!ctx->screen->use_ngg_culling)
+		return;
+
+	/* Set VS_STATE.SMALL_PRIM_PRECISION for NGG culling. */
+	unsigned num_samples = ctx->framebuffer.nr_samples;
+	unsigned quant_mode = ctx->viewports.as_scissor[0].quant_mode;
+	float precision;
+
+	if (quant_mode == SI_QUANT_MODE_12_12_FIXED_POINT_1_4096TH)
+		precision = num_samples / 4096.0;
+	else if (quant_mode == SI_QUANT_MODE_14_10_FIXED_POINT_1_1024TH)
+		precision = num_samples / 1024.0;
+	else
+		precision = num_samples / 256.0;
+
+	ctx->current_vs_state &= C_VS_STATE_SMALL_PRIM_PRECISION;
+	ctx->current_vs_state |= S_VS_STATE_SMALL_PRIM_PRECISION(fui(precision) >> 23);
+}
+
+void si_get_small_prim_cull_info(struct si_context *sctx,
+				 struct si_small_prim_cull_info *out)
+{
+	/* This is needed by the small primitive culling, because it's done
+	 * in screen space.
+	 */
+	struct si_small_prim_cull_info info;
+	unsigned num_samples = sctx->framebuffer.nr_samples;
+	assert(num_samples >= 1);
+
+	info.scale[0] = sctx->viewports.states[0].scale[0];
+	info.scale[1] = sctx->viewports.states[0].scale[1];
+	info.translate[0] = sctx->viewports.states[0].translate[0];
+	info.translate[1] = sctx->viewports.states[0].translate[1];
+
+	/* The viewport shouldn't flip the X axis for the small prim culling to work. */
+	assert(-info.scale[0] + info.translate[0] <= info.scale[0] + info.translate[0]);
+
+	/* If the Y axis is inverted (OpenGL default framebuffer), reverse it.
+	 * This is because the viewport transformation inverts the clip space
+	 * bounding box, so min becomes max, which breaks small primitive
+	 * culling.
+	 */
+	if (sctx->viewports.y_inverted) {
+		info.scale[1] = -info.scale[1];
+		info.translate[1] = -info.translate[1];
+	}
+
+	/* Scale the framebuffer up, so that samples become pixels and small
+	 * primitive culling is the same for all sample counts.
+	 * This only works with the standard DX sample positions, because
+	 * the samples are evenly spaced on both X and Y axes.
+	 */
+	for (unsigned i = 0; i < 2; i++) {
+		info.scale[i] *= num_samples;
+		info.translate[i] *= num_samples;
+	}
+	*out = info;
+}
 
 static void si_set_scissor_states(struct pipe_context *pctx,
 				  unsigned start_slot,
@@ -37,13 +98,11 @@ static void si_set_scissor_states(struct pipe_context *pctx,
 	int i;
 
 	for (i = 0; i < num_scissors; i++)
-		ctx->scissors.states[start_slot + i] = state[i];
+		ctx->scissors[start_slot + i] = state[i];
 
-	if (!ctx->queued.named.rasterizer ||
-	    !ctx->queued.named.rasterizer->scissor_enable)
+	if (!ctx->queued.named.rasterizer->scissor_enable)
 		return;
 
-	ctx->scissors.dirty_mask |= ((1 << num_scissors) - 1) << start_slot;
 	si_mark_atom_dirty(ctx, &ctx->atoms.s.scissors);
 }
 
@@ -127,10 +186,10 @@ static void si_emit_one_scissor(struct si_context *ctx,
 	if (scissor)
 		si_clip_scissor(&final, scissor);
 
-	/* Workaround for a hw bug on SI that occurs when PA_SU_HARDWARE_-
+	/* Workaround for a hw bug on GFX6 that occurs when PA_SU_HARDWARE_-
 	 * SCREEN_OFFSET != 0 and any_scissor.BR_X/Y <= 0.
 	 */
-	if (ctx->chip_class == SI && (final.maxx == 0 || final.maxy == 0)) {
+	if (ctx->chip_class == GFX6 && (final.maxx == 0 || final.maxy == 0)) {
 		radeon_emit(cs, S_028250_TL_X(1) |
 				S_028250_TL_Y(1) |
 				S_028250_WINDOW_OFFSET_DISABLE(1));
@@ -181,9 +240,19 @@ static void si_emit_guardband(struct si_context *ctx)
 	int hw_screen_offset_x = (vp_as_scissor.maxx + vp_as_scissor.minx) / 2;
 	int hw_screen_offset_y = (vp_as_scissor.maxy + vp_as_scissor.miny) / 2;
 
-	/* SI-CI need to align the offset to an ubertile consisting of all SEs. */
+	/* GFX6-GFX7 need to align the offset to an ubertile consisting of all SEs. */
 	const unsigned hw_screen_offset_alignment =
-		ctx->chip_class >= VI ? 16 : MAX2(ctx->screen->se_tile_repeat, 16);
+		ctx->chip_class >= GFX8 ? 16 : MAX2(ctx->screen->se_tile_repeat, 16);
+
+	/* Indexed by quantization modes */
+	static int max_viewport_size[] = {65535, 16383, 4095};
+
+	/* Ensure that the whole viewport stays representable in
+	 * absolute coordinates.
+	 * See comment in si_set_viewport_states.
+	 */
+	assert(vp_as_scissor.maxx <= max_viewport_size[vp_as_scissor.quant_mode] &&
+	       vp_as_scissor.maxy <= max_viewport_size[vp_as_scissor.quant_mode]);
 
 	hw_screen_offset_x = CLAMP(hw_screen_offset_x, 0, MAX_PA_SU_HARDWARE_SCREEN_OFFSET);
 	hw_screen_offset_y = CLAMP(hw_screen_offset_y, 0, MAX_PA_SU_HARDWARE_SCREEN_OFFSET);
@@ -219,7 +288,6 @@ static void si_emit_guardband(struct si_context *ctx)
 	 *
 	 * The viewport range is [-max_viewport_size/2, max_viewport_size/2].
 	 */
-	static unsigned max_viewport_size[] = {65535, 16383, 4095};
 	assert(vp_as_scissor.quant_mode < ARRAY_SIZE(max_viewport_size));
 	max_range = max_viewport_size[vp_as_scissor.quant_mode] / 2;
 	left   = (-max_range - vp.translate[0]) / vp.scale[0];
@@ -274,42 +342,35 @@ static void si_emit_guardband(struct si_context *ctx)
 				   S_028BE4_QUANT_MODE(V_028BE4_X_16_8_FIXED_POINT_1_256TH +
 						       vp_as_scissor.quant_mode));
 	if (initial_cdw != ctx->gfx_cs->current.cdw)
-		ctx->context_roll_counter++;
+		ctx->context_roll = true;
+
+	si_update_ngg_small_prim_precision(ctx);
 }
 
 static void si_emit_scissors(struct si_context *ctx)
 {
 	struct radeon_cmdbuf *cs = ctx->gfx_cs;
-	struct pipe_scissor_state *states = ctx->scissors.states;
-	unsigned mask = ctx->scissors.dirty_mask;
+	struct pipe_scissor_state *states = ctx->scissors;
 	bool scissor_enabled = ctx->queued.named.rasterizer->scissor_enable;
 
 	/* The simple case: Only 1 viewport is active. */
 	if (!ctx->vs_writes_viewport_index) {
 		struct si_signed_scissor *vp = &ctx->viewports.as_scissor[0];
 
-		if (!(mask & 1))
-			return;
-
 		radeon_set_context_reg_seq(cs, R_028250_PA_SC_VPORT_SCISSOR_0_TL, 2);
 		si_emit_one_scissor(ctx, cs, vp, scissor_enabled ? &states[0] : NULL);
-		ctx->scissors.dirty_mask &= ~1; /* clear one bit */
 		return;
 	}
 
-	while (mask) {
-		int start, count, i;
-
-		u_bit_scan_consecutive_range(&mask, &start, &count);
-
-		radeon_set_context_reg_seq(cs, R_028250_PA_SC_VPORT_SCISSOR_0_TL +
-					       start * 4 * 2, count * 2);
-		for (i = start; i < start+count; i++) {
-			si_emit_one_scissor(ctx, cs, &ctx->viewports.as_scissor[i],
-					    scissor_enabled ? &states[i] : NULL);
-		}
+	/* All registers in the array need to be updated if any of them is changed.
+	 * This is a hardware requirement.
+	 */
+	radeon_set_context_reg_seq(cs, R_028250_PA_SC_VPORT_SCISSOR_0_TL,
+				   SI_MAX_VIEWPORTS * 2);
+	for (unsigned i = 0; i < SI_MAX_VIEWPORTS; i++) {
+		si_emit_one_scissor(ctx, cs, &ctx->viewports.as_scissor[i],
+				    scissor_enabled ? &states[i] : NULL);
 	}
-	ctx->scissors.dirty_mask = 0;
 }
 
 static void si_set_viewport_states(struct pipe_context *pctx,
@@ -318,7 +379,6 @@ static void si_set_viewport_states(struct pipe_context *pctx,
 				   const struct pipe_viewport_state *state)
 {
 	struct si_context *ctx = (struct si_context *)pctx;
-	unsigned mask;
 	int i;
 
 	for (i = 0; i < num_viewports; i++) {
@@ -332,6 +392,8 @@ static void si_set_viewport_states(struct pipe_context *pctx,
 		unsigned w = scissor->maxx - scissor->minx;
 		unsigned h = scissor->maxy - scissor->miny;
 		unsigned max_extent = MAX2(w, h);
+
+		int max_corner = MAX2(scissor->maxx, scissor->maxy);
 
 		unsigned center_x = (scissor->maxx + scissor->minx) / 2;
 		unsigned center_y = (scissor->maxy + scissor->miny) / 2;
@@ -351,14 +413,29 @@ static void si_set_viewport_states(struct pipe_context *pctx,
 		 * but also leave enough space for the guardband.
 		 *
 		 * Note that primitive binning requires QUANT_MODE == 16_8 on Vega10
-		 * and Raven1. What we do depends on the chip:
-		 * - Vega10: Never use primitive binning.
-		 * - Raven1: Always use QUANT_MODE == 16_8.
+		 * and Raven1 for line and rectangle primitive types to work correctly.
+		 * Always use 16_8 if primitive binning is possible to occur.
 		 */
-		if (ctx->family == CHIP_RAVEN)
+		if ((ctx->family == CHIP_VEGA10 || ctx->family == CHIP_RAVEN) &&
+		    ctx->screen->dpbb_allowed)
 			max_extent = 16384; /* Use QUANT_MODE == 16_8. */
 
-		if (max_extent <= 1024) /* 4K scanline area for guardband */
+		/* Another constraint is that all coordinates in the viewport
+		 * are representable in fixed point with respect to the
+		 * surface origin.
+		 *
+		 * It means that PA_SU_HARDWARE_SCREEN_OFFSET can't be given
+		 * an offset that would make the upper corner of the viewport
+		 * greater than the maximum representable number post
+		 * quantization, ie 2^quant_bits.
+		 *
+		 * This does not matter for 14.10 and 16.8 formats since the
+		 * offset is already limited at 8k, but it means we can't use
+		 * 12.12 if we are drawing to some pixels outside the lower
+		 * 4k x 4k of the render target.
+		 */
+
+		if (max_extent <= 1024 && max_corner < 4096) /* 4K scanline area for guardband */
 			scissor->quant_mode = SI_QUANT_MODE_12_12_FIXED_POINT_1_4096TH;
 		else if (max_extent <= 4096) /* 16K scanline area for guardband */
 			scissor->quant_mode = SI_QUANT_MODE_14_10_FIXED_POINT_1_1024TH;
@@ -366,10 +443,12 @@ static void si_set_viewport_states(struct pipe_context *pctx,
 			scissor->quant_mode = SI_QUANT_MODE_16_8_FIXED_POINT_1_256TH;
 	}
 
-	mask = ((1 << num_viewports) - 1) << start_slot;
-	ctx->viewports.dirty_mask |= mask;
-	ctx->viewports.depth_range_dirty_mask |= mask;
-	ctx->scissors.dirty_mask |= mask;
+	if (start_slot == 0) {
+		ctx->viewports.y_inverted =
+			-state->scale[1] + state->translate[1] >
+			state->scale[1] + state->translate[1];
+	}
+
 	si_mark_atom_dirty(ctx, &ctx->atoms.s.viewports);
 	si_mark_atom_dirty(ctx, &ctx->atoms.s.guardband);
 	si_mark_atom_dirty(ctx, &ctx->atoms.s.scissors);
@@ -392,30 +471,50 @@ static void si_emit_viewports(struct si_context *ctx)
 {
 	struct radeon_cmdbuf *cs = ctx->gfx_cs;
 	struct pipe_viewport_state *states = ctx->viewports.states;
-	unsigned mask = ctx->viewports.dirty_mask;
+
+	if (ctx->screen->use_ngg_culling) {
+		/* Set the viewport info for small primitive culling. */
+		struct si_small_prim_cull_info info;
+		si_get_small_prim_cull_info(ctx, &info);
+
+		if (memcmp(&info, &ctx->last_small_prim_cull_info, sizeof(info))) {
+			unsigned offset = 0;
+
+			/* Align to 256, because the address is shifted by 8 bits. */
+			u_upload_data(ctx->b.const_uploader, 0, sizeof(info), 256,
+				      &info, &offset,
+				      (struct pipe_resource**)&ctx->small_prim_cull_info_buf);
+
+			ctx->small_prim_cull_info_address =
+				ctx->small_prim_cull_info_buf->gpu_address + offset;
+			ctx->last_small_prim_cull_info = info;
+			ctx->small_prim_cull_info_dirty = true;
+		}
+
+		if (ctx->small_prim_cull_info_dirty) {
+			/* This will end up in SGPR6 as (value << 8), shifted by the hw. */
+			radeon_add_to_buffer_list(ctx, ctx->gfx_cs, ctx->small_prim_cull_info_buf,
+						  RADEON_USAGE_READ, RADEON_PRIO_CONST_BUFFER);
+			radeon_set_sh_reg(ctx->gfx_cs, R_00B220_SPI_SHADER_PGM_LO_GS,
+					  ctx->small_prim_cull_info_address >> 8);
+			ctx->small_prim_cull_info_dirty = false;
+		}
+	}
 
 	/* The simple case: Only 1 viewport is active. */
 	if (!ctx->vs_writes_viewport_index) {
-		if (!(mask & 1))
-			return;
-
 		radeon_set_context_reg_seq(cs, R_02843C_PA_CL_VPORT_XSCALE, 6);
 		si_emit_one_viewport(ctx, &states[0]);
-		ctx->viewports.dirty_mask &= ~1; /* clear one bit */
 		return;
 	}
 
-	while (mask) {
-		int start, count, i;
-
-		u_bit_scan_consecutive_range(&mask, &start, &count);
-
-		radeon_set_context_reg_seq(cs, R_02843C_PA_CL_VPORT_XSCALE +
-					       start * 4 * 6, count * 6);
-		for (i = start; i < start+count; i++)
-			si_emit_one_viewport(ctx, &states[i]);
-	}
-	ctx->viewports.dirty_mask = 0;
+	/* All registers in the array need to be updated if any of them is changed.
+	 * This is a hardware requirement.
+	 */
+	radeon_set_context_reg_seq(cs, R_02843C_PA_CL_VPORT_XSCALE +
+				   0, SI_MAX_VIEWPORTS * 6);
+	for (unsigned i = 0; i < SI_MAX_VIEWPORTS; i++)
+		si_emit_one_viewport(ctx, &states[i]);
 }
 
 static inline void
@@ -434,41 +533,32 @@ static void si_emit_depth_ranges(struct si_context *ctx)
 {
 	struct radeon_cmdbuf *cs = ctx->gfx_cs;
 	struct pipe_viewport_state *states = ctx->viewports.states;
-	unsigned mask = ctx->viewports.depth_range_dirty_mask;
 	bool clip_halfz = ctx->queued.named.rasterizer->clip_halfz;
 	bool window_space = ctx->vs_disables_clipping_viewport;
 	float zmin, zmax;
 
 	/* The simple case: Only 1 viewport is active. */
 	if (!ctx->vs_writes_viewport_index) {
-		if (!(mask & 1))
-			return;
-
 		si_viewport_zmin_zmax(&states[0], clip_halfz, window_space,
 				      &zmin, &zmax);
 
 		radeon_set_context_reg_seq(cs, R_0282D0_PA_SC_VPORT_ZMIN_0, 2);
 		radeon_emit(cs, fui(zmin));
 		radeon_emit(cs, fui(zmax));
-		ctx->viewports.depth_range_dirty_mask &= ~1; /* clear one bit */
 		return;
 	}
 
-	while (mask) {
-		int start, count, i;
-
-		u_bit_scan_consecutive_range(&mask, &start, &count);
-
-		radeon_set_context_reg_seq(cs, R_0282D0_PA_SC_VPORT_ZMIN_0 +
-					   start * 4 * 2, count * 2);
-		for (i = start; i < start+count; i++) {
-			si_viewport_zmin_zmax(&states[i], clip_halfz, window_space,
-					      &zmin, &zmax);
-			radeon_emit(cs, fui(zmin));
-			radeon_emit(cs, fui(zmax));
-		}
+	/* All registers in the array need to be updated if any of them is changed.
+	 * This is a hardware requirement.
+	 */
+	radeon_set_context_reg_seq(cs, R_0282D0_PA_SC_VPORT_ZMIN_0,
+				   SI_MAX_VIEWPORTS * 2);
+	for (unsigned i = 0; i < SI_MAX_VIEWPORTS; i++) {
+		si_viewport_zmin_zmax(&states[i], clip_halfz, window_space,
+				      &zmin, &zmax);
+		radeon_emit(cs, fui(zmin));
+		radeon_emit(cs, fui(zmax));
 	}
-	ctx->viewports.depth_range_dirty_mask = 0;
 }
 
 static void si_emit_viewport_states(struct si_context *ctx)
@@ -489,7 +579,7 @@ static void si_emit_viewport_states(struct si_context *ctx)
  */
 void si_update_vs_viewport_state(struct si_context *ctx)
 {
-	struct tgsi_shader_info *info = si_get_vs_info(ctx);
+	struct si_shader_info *info = si_get_vs_info(ctx);
 	bool vs_window_space;
 
 	if (!info)
@@ -501,8 +591,6 @@ void si_update_vs_viewport_state(struct si_context *ctx)
 
 	if (ctx->vs_disables_clipping_viewport != vs_window_space) {
 		ctx->vs_disables_clipping_viewport = vs_window_space;
-		ctx->scissors.dirty_mask = (1 << SI_MAX_VIEWPORTS) - 1;
-		ctx->viewports.depth_range_dirty_mask = (1 << SI_MAX_VIEWPORTS) - 1;
 		si_mark_atom_dirty(ctx, &ctx->atoms.s.scissors);
 		si_mark_atom_dirty(ctx, &ctx->atoms.s.viewports);
 	}
@@ -515,15 +603,13 @@ void si_update_vs_viewport_state(struct si_context *ctx)
 	ctx->vs_writes_viewport_index = info->writes_viewport_index;
 	si_mark_atom_dirty(ctx, &ctx->atoms.s.guardband);
 
-	if (!ctx->vs_writes_viewport_index)
-		return;
-
-	if (ctx->scissors.dirty_mask)
+	/* Emit scissors and viewports that were enabled by having
+	 * the ViewportIndex output.
+	 */
+	if (info->writes_viewport_index) {
 	    si_mark_atom_dirty(ctx, &ctx->atoms.s.scissors);
-
-	if (ctx->viewports.dirty_mask ||
-	    ctx->viewports.depth_range_dirty_mask)
 	    si_mark_atom_dirty(ctx, &ctx->atoms.s.viewports);
+	}
 }
 
 static void si_emit_window_rectangles(struct si_context *sctx)
@@ -588,7 +674,7 @@ static void si_emit_window_rectangles(struct si_context *sctx)
 }
 
 static void si_set_window_rectangles(struct pipe_context *ctx,
-				     boolean include,
+				     bool include,
 				     unsigned num_rectangles,
 				     const struct pipe_scissor_state *rects)
 {

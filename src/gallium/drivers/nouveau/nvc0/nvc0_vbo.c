@@ -25,7 +25,7 @@
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
 #include "util/u_inlines.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "translate/translate.h"
 
 #include "nvc0/nvc0_context.h"
@@ -1040,7 +1040,10 @@ nvc0_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info)
    }
 
    if (nvc0->state.vbo_mode) {
-      nvc0_push_vbo(nvc0, info);
+      if (info->indirect)
+         nvc0_push_vbo_indirect(nvc0, info);
+      else
+         nvc0_push_vbo(nvc0, info);
       goto cleanup;
    }
 

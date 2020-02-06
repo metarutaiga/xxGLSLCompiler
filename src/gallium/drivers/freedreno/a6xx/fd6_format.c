@@ -26,7 +26,7 @@
  */
 
 #include "pipe/p_defines.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 
 #include "fd6_format.h"
 #include "freedreno_resource.h"
@@ -86,7 +86,7 @@ static struct fd6_format formats[PIPE_FORMAT_COUNT] = {
 	VT(R8_UINT,    8_UINT,  R8_UINT,  WZYX),
 	VT(R8_SINT,    8_SINT,  R8_SINT,  WZYX),
 	V_(R8_USCALED, 8_UINT,  NONE,     WZYX),
-	V_(R8_SSCALED, 8_UINT,  NONE,     WZYX),
+	V_(R8_SSCALED, 8_SINT,  NONE,     WZYX),
 
 	_T(A8_UNORM,   8_UNORM, A8_UNORM, WZYX),
 	_T(L8_UNORM,   8_UNORM, R8_UNORM, WZYX),
@@ -107,7 +107,7 @@ static struct fd6_format formats[PIPE_FORMAT_COUNT] = {
 	VT(R16_UINT,    16_UINT,  R16_UINT,  WZYX),
 	VT(R16_SINT,    16_SINT,  R16_SINT,  WZYX),
 	V_(R16_USCALED, 16_UINT,  NONE,      WZYX),
-	V_(R16_SSCALED, 16_UINT,  NONE,      WZYX),
+	V_(R16_SSCALED, 16_SINT,  NONE,      WZYX),
 	VT(R16_FLOAT,   16_FLOAT, R16_FLOAT, WZYX),
 	_T(Z16_UNORM,   16_UNORM, R16_UNORM, WZYX),
 
@@ -151,7 +151,7 @@ static struct fd6_format formats[PIPE_FORMAT_COUNT] = {
 	VT(R32_UINT,    32_UINT,  R32_UINT, WZYX),
 	VT(R32_SINT,    32_SINT,  R32_SINT, WZYX),
 	V_(R32_USCALED, 32_UINT,  NONE,     WZYX),
-	V_(R32_SSCALED, 32_UINT,  NONE,     WZYX),
+	V_(R32_SSCALED, 32_SINT,  NONE,     WZYX),
 	VT(R32_FLOAT,   32_FLOAT, R32_FLOAT,WZYX),
 	V_(R32_FIXED,   32_FIXED, NONE,     WZYX),
 
@@ -176,9 +176,9 @@ static struct fd6_format formats[PIPE_FORMAT_COUNT] = {
 	_T(L16A16_SINT,    16_16_SINT,  NONE,         WZYX),
 
 	VT(R8G8B8A8_UNORM,   8_8_8_8_UNORM, R8G8B8A8_UNORM, WZYX),
-	_T(R8G8B8X8_UNORM,   8_8_8_8_UNORM, R8G8B8A8_UNORM, WZYX),
+	_T(R8G8B8X8_UNORM,   8_8_8_8_UNORM, R8G8B8X8_UNORM, WZYX),
 	_T(R8G8B8A8_SRGB,    8_8_8_8_UNORM, R8G8B8A8_UNORM, WZYX),
-	_T(R8G8B8X8_SRGB,    8_8_8_8_UNORM, R8G8B8A8_UNORM, WZYX),
+	_T(R8G8B8X8_SRGB,    8_8_8_8_UNORM, R8G8B8X8_UNORM, WZYX),
 	VT(R8G8B8A8_SNORM,   8_8_8_8_SNORM, R8G8B8A8_SNORM, WZYX),
 	VT(R8G8B8A8_UINT,    8_8_8_8_UINT,  R8G8B8A8_UINT,  WZYX),
 	VT(R8G8B8A8_SINT,    8_8_8_8_SINT,  R8G8B8A8_SINT,  WZYX),
@@ -186,19 +186,19 @@ static struct fd6_format formats[PIPE_FORMAT_COUNT] = {
 	V_(R8G8B8A8_SSCALED, 8_8_8_8_SINT,  NONE,           WZYX),
 
 	VT(B8G8R8A8_UNORM,   8_8_8_8_UNORM, R8G8B8A8_UNORM, WXYZ),
-	_T(B8G8R8X8_UNORM,   8_8_8_8_UNORM, R8G8B8A8_UNORM, WXYZ),
+	_T(B8G8R8X8_UNORM,   8_8_8_8_UNORM, R8G8B8X8_UNORM, WXYZ),
 	VT(B8G8R8A8_SRGB,    8_8_8_8_UNORM, R8G8B8A8_UNORM, WXYZ),
-	_T(B8G8R8X8_SRGB,    8_8_8_8_UNORM, R8G8B8A8_UNORM, WXYZ),
+	_T(B8G8R8X8_SRGB,    8_8_8_8_UNORM, R8G8B8X8_UNORM, WXYZ),
 
 	VT(A8B8G8R8_UNORM,   8_8_8_8_UNORM, R8G8B8A8_UNORM, XYZW),
-	_T(X8B8G8R8_UNORM,   8_8_8_8_UNORM, R8G8B8A8_UNORM, XYZW),
+	_T(X8B8G8R8_UNORM,   8_8_8_8_UNORM, R8G8B8X8_UNORM, XYZW),
 	_T(A8B8G8R8_SRGB,    8_8_8_8_UNORM, R8G8B8A8_UNORM, XYZW),
-	_T(X8B8G8R8_SRGB,    8_8_8_8_UNORM, R8G8B8A8_UNORM, XYZW),
+	_T(X8B8G8R8_SRGB,    8_8_8_8_UNORM, R8G8B8X8_UNORM, XYZW),
 
 	VT(A8R8G8B8_UNORM,   8_8_8_8_UNORM, R8G8B8A8_UNORM, ZYXW),
-	_T(X8R8G8B8_UNORM,   8_8_8_8_UNORM, R8G8B8A8_UNORM, ZYXW),
+	_T(X8R8G8B8_UNORM,   8_8_8_8_UNORM, R8G8B8X8_UNORM, ZYXW),
 	_T(A8R8G8B8_SRGB,    8_8_8_8_UNORM, R8G8B8A8_UNORM, ZYXW),
-	_T(X8R8G8B8_SRGB,    8_8_8_8_UNORM, R8G8B8A8_UNORM, ZYXW),
+	_T(X8R8G8B8_SRGB,    8_8_8_8_UNORM, R8G8B8X8_UNORM, ZYXW),
 
 	VT(R10G10B10A2_UNORM,   10_10_10_2_UNORM, R10G10B10A2_UNORM, WZYX),
 	VT(B10G10R10A2_UNORM,   10_10_10_2_UNORM, R10G10B10A2_UNORM, WXYZ),
@@ -215,12 +215,15 @@ static struct fd6_format formats[PIPE_FORMAT_COUNT] = {
 	VT(R11G11B10_FLOAT, 11_11_10_FLOAT, R11G11B10_FLOAT, WZYX),
 	_T(R9G9B9E5_FLOAT,  9_9_9_E5_FLOAT, NONE,            WZYX),
 
-	_T(Z24X8_UNORM,       X8Z24_UNORM,  X8Z24_UNORM,   WZYX),
-	_T(X24S8_UINT,        8_8_8_8_UINT, X8Z24_UNORM,   XYZW),  // XXX
-	_T(Z24_UNORM_S8_UINT, X8Z24_UNORM,  X8Z24_UNORM,   WZYX),
-	_T(Z32_FLOAT,         32_FLOAT,     R32_FLOAT,     WZYX),
-	_T(Z32_FLOAT_S8X24_UINT, 32_FLOAT,  R32_FLOAT,     WZYX),
-	_T(X32_S8X24_UINT,    8_UINT,      R8_UINT,        WZYX),
+	_T(Z24X8_UNORM,          X8Z24_UNORM,       Z24_UNORM_S8_UINT, WZYX),
+	_T(X24S8_UINT,           8_8_8_8_UINT,      Z24_UNORM_S8_UINT, WZYX),
+	_T(Z24_UNORM_S8_UINT,    X8Z24_UNORM,       Z24_UNORM_S8_UINT, WZYX),
+	_T(Z32_FLOAT,            32_FLOAT,          R32_FLOAT,         WZYX),
+	_T(Z32_FLOAT_S8X24_UINT, 32_FLOAT,          R32_FLOAT,         WZYX),
+	_T(X32_S8X24_UINT,       8_UINT,            R8_UINT,           WZYX),
+
+	/* special format for blits: */
+	_T(Z24_UNORM_S8_UINT_AS_R8G8B8A8, Z24_UNORM_S8_UINT,  Z24_UNORM_S8_UINT_AS_R8G8B8A8,   WZYX),
 
 	/* 48-bit */
 	V_(R16G16B16_UNORM,   16_16_16_UNORM, NONE, WZYX),
@@ -434,38 +437,61 @@ fd6_pipe2swiz(unsigned swiz)
 	}
 }
 
-uint32_t
-fd6_tex_swiz(struct pipe_resource *prsc, unsigned swizzle_r, unsigned swizzle_g,
-		unsigned swizzle_b, unsigned swizzle_a)
+void
+fd6_tex_swiz(enum pipe_format format, unsigned char *swiz,
+			 unsigned swizzle_r, unsigned swizzle_g,
+			 unsigned swizzle_b, unsigned swizzle_a)
 {
 	const struct util_format_description *desc =
-			util_format_description(prsc->format);
-	unsigned char swiz[4] = {
-			swizzle_r, swizzle_g, swizzle_b, swizzle_a,
-	}, rswiz[4], *swizp;
+			util_format_description(format);
+	const unsigned char uswiz[4] = {
+		swizzle_r, swizzle_g, swizzle_b, swizzle_a
+	};
 
-	util_format_compose_swizzles(desc->swizzle, swiz, rswiz);
-
-	if (fd_resource(prsc)->tile_mode) {
-		/* for tiled modes, we don't get SWAP, so manually apply that
-		 * extra step of swizzle:
-		 */
-		enum a3xx_color_swap swap = fd6_pipe2swap(prsc->format);
-		unsigned char swapswiz[][4] = {
-				[WZYX] = { 0, 1, 2, 3 },
-				[WXYZ] = { 2, 1, 0, 3 },
-				[ZYXW] = { 3, 0, 1, 2 },
-				[XYZW] = { 3, 2, 1, 0 },
+	/* Gallium expects stencil sampler to return (s,s,s,s), so massage
+	 * the swizzle to do so.
+	 */
+	if (format == PIPE_FORMAT_X24S8_UINT) {
+		const unsigned char stencil_swiz[4] = {
+			PIPE_SWIZZLE_W, PIPE_SWIZZLE_W, PIPE_SWIZZLE_W, PIPE_SWIZZLE_W
 		};
-
-		util_format_compose_swizzles(swapswiz[swap], rswiz, swiz);
-		swizp = swiz;
+		util_format_compose_swizzles(stencil_swiz, uswiz, swiz);
+	} else if (fd6_pipe2swap(format) != WZYX) {
+		/* Formats with a non-pass-through swap are permutations of RGBA
+		 * formats. We program the permutation using the swap and don't
+		 * need to compose the format swizzle with the user swizzle.
+		 */
+		memcpy(swiz, uswiz, sizeof(uswiz));
 	} else {
-		swizp = rswiz;
+		/* Otherwise, it's an unswapped RGBA format or a format like L8 where
+		 * we need the XXX1 swizzle from the gallium format description.
+		 */
+		util_format_compose_swizzles(desc->swizzle, uswiz, swiz);
 	}
+}
 
-	return A6XX_TEX_CONST_0_SWIZ_X(fd6_pipe2swiz(swizp[0])) |
-			A6XX_TEX_CONST_0_SWIZ_Y(fd6_pipe2swiz(swizp[1])) |
-			A6XX_TEX_CONST_0_SWIZ_Z(fd6_pipe2swiz(swizp[2])) |
-			A6XX_TEX_CONST_0_SWIZ_W(fd6_pipe2swiz(swizp[3]));
+/* Compute the TEX_CONST_0 value for texture state, including SWIZ/SWAP/etc: */
+uint32_t
+fd6_tex_const_0(struct pipe_resource *prsc,
+			 unsigned level, enum pipe_format format,
+			 unsigned swizzle_r, unsigned swizzle_g,
+			 unsigned swizzle_b, unsigned swizzle_a)
+{
+	struct fd_resource *rsc = fd_resource(prsc);
+	unsigned char swiz[4];
+
+	fd6_tex_swiz(format, swiz,
+			swizzle_r, swizzle_g,
+			swizzle_b, swizzle_a);
+
+	return
+		A6XX_TEX_CONST_0_FMT(fd6_pipe2tex(format)) |
+		A6XX_TEX_CONST_0_SAMPLES(fd_msaa_samples(prsc->nr_samples)) |
+		A6XX_TEX_CONST_0_SWAP(fd6_resource_swap(rsc, format)) |
+		A6XX_TEX_CONST_0_TILE_MODE(fd_resource_tile_mode(prsc, level)) |
+		COND(util_format_is_srgb(format), A6XX_TEX_CONST_0_SRGB) |
+		A6XX_TEX_CONST_0_SWIZ_X(fd6_pipe2swiz(swiz[0])) |
+		A6XX_TEX_CONST_0_SWIZ_Y(fd6_pipe2swiz(swiz[1])) |
+		A6XX_TEX_CONST_0_SWIZ_Z(fd6_pipe2swiz(swiz[2])) |
+		A6XX_TEX_CONST_0_SWIZ_W(fd6_pipe2swiz(swiz[3]));
 }

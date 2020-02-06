@@ -268,16 +268,16 @@ static void enc_ClearBframes(vid_enc_PrivateType * priv, struct input_buf_privat
 {
    struct encode_task *task;
 
-   if (LIST_IS_EMPTY(&priv->b_frames))
+   if (list_is_empty(&priv->b_frames))
       return;
 
    task = LIST_ENTRY(struct encode_task, priv->b_frames.prev, list);
-   LIST_DEL(&task->list);
+   list_del(&task->list);
 
    /* promote last from to P frame */
    priv->ref_idx_l0 = priv->ref_idx_l1;
    enc_HandleTask(priv, task, PIPE_H264_ENC_PICTURE_TYPE_P);
-   LIST_ADDTAIL(&task->list, &inp->tasks);
+   list_addtail(&task->list, &inp->tasks);
    priv->ref_idx_l1 = priv->frame_num++;
 
    /* handle B frames */
@@ -354,20 +354,20 @@ static OMX_ERRORTYPE encode_frame(vid_enc_PrivateType * priv, OMX_BUFFERHEADERTY
 
    if (picture_type == PIPE_H264_ENC_PICTURE_TYPE_B) {
       /* put frame at the tail of the queue */
-      LIST_ADDTAIL(&task->list, &priv->b_frames);
+      list_addtail(&task->list, &priv->b_frames);
    } else {
       /* handle I or P frame */
       priv->ref_idx_l0 = priv->ref_idx_l1;
       enc_HandleTask(priv, task, picture_type);
-      LIST_ADDTAIL(&task->list, &priv->stacked_tasks);
+      list_addtail(&task->list, &priv->stacked_tasks);
       LIST_FOR_EACH_ENTRY(task, &priv->stacked_tasks, list) {
          ++stacked_num;
       }
       if (stacked_num == priv->stacked_frames_num) {
          struct encode_task *t;
          t = LIST_ENTRY(struct encode_task, priv->stacked_tasks.next, list);
-         LIST_DEL(&t->list);
-         LIST_ADDTAIL(&t->list, &inp->tasks);
+         list_del(&t->list);
+         list_addtail(&t->list, &inp->tasks);
       }
       priv->ref_idx_l1 = priv->frame_num++;
 
@@ -382,7 +382,7 @@ static OMX_ERRORTYPE encode_frame(vid_enc_PrivateType * priv, OMX_BUFFERHEADERTY
       enc_MoveTasks(&priv->b_frames, &inp->tasks);
    }
 
-   if (LIST_IS_EMPTY(&inp->tasks)) {
+   if (list_is_empty(&inp->tasks)) {
       return h264e_buffer_emptied(priv, in_buf);
    } else {
       return h264e_manage_buffers(priv);
@@ -403,9 +403,11 @@ static OMX_ERRORTYPE h264e_prc_create_encoder(void *ap_obj)
                                 PIPE_VIDEO_ENTRYPOINT_ENCODE, PIPE_VIDEO_CAP_SUPPORTED))
       return OMX_ErrorBadParameter;
 
-   priv->s_pipe = screen->context_create(screen, NULL, 0);
+   priv->s_pipe = pipe_create_multimedia_context(screen);
    if (!priv->s_pipe)
       return OMX_ErrorInsufficientResources;
+
+   enc_InitCompute_common(priv);
 
    if (!vl_compositor_init(&priv->compositor, priv->s_pipe)) {
       priv->s_pipe->destroy(priv->s_pipe);
@@ -420,14 +422,14 @@ static OMX_ERRORTYPE h264e_prc_create_encoder(void *ap_obj)
       return OMX_ErrorInsufficientResources;
    }
 
-   priv->t_pipe = screen->context_create(screen, NULL, 0);
+   priv->t_pipe = pipe_create_multimedia_context(screen);
    if (!priv->t_pipe)
       return OMX_ErrorInsufficientResources;
 
-   LIST_INITHEAD(&priv->free_tasks);
-   LIST_INITHEAD(&priv->used_tasks);
-   LIST_INITHEAD(&priv->b_frames);
-   LIST_INITHEAD(&priv->stacked_tasks);
+   list_inithead(&priv->free_tasks);
+   list_inithead(&priv->used_tasks);
+   list_inithead(&priv->b_frames);
+   list_inithead(&priv->stacked_tasks);
 
    return OMX_ErrorNone;
 }
@@ -451,6 +453,7 @@ static void h264e_prc_destroy_encoder(void *ap_obj)
    if (priv->s_pipe) {
       vl_compositor_cleanup_state(&priv->cstate);
       vl_compositor_cleanup(&priv->compositor);
+      enc_ReleaseCompute_common(priv);
       priv->s_pipe->destroy(priv->s_pipe);
    }
 

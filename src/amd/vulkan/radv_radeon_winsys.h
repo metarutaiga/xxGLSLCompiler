@@ -45,7 +45,9 @@ struct radeon_surf;
 enum radeon_bo_domain { /* bitfield */
 	RADEON_DOMAIN_GTT  = 2,
 	RADEON_DOMAIN_VRAM = 4,
-	RADEON_DOMAIN_VRAM_GTT = RADEON_DOMAIN_VRAM | RADEON_DOMAIN_GTT
+	RADEON_DOMAIN_VRAM_GTT = RADEON_DOMAIN_VRAM | RADEON_DOMAIN_GTT,
+	RADEON_DOMAIN_GDS = 8,
+	RADEON_DOMAIN_OA = 16,
 };
 
 enum radeon_bo_flag { /* bitfield */
@@ -58,21 +60,13 @@ enum radeon_bo_flag { /* bitfield */
 	RADEON_FLAG_NO_INTERPROCESS_SHARING = (1 << 6),
 	RADEON_FLAG_READ_ONLY =     (1 << 7),
 	RADEON_FLAG_32BIT =         (1 << 8),
+	RADEON_FLAG_PREFER_LOCAL_BO = (1 << 9),
 };
 
 enum radeon_bo_usage { /* bitfield */
 	RADEON_USAGE_READ = 2,
 	RADEON_USAGE_WRITE = 4,
 	RADEON_USAGE_READWRITE = RADEON_USAGE_READ | RADEON_USAGE_WRITE
-};
-
-enum ring_type {
-	RING_GFX = 0,
-	RING_COMPUTE,
-	RING_DMA,
-	RING_UVD,
-	RING_VCE,
-	RING_LAST,
 };
 
 enum radeon_ctx_priority {
@@ -150,6 +144,7 @@ struct radeon_bo_metadata {
 		struct {
 			/* surface flags */
 			unsigned swizzle_mode:5;
+			bool scanout;
 		} gfx9;
 	} u;
 
@@ -161,7 +156,6 @@ struct radeon_bo_metadata {
 	uint32_t                metadata[64];
 };
 
-uint32_t syncobj_handle;
 struct radeon_winsys_fence;
 
 struct radeon_winsys_bo {
@@ -241,7 +235,7 @@ struct radeon_winsys {
 	struct radeon_winsys_bo *(*buffer_from_fd)(struct radeon_winsys *ws,
 						   int fd,
 						   unsigned priority,
-						   unsigned *stride, unsigned *offset);
+						   uint64_t *alloc_size);
 
 	bool (*buffer_get_fd)(struct radeon_winsys *ws,
 			      struct radeon_winsys_bo *bo,
@@ -300,6 +294,9 @@ struct radeon_winsys {
 
 	struct radeon_winsys_fence *(*create_fence)();
 	void (*destroy_fence)(struct radeon_winsys_fence *fence);
+	void (*reset_fence)(struct radeon_winsys_fence *fence);
+	void (*signal_fence)(struct radeon_winsys_fence *fence);
+	bool (*is_fence_waitable)(struct radeon_winsys_fence *fence);
 	bool (*fence_wait)(struct radeon_winsys *ws,
 			   struct radeon_winsys_fence *fence,
 			   bool absolute,

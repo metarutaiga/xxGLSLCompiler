@@ -128,7 +128,7 @@ build_nir_copy_fragment_shader(enum glsl_sampler_dim tex_dim)
 	unsigned swz[] = { 0, (tex_dim == GLSL_SAMPLER_DIM_1D ? 2 : 1), 2 };
 	nir_ssa_def *const tex_pos =
 		nir_swizzle(&b, nir_load_var(&b, tex_pos_in), swz,
-			    (tex_dim == GLSL_SAMPLER_DIM_1D ? 2 : 3), false);
+			    (tex_dim == GLSL_SAMPLER_DIM_1D ? 2 : 3));
 
 	const struct glsl_type *sampler_type =
 		glsl_sampler_type(tex_dim, false, tex_dim != GLSL_SAMPLER_DIM_3D,
@@ -186,7 +186,7 @@ build_nir_copy_fragment_shader_depth(enum glsl_sampler_dim tex_dim)
 	unsigned swz[] = { 0, (tex_dim == GLSL_SAMPLER_DIM_1D ? 2 : 1), 2 };
 	nir_ssa_def *const tex_pos =
 		nir_swizzle(&b, nir_load_var(&b, tex_pos_in), swz,
-			    (tex_dim == GLSL_SAMPLER_DIM_1D ? 2 : 3), false);
+			    (tex_dim == GLSL_SAMPLER_DIM_1D ? 2 : 3));
 
 	const struct glsl_type *sampler_type =
 		glsl_sampler_type(tex_dim, false, tex_dim != GLSL_SAMPLER_DIM_3D,
@@ -244,7 +244,7 @@ build_nir_copy_fragment_shader_stencil(enum glsl_sampler_dim tex_dim)
 	unsigned swz[] = { 0, (tex_dim == GLSL_SAMPLER_DIM_1D ? 2 : 1), 2 };
 	nir_ssa_def *const tex_pos =
 		nir_swizzle(&b, nir_load_var(&b, tex_pos_in), swz,
-			    (tex_dim == GLSL_SAMPLER_DIM_1D ? 2 : 3), false);
+			    (tex_dim == GLSL_SAMPLER_DIM_1D ? 2 : 3));
 
 	const struct glsl_type *sampler_type =
 		glsl_sampler_type(tex_dim, false, tex_dim != GLSL_SAMPLER_DIM_3D,
@@ -660,7 +660,7 @@ void radv_CmdBlitImage(
 							     .baseArrayLayer = dest_array_slice,
 							     .layerCount = 1
 						     },
-					     });
+					     }, NULL);
 			radv_image_view_init(&src_iview, cmd_buffer->device,
 					     &(VkImageViewCreateInfo) {
 						.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -674,7 +674,7 @@ void radv_CmdBlitImage(
 							.baseArrayLayer = src_array_slice,
 							.layerCount = 1
 						},
-					});
+					}, NULL);
 			meta_emit_blit(cmd_buffer,
 				       src_image, &src_iview, srcImageLayout,
 				       src_offset_0, src_offset_1,
@@ -849,54 +849,60 @@ build_pipeline(struct radv_device *device,
 		.subpass = 0,
 	};
 
-	switch(aspect) {
-	case VK_IMAGE_ASPECT_COLOR_BIT:
-		vk_pipeline_info.pColorBlendState = &(VkPipelineColorBlendStateCreateInfo) {
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-			.attachmentCount = 1,
-			.pAttachments = (VkPipelineColorBlendAttachmentState []) {
-				{ .colorWriteMask =
-				VK_COLOR_COMPONENT_A_BIT |
-				VK_COLOR_COMPONENT_R_BIT |
-				VK_COLOR_COMPONENT_G_BIT |
-				VK_COLOR_COMPONENT_B_BIT },
+	VkPipelineColorBlendStateCreateInfo color_blend_info = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+		.attachmentCount = 1,
+		.pAttachments = (VkPipelineColorBlendAttachmentState []) {
+			{
+				.colorWriteMask = VK_COLOR_COMPONENT_A_BIT |
+						  VK_COLOR_COMPONENT_R_BIT |
+						  VK_COLOR_COMPONENT_G_BIT |
+						  VK_COLOR_COMPONENT_B_BIT },
 			}
 		};
+
+	VkPipelineDepthStencilStateCreateInfo depth_info = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+		.depthTestEnable = true,
+		.depthWriteEnable = true,
+		.depthCompareOp = VK_COMPARE_OP_ALWAYS,
+	};
+
+	VkPipelineDepthStencilStateCreateInfo stencil_info = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+		.depthTestEnable = false,
+		.depthWriteEnable = false,
+		.stencilTestEnable = true,
+		.front = {
+			.failOp = VK_STENCIL_OP_REPLACE,
+			.passOp = VK_STENCIL_OP_REPLACE,
+			.depthFailOp = VK_STENCIL_OP_REPLACE,
+			.compareOp = VK_COMPARE_OP_ALWAYS,
+			.compareMask = 0xff,
+			.writeMask = 0xff,
+			.reference = 0
+		},
+		.back = {
+			.failOp = VK_STENCIL_OP_REPLACE,
+			.passOp = VK_STENCIL_OP_REPLACE,
+			.depthFailOp = VK_STENCIL_OP_REPLACE,
+			.compareOp = VK_COMPARE_OP_ALWAYS,
+			.compareMask = 0xff,
+			.writeMask = 0xff,
+			.reference = 0
+		},
+		.depthCompareOp = VK_COMPARE_OP_ALWAYS,
+	};
+
+	switch(aspect) {
+	case VK_IMAGE_ASPECT_COLOR_BIT:
+		vk_pipeline_info.pColorBlendState = &color_blend_info;
 		break;
 	case VK_IMAGE_ASPECT_DEPTH_BIT:
-		vk_pipeline_info.pDepthStencilState = &(VkPipelineDepthStencilStateCreateInfo) {
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-			.depthTestEnable = true,
-			.depthWriteEnable = true,
-			.depthCompareOp = VK_COMPARE_OP_ALWAYS,
-		};
+		vk_pipeline_info.pDepthStencilState = &depth_info;
 		break;
 	case VK_IMAGE_ASPECT_STENCIL_BIT:
-		vk_pipeline_info.pDepthStencilState = &(VkPipelineDepthStencilStateCreateInfo) {
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-			.depthTestEnable = false,
-			.depthWriteEnable = false,
-			.stencilTestEnable = true,
-			.front = {
-				.failOp = VK_STENCIL_OP_REPLACE,
-				.passOp = VK_STENCIL_OP_REPLACE,
-				.depthFailOp = VK_STENCIL_OP_REPLACE,
-				.compareOp = VK_COMPARE_OP_ALWAYS,
-				.compareMask = 0xff,
-				.writeMask = 0xff,
-				.reference = 0
-			},
-			.back = {
-				.failOp = VK_STENCIL_OP_REPLACE,
-				.passOp = VK_STENCIL_OP_REPLACE,
-				.depthFailOp = VK_STENCIL_OP_REPLACE,
-				.compareOp = VK_COMPARE_OP_ALWAYS,
-				.compareMask = 0xff,
-				.writeMask = 0xff,
-				.reference = 0
-			},
-			.depthCompareOp = VK_COMPARE_OP_ALWAYS,
-		};
+		vk_pipeline_info.pDepthStencilState = &stencil_info;
 		break;
 	default:
 		unreachable("Unhandled aspect");
@@ -950,10 +956,30 @@ radv_device_init_meta_blit_color(struct radv_device *device, bool on_demand)
 									.attachment = VK_ATTACHMENT_UNUSED,
 									.layout = VK_IMAGE_LAYOUT_GENERAL,
 								},
-								.preserveAttachmentCount = 1,
-								.pPreserveAttachments = (uint32_t[]) { 0 },
+								.preserveAttachmentCount = 0,
+								.pPreserveAttachments = NULL,
 							},
-							.dependencyCount = 0,
+							.dependencyCount = 2,
+							.pDependencies = (VkSubpassDependency[]) {
+								{
+									.srcSubpass = VK_SUBPASS_EXTERNAL,
+									.dstSubpass = 0,
+									.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+									.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+									.srcAccessMask = 0,
+									.dstAccessMask = 0,
+									.dependencyFlags = 0
+								},
+								{
+									.srcSubpass = 0,
+									.dstSubpass = VK_SUBPASS_EXTERNAL,
+									.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+									.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+									.srcAccessMask = 0,
+									.dstAccessMask = 0,
+									.dependencyFlags = 0
+								}
+							},
 						}, &device->meta_state.alloc, &device->meta_state.blit.render_pass[key][j]);
 			if (result != VK_SUCCESS)
 				goto fail;
@@ -1010,10 +1036,30 @@ radv_device_init_meta_blit_depth(struct radv_device *device, bool on_demand)
 								       .attachment = 0,
 								       .layout = layout,
 								},
-							       .preserveAttachmentCount = 1,
-							       .pPreserveAttachments = (uint32_t[]) { 0 },
+							       .preserveAttachmentCount = 0,
+							       .pPreserveAttachments = NULL,
 							},
-						        .dependencyCount = 0,
+							.dependencyCount = 2,
+							.pDependencies = (VkSubpassDependency[]) {
+								{
+									.srcSubpass = VK_SUBPASS_EXTERNAL,
+									.dstSubpass = 0,
+									.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+									.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+									.srcAccessMask = 0,
+									.dstAccessMask = 0,
+									.dependencyFlags = 0
+								},
+								{
+									.srcSubpass = 0,
+									.dstSubpass = VK_SUBPASS_EXTERNAL,
+									.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+									.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+									.srcAccessMask = 0,
+									.dstAccessMask = 0,
+									.dependencyFlags = 0
+								}
+							},
 						}, &device->meta_state.alloc, &device->meta_state.blit.depth_only_rp[ds_layout]);
 		if (result != VK_SUCCESS)
 			goto fail;
@@ -1067,10 +1113,31 @@ radv_device_init_meta_blit_stencil(struct radv_device *device, bool on_demand)
 								       .attachment = 0,
 								       .layout = layout,
 							       },
-							       .preserveAttachmentCount = 1,
-							       .pPreserveAttachments = (uint32_t[]) { 0 },
+							       .preserveAttachmentCount = 0,
+							       .pPreserveAttachments = NULL,
 						       },
-						       .dependencyCount = 0,
+						       .dependencyCount = 2,
+						       .pDependencies = (VkSubpassDependency[]) {
+								{
+									.srcSubpass = VK_SUBPASS_EXTERNAL,
+									.dstSubpass = 0,
+									.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+									.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+									.srcAccessMask = 0,
+									.dstAccessMask = 0,
+									.dependencyFlags = 0
+								},
+								{
+									.srcSubpass = 0,
+									.dstSubpass = VK_SUBPASS_EXTERNAL,
+									.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+									.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+									.srcAccessMask = 0,
+									.dstAccessMask = 0,
+									.dependencyFlags = 0
+								}
+							},
+
 					 }, &device->meta_state.alloc, &device->meta_state.blit.stencil_only_rp[ds_layout]);
 	}
 	if (result != VK_SUCCESS)

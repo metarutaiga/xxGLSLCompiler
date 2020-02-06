@@ -197,6 +197,8 @@ _mesa_glsl_parse_state::_mesa_glsl_parse_state(struct gl_context *_ctx,
    this->current_function = NULL;
    this->toplevel_ir = NULL;
    this->found_return = false;
+   this->found_begin_interlock = false;
+   this->found_end_interlock = false;
    this->all_invariant = false;
    this->user_structures = NULL;
    this->num_user_structures = 0;
@@ -493,11 +495,15 @@ _mesa_glsl_msg(const YYLTYPE *locp, _mesa_glsl_parse_state *state,
    /* Get the offset that the new message will be written to. */
    int msg_offset = strlen(state->info_log);
 
-   ralloc_asprintf_append(&state->info_log, "%u:%u(%u): %s: ",
-					    locp->source,
-					    locp->first_line,
-					    locp->first_column,
-					    error ? "error" : "warning");
+   if (locp->path) {
+      ralloc_asprintf_append(&state->info_log, "\"%s\"", locp->path);
+   } else {
+      ralloc_asprintf_append(&state->info_log, "%u", locp->source);
+   }
+   ralloc_asprintf_append(&state->info_log, ":%u(%u): %s: ",
+                          locp->first_line, locp->first_column,
+                          error ? "error" : "warning");
+
    ralloc_vasprintf_append(&state->info_log, fmt, ap);
 
    const char *const msg = &state->info_log[msg_offset];
@@ -596,7 +602,7 @@ struct _mesa_glsl_extension {
 
 /** Checks if the context supports a user-facing extension */
 #define EXT(name_str, driver_cap, ...) \
-static MAYBE_UNUSED bool \
+static UNUSED bool \
 has_##name_str(const struct gl_context *ctx, gl_api api, uint8_t version) \
 { \
    return ctx->Extensions.driver_cap && (version >= \
@@ -663,6 +669,7 @@ static const _mesa_glsl_extension _mesa_glsl_supported_extensions[] = {
    EXT(ARB_shader_texture_lod),
    EXT(ARB_shader_viewport_layer_array),
    EXT(ARB_shading_language_420pack),
+   EXT(ARB_shading_language_include),
    EXT(ARB_shading_language_packing),
    EXT(ARB_tessellation_shader),
    EXT(ARB_texture_cube_map_array),
@@ -711,16 +718,20 @@ static const _mesa_glsl_extension _mesa_glsl_supported_extensions[] = {
    EXT(AMD_vertex_shader_viewport_index),
    EXT(ANDROID_extension_pack_es31a),
    EXT(EXT_blend_func_extended),
+   EXT(EXT_demote_to_helper_invocation),
    EXT(EXT_frag_depth),
    EXT(EXT_draw_buffers),
    EXT(EXT_clip_cull_distance),
    EXT(EXT_geometry_point_size),
    EXT_AEP(EXT_geometry_shader),
+   EXT(EXT_gpu_shader4),
    EXT_AEP(EXT_gpu_shader5),
    EXT_AEP(EXT_primitive_bounding_box),
    EXT(EXT_separate_shader_objects),
    EXT(EXT_shader_framebuffer_fetch),
    EXT(EXT_shader_framebuffer_fetch_non_coherent),
+   EXT(EXT_shader_image_load_formatted),
+   EXT(EXT_shader_image_load_store),
    EXT(EXT_shader_implicit_conversions),
    EXT(EXT_shader_integer_mix),
    EXT_AEP(EXT_shader_io_blocks),
@@ -730,9 +741,13 @@ static const _mesa_glsl_extension _mesa_glsl_supported_extensions[] = {
    EXT(EXT_texture_array),
    EXT_AEP(EXT_texture_buffer),
    EXT_AEP(EXT_texture_cube_map_array),
+   EXT(EXT_texture_query_lod),
+   EXT(EXT_texture_shadow_lod),
    EXT(INTEL_conservative_rasterization),
    EXT(INTEL_shader_atomic_float_minmax),
+   EXT(INTEL_shader_integer_functions2),
    EXT(MESA_shader_integer_functions),
+   EXT(NV_compute_shader_derivatives),
    EXT(NV_fragment_shader_interlock),
    EXT(NV_image_formats),
    EXT(NV_shader_atomic_float),
@@ -939,7 +954,7 @@ _mesa_ast_set_aggregate_type(const glsl_type *type,
       }
 
    /* If the aggregate is a struct, recursively set its fields' types. */
-   } else if (type->is_record()) {
+   } else if (type->is_struct()) {
       exec_node *expr_node = ai->expressions.get_head_raw();
 
       /* Iterate through the struct's fields. */
@@ -1504,6 +1519,13 @@ ast_jump_statement::ast_jump_statement(int mode, ast_expression *return_value)
 
 
 void
+ast_demote_statement::print(void) const
+{
+   printf("demote; ");
+}
+
+
+void
 ast_selection_statement::print(void) const
 {
    printf("if ( ");
@@ -1714,11 +1736,9 @@ set_shader_inout_layout(struct gl_shader *shader,
 		     struct _mesa_glsl_parse_state *state)
 {
    /* Should have been prevented by the parser. */
-   if (shader->Stage == MESA_SHADER_TESS_CTRL ||
-       shader->Stage == MESA_SHADER_VERTEX) {
-      assert(!state->in_qualifier->flags.i);
-   } else if (shader->Stage != MESA_SHADER_GEOMETRY &&
-              shader->Stage != MESA_SHADER_TESS_EVAL) {
+   if (shader->Stage != MESA_SHADER_GEOMETRY &&
+       shader->Stage != MESA_SHADER_TESS_EVAL &&
+       shader->Stage != MESA_SHADER_COMPUTE) {
       assert(!state->in_qualifier->flags.i);
    }
 
@@ -1726,6 +1746,7 @@ set_shader_inout_layout(struct gl_shader *shader,
       /* Should have been prevented by the parser. */
       assert(!state->cs_input_local_size_specified);
       assert(!state->cs_input_local_size_variable_specified);
+      assert(state->cs_derivative_group == DERIVATIVE_GROUP_NONE);
    }
 
    if (shader->Stage != MESA_SHADER_FRAGMENT) {
@@ -1850,6 +1871,36 @@ set_shader_inout_layout(struct gl_shader *shader,
 
       shader->info.Comp.LocalSizeVariable =
          state->cs_input_local_size_variable_specified;
+
+      shader->info.Comp.DerivativeGroup = state->cs_derivative_group;
+
+      if (state->NV_compute_shader_derivatives_enable) {
+         /* We allow multiple cs_input_layout nodes, but do not store them in
+          * a convenient place, so for now live with an empty location error.
+          */
+         YYLTYPE loc = {0};
+         if (shader->info.Comp.DerivativeGroup == DERIVATIVE_GROUP_QUADS) {
+            if (shader->info.Comp.LocalSize[0] % 2 != 0) {
+               _mesa_glsl_error(&loc, state, "derivative_group_quadsNV must be used with a "
+                                "local group size whose first dimension "
+                                "is a multiple of 2\n");
+            }
+            if (shader->info.Comp.LocalSize[1] % 2 != 0) {
+               _mesa_glsl_error(&loc, state, "derivative_group_quadsNV must be used with a "
+                                "local group size whose second dimension "
+                                "is a multiple of 2\n");
+            }
+         } else if (shader->info.Comp.DerivativeGroup == DERIVATIVE_GROUP_LINEAR) {
+            if ((shader->info.Comp.LocalSize[0] *
+                 shader->info.Comp.LocalSize[1] *
+                 shader->info.Comp.LocalSize[2]) % 4 != 0) {
+               _mesa_glsl_error(&loc, state, "derivative_group_linearNV must be used with a "
+                            "local group size whose total number of invocations "
+                            "is a multiple of 4\n");
+            }
+         }
+      }
+
       break;
 
    case MESA_SHADER_FRAGMENT:
@@ -2058,13 +2109,11 @@ opt_shader_and_create_symbol_table(struct gl_context *ctx,
                                       shader->symbols);
 }
 
-void
-_mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
-                          bool dump_ast, bool dump_hir, bool force_recompile)
+static bool
+can_skip_compile(struct gl_context *ctx, struct gl_shader *shader,
+                 const char *source, bool force_recompile,
+                 bool source_has_shader_include)
 {
-   const char *source = force_recompile && shader->FallbackSource ?
-      shader->FallbackSource : shader->Source;
-
    if (!force_recompile) {
       if (ctx->Cache) {
          char buf[41];
@@ -2079,28 +2128,69 @@ _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
             shader->CompileStatus = COMPILE_SKIPPED;
 
             free((void *)shader->FallbackSource);
-            shader->FallbackSource = NULL;
-            return;
+
+            /* Copy pre-processed shader include to fallback source otherwise
+             * we have no guarantee the shader include source tree has not
+             * changed.
+             */
+            shader->FallbackSource = source_has_shader_include ?
+               strdup(source) : NULL;
+            return true;
          }
       }
    } else {
       /* We should only ever end up here if a re-compile has been forced by a
        * shader cache miss. In which case we can skip the compile if its
-       * already be done by a previous fallback or the initial compile call.
+       * already been done by a previous fallback or the initial compile call.
        */
       if (shader->CompileStatus == COMPILE_SUCCESS)
-         return;
+         return true;
    }
 
-   struct _mesa_glsl_parse_state *state =
+   return false;
+}
+
+void
+_mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
+                          bool dump_ast, bool dump_hir, bool force_recompile)
+{
+   const char *source = force_recompile && shader->FallbackSource ?
+      shader->FallbackSource : shader->Source;
+
+   /* Note this will be true for shaders the have #include inside comments
+    * however that should be rare enough not to worry about.
+    */
+   bool source_has_shader_include =
+      strstr(source, "#include") == NULL ? false : true;
+
+   /* If there was no shader include we can check the shader cache and skip
+    * compilation before we run the preprocessor. We never skip compiling
+    * shaders that use ARB_shading_language_include because we would need to
+    * keep duplicate copies of the shader include source tree and paths.
+    */
+   if (!source_has_shader_include &&
+       can_skip_compile(ctx, shader, source, force_recompile, false))
+      return;
+
+    struct _mesa_glsl_parse_state *state =
       new(shader) _mesa_glsl_parse_state(ctx, shader->Stage, shader);
 
    if (ctx->Const.GenerateTemporaryNames)
       (void) p_atomic_cmpxchg(&ir_variable::temporaries_allocate_names,
                               false, true);
 
-   state->error = glcpp_preprocess(state, &source, &state->info_log,
-                                   add_builtin_defines, state, ctx);
+   if (!source_has_shader_include || !force_recompile) {
+      state->error = glcpp_preprocess(state, &source, &state->info_log,
+                                      add_builtin_defines, state, ctx);
+   }
+
+   /* Now that we have run the preprocessor we can check the shader cache and
+    * skip compilation if possible for those shaders that contained a shader
+    * include.
+    */
+   if (source_has_shader_include &&
+       can_skip_compile(ctx, shader, source, force_recompile, true))
+      return;
 
    if (!state->error) {
      _mesa_glsl_lexer_ctor(state, source);
@@ -2150,7 +2240,12 @@ _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
 
    if (!force_recompile) {
       free((void *)shader->FallbackSource);
-      shader->FallbackSource = NULL;
+
+      /* Copy pre-processed shader include to fallback source otherwise we
+       * have no guarantee the shader include source tree has not changed.
+       */
+      shader->FallbackSource = source_has_shader_include ?
+         strdup(source) : NULL;
    }
 
    delete state->symbols;
@@ -2193,7 +2288,7 @@ do_common_optimization(exec_list *ir, bool linked,
                        bool native_integers)
 {
    const bool debug = false;
-   GLboolean progress = GL_FALSE;
+   bool progress = false;
 
 #define OPT(PASS, ...) do {                                             \
       if (debug) {                                                      \
@@ -2288,34 +2383,4 @@ do_common_optimization(exec_list *ir, bool linked,
 #undef OPT
 
    return progress;
-}
-
-extern "C" {
-
-/**
- * To be called at GL teardown time, this frees compiler datastructures.
- *
- * After calling this, any previously compiled shaders and shader
- * programs would be invalid.  So this should happen at approximately
- * program exit.
- */
-void
-_mesa_destroy_shader_compiler(void)
-{
-   _mesa_destroy_shader_compiler_caches();
-
-   _mesa_glsl_release_types();
-}
-
-/**
- * Releases compiler caches to trade off performance for memory.
- *
- * Intended to be used with glReleaseShaderCompiler().
- */
-void
-_mesa_destroy_shader_compiler_caches(void)
-{
-   _mesa_glsl_release_builtin_functions();
-}
-
 }

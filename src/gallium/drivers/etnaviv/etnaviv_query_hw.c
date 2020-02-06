@@ -138,7 +138,7 @@ realloc_query_bo(struct etna_context *ctx, struct etna_hw_query *hq)
    etna_bo_cpu_fini(rsc->bo);
 }
 
-static boolean
+static bool
 etna_hw_begin_query(struct etna_context *ctx, struct etna_query *q)
 {
    struct etna_hw_query *hq = etna_hw_query(q);
@@ -150,7 +150,7 @@ etna_hw_begin_query(struct etna_context *ctx, struct etna_query *q)
    p->start(hq, ctx);
 
    /* add to active list */
-   assert(list_empty(&hq->node));
+   assert(list_is_empty(&hq->node));
    list_addtail(&hq->node, &ctx->active_hw_queries);
 
    return true;
@@ -168,15 +168,15 @@ etna_hw_end_query(struct etna_context *ctx, struct etna_query *q)
    list_delinit(&hq->node);
 }
 
-static boolean
+static bool
 etna_hw_get_query_result(struct etna_context *ctx, struct etna_query *q,
-                         boolean wait, union pipe_query_result *result)
+                         bool wait, union pipe_query_result *result)
 {
    struct etna_hw_query *hq = etna_hw_query(q);
    struct etna_resource *rsc = etna_resource(hq->prsc);
    const struct etna_hw_sample_provider *p = hq->provider;
 
-   assert(LIST_IS_EMPTY(&hq->node));
+   assert(list_is_empty(&hq->node));
 
    if (!wait) {
       int ret;

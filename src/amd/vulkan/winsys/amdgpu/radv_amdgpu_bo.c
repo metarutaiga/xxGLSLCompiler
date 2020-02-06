@@ -38,6 +38,9 @@
 
 #include "util/u_atomic.h"
 
+#define AMDGPU_TILING_SCANOUT_SHIFT 63
+#define AMDGPU_TILING_SCANOUT_MASK 1
+
 static void radv_amdgpu_winsys_bo_destroy(struct radeon_winsys_bo *_bo);
 
 static int
@@ -262,7 +265,7 @@ static void radv_amdgpu_winsys_bo_destroy(struct radeon_winsys_bo *_bo)
 	} else {
 		if (bo->ws->debug_all_bos) {
 			pthread_mutex_lock(&bo->ws->global_bo_list_lock);
-			LIST_DEL(&bo->global_list_item);
+			list_del(&bo->global_list_item);
 			bo->ws->num_buffers--;
 			pthread_mutex_unlock(&bo->ws->global_bo_list_lock);
 		}
@@ -291,7 +294,7 @@ static void radv_amdgpu_add_buffer_to_global_list(struct radv_amdgpu_winsys_bo *
 
 	if (bo->ws->debug_all_bos) {
 		pthread_mutex_lock(&ws->global_bo_list_lock);
-		LIST_ADDTAIL(&bo->global_list_item, &ws->global_bo_list);
+		list_addtail(&bo->global_list_item, &ws->global_bo_list);
 		ws->num_buffers++;
 		pthread_mutex_unlock(&ws->global_bo_list_lock);
 	}
@@ -356,6 +359,10 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws,
 		request.preferred_heap |= AMDGPU_GEM_DOMAIN_VRAM;
 	if (initial_domain & RADEON_DOMAIN_GTT)
 		request.preferred_heap |= AMDGPU_GEM_DOMAIN_GTT;
+	if (initial_domain & RADEON_DOMAIN_GDS)
+		request.preferred_heap |= AMDGPU_GEM_DOMAIN_GDS;
+	if (initial_domain & RADEON_DOMAIN_OA)
+		request.preferred_heap |= AMDGPU_GEM_DOMAIN_OA;
 
 	if (flags & RADEON_FLAG_CPU_ACCESS) {
 		bo->base.vram_cpu_access = initial_domain & RADEON_DOMAIN_VRAM;
@@ -368,7 +375,8 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws,
 	if (!(flags & RADEON_FLAG_IMPLICIT_SYNC) && ws->info.drm_minor >= 22)
 		request.flags |= AMDGPU_GEM_CREATE_EXPLICIT_SYNC;
 	if (flags & RADEON_FLAG_NO_INTERPROCESS_SHARING &&
-	    ws->info.has_local_buffers && ws->use_local_bos) {
+	    ws->info.has_local_buffers &&
+	    (ws->use_local_bos || (flags & RADEON_FLAG_PREFER_LOCAL_BO))) {
 		bo->base.is_local = true;
 		request.flags |= AMDGPU_GEM_CREATE_VM_ALWAYS_VALID;
 	}
@@ -506,7 +514,7 @@ radv_amdgpu_winsys_bo_from_ptr(struct radeon_winsys *_ws,
 	bo->initial_domain = RADEON_DOMAIN_GTT;
 	bo->priority = priority;
 
-	MAYBE_UNUSED int r = amdgpu_bo_export(buf_handle, amdgpu_bo_handle_type_kms, &bo->bo_handle);
+	ASSERTED int r = amdgpu_bo_export(buf_handle, amdgpu_bo_handle_type_kms, &bo->bo_handle);
 	assert(!r);
 
 	p_atomic_add(&ws->allocated_gtt,
@@ -529,8 +537,7 @@ error:
 static struct radeon_winsys_bo *
 radv_amdgpu_winsys_bo_from_fd(struct radeon_winsys *_ws,
 			      int fd, unsigned priority,
-			      unsigned *stride,
-			      unsigned *offset)
+			      uint64_t *alloc_size)
 {
 	struct radv_amdgpu_winsys *ws = radv_amdgpu_winsys(_ws);
 	struct radv_amdgpu_winsys_bo *bo;
@@ -552,6 +559,10 @@ radv_amdgpu_winsys_bo_from_fd(struct radeon_winsys *_ws,
 	r = amdgpu_bo_query_info(result.buf_handle, &info);
 	if (r)
 		goto error_query;
+
+	if (alloc_size) {
+		*alloc_size = info.alloc_size;
+	}
 
 	r = amdgpu_va_range_alloc(ws->dev, amdgpu_gpu_va_range_general,
 				  result.alloc_size, 1 << 20, 0, &va, &va_handle,
@@ -659,6 +670,7 @@ radv_amdgpu_winsys_bo_set_metadata(struct radeon_winsys_bo *_bo,
 
 	if (bo->ws->info.chip_class >= GFX9) {
 		tiling_flags |= AMDGPU_TILING_SET(SWIZZLE_MODE, md->u.gfx9.swizzle_mode);
+		tiling_flags |= AMDGPU_TILING_SET(SCANOUT, md->u.gfx9.scanout);
 	} else {
 		if (md->u.legacy.macrotile == RADEON_LAYOUT_TILED)
 			tiling_flags |= AMDGPU_TILING_SET(ARRAY_MODE, 4); /* 2D_TILED_THIN1 */
@@ -703,6 +715,7 @@ radv_amdgpu_winsys_bo_get_metadata(struct radeon_winsys_bo *_bo,
 
 	if (bo->ws->info.chip_class >= GFX9) {
 		md->u.gfx9.swizzle_mode = AMDGPU_TILING_GET(tiling_flags, SWIZZLE_MODE);
+		md->u.gfx9.scanout = AMDGPU_TILING_GET(tiling_flags, SCANOUT);
 	} else {
 		md->u.legacy.microtile = RADEON_LAYOUT_LINEAR;
 		md->u.legacy.macrotile = RADEON_LAYOUT_LINEAR;

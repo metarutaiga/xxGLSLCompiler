@@ -28,7 +28,7 @@
 #include "util/u_string.h"
 #include "util/u_memory.h"
 #include "util/u_helpers.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_viewport.h"
 
 #include "freedreno_resource.h"
@@ -301,7 +301,7 @@ fd4_emit_gmem_restore_tex(struct fd_ringbuffer *ring, unsigned nr_bufs,
 
 			/* note: PIPE_BUFFER disallowed for surfaces */
 			unsigned lvl = bufs[i]->u.tex.level;
-			struct fd_resource_slice *slice = fd_resource_slice(rsc, lvl);
+			struct fdl_slice *slice = fd_resource_slice(rsc, lvl);
 			unsigned offset = fd_resource_offset(rsc, lvl, bufs[i]->u.tex.first_layer);
 
 			/* z32 restore is accomplished using depth write.  If there is
@@ -323,7 +323,7 @@ fd4_emit_gmem_restore_tex(struct fd_ringbuffer *ring, unsigned nr_bufs,
 							PIPE_SWIZZLE_Z, PIPE_SWIZZLE_W));
 			OUT_RING(ring, A4XX_TEX_CONST_1_WIDTH(bufs[i]->width) |
 					A4XX_TEX_CONST_1_HEIGHT(bufs[i]->height));
-			OUT_RING(ring, A4XX_TEX_CONST_2_PITCH(slice->pitch * rsc->cpp) |
+			OUT_RING(ring, A4XX_TEX_CONST_2_PITCH(slice->pitch * rsc->layout.cpp) |
 					A4XX_TEX_CONST_2_FETCHSIZE(fd4_pipe2fetchsize(format)));
 			OUT_RING(ring, 0x00000000);
 			OUT_RELOC(ring, rsc->bo, offset, 0, 0);
@@ -376,9 +376,6 @@ fd4_emit_vertex_bufs(struct fd_ringbuffer *ring, struct fd4_emit *emit)
 			continue;
 		if (vp->inputs[i].sysval) {
 			switch(vp->inputs[i].slot) {
-			case SYSTEM_VALUE_FIRST_VERTEX:
-				/* handled elsewhere */
-				break;
 			case SYSTEM_VALUE_VERTEX_ID_ZERO_BASE:
 				vertex_regid = vp->inputs[i].regid;
 				break;
@@ -443,7 +440,7 @@ fd4_emit_vertex_bufs(struct fd_ringbuffer *ring, struct fd4_emit *emit)
 					COND(isint, A4XX_VFD_DECODE_INSTR_INT) |
 					COND(switchnext, A4XX_VFD_DECODE_INSTR_SWITCHNEXT));
 
-			total_in += vp->inputs[i].ncomp;
+			total_in += util_bitcount(vp->inputs[i].compmask);
 			j++;
 		}
 	}
@@ -558,7 +555,7 @@ fd4_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 
 	if (dirty & (FD_DIRTY_ZSA | FD_DIRTY_RASTERIZER | FD_DIRTY_PROG)) {
 		struct fd4_zsa_stateobj *zsa = fd4_zsa_stateobj(ctx->zsa);
-		bool fragz = fp->has_kill | fp->writes_pos;
+		bool fragz = fp->no_earlyz | fp->writes_pos;
 		bool clamp = !ctx->rasterizer->depth_clip_near;
 
 		OUT_PKT0(ring, REG_A4XX_RB_DEPTH_CONTROL, 1);
@@ -700,17 +697,13 @@ fd4_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 			bool is_int = util_format_is_pure_integer(format);
 			bool has_alpha = util_format_has_alpha(format);
 			uint32_t control = blend->rb_mrt[i].control;
-			uint32_t blend_control = blend->rb_mrt[i].blend_control_alpha;
 
 			if (is_int) {
 				control &= A4XX_RB_MRT_CONTROL_COMPONENT_ENABLE__MASK;
 				control |= A4XX_RB_MRT_CONTROL_ROP_CODE(ROP_COPY);
 			}
 
-			if (has_alpha) {
-				blend_control |= blend->rb_mrt[i].blend_control_rgb;
-			} else {
-				blend_control |= blend->rb_mrt[i].blend_control_no_alpha_rgb;
+			if (!has_alpha) {
 				control &= ~A4XX_RB_MRT_CONTROL_BLEND2;
 			}
 
@@ -718,7 +711,7 @@ fd4_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 			OUT_RING(ring, control);
 
 			OUT_PKT0(ring, REG_A4XX_RB_MRT_BLEND_CONTROL(i), 1);
-			OUT_RING(ring, blend_control);
+			OUT_RING(ring, blend->rb_mrt[i].blend_control);
 		}
 
 		OUT_PKT0(ring, REG_A4XX_RB_FS_OUTPUT, 1);
@@ -913,12 +906,6 @@ fd4_emit_restore(struct fd_batch *batch, struct fd_ringbuffer *ring)
 }
 
 static void
-fd4_emit_ib(struct fd_ringbuffer *ring, struct fd_ringbuffer *target)
-{
-	__OUT_IB(ring, true, target);
-}
-
-static void
 fd4_mem_to_mem(struct fd_ringbuffer *ring, struct pipe_resource *dst,
 		unsigned dst_off, struct pipe_resource *src, unsigned src_off,
 		unsigned sizedwords)
@@ -939,11 +926,17 @@ fd4_mem_to_mem(struct fd_ringbuffer *ring, struct pipe_resource *dst,
 }
 
 void
+fd4_emit_init_screen(struct pipe_screen *pscreen)
+{
+	struct fd_screen *screen = fd_screen(pscreen);
+
+	screen->emit_const = fd4_emit_const;
+	screen->emit_const_bo = fd4_emit_const_bo;
+	screen->emit_ib = fd4_emit_ib;
+	screen->mem_to_mem = fd4_mem_to_mem;
+}
+
+void
 fd4_emit_init(struct pipe_context *pctx)
 {
-	struct fd_context *ctx = fd_context(pctx);
-	ctx->emit_const = fd4_emit_const;
-	ctx->emit_const_bo = fd4_emit_const_bo;
-	ctx->emit_ib = fd4_emit_ib;
-	ctx->mem_to_mem = fd4_mem_to_mem;
 }

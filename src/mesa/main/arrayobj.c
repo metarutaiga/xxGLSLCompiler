@@ -229,12 +229,17 @@ _mesa_lookup_vao(struct gl_context *ctx, GLuint id)
 /**
  * Looks up the array object for the given ID.
  *
- * Unlike _mesa_lookup_vao, this function generates a GL_INVALID_OPERATION
+ * While _mesa_lookup_vao doesn't generate an error if the object does not
+ * exist, this function comes in two variants.
+ * If is_ext_dsa is false, this function generates a GL_INVALID_OPERATION
  * error if the array object does not exist. It also returns the default
  * array object when ctx is a compatibility profile context and id is zero.
+ * If is_ext_dsa is true, 0 is not a valid name. If the name exists but
+ * the object has never been bound, it is initialized.
  */
 struct gl_vertex_array_object *
-_mesa_lookup_vao_err(struct gl_context *ctx, GLuint id, const char *caller)
+_mesa_lookup_vao_err(struct gl_context *ctx, GLuint id,
+                     bool is_ext_dsa, const char *caller)
 {
    /* The ARB_direct_state_access specification says:
     *
@@ -243,10 +248,11 @@ _mesa_lookup_vao_err(struct gl_context *ctx, GLuint id, const char *caller)
     *     the name of the vertex array object."
     */
    if (id == 0) {
-      if (ctx->API == API_OPENGL_CORE) {
+      if (is_ext_dsa || ctx->API == API_OPENGL_CORE) {
          _mesa_error(ctx, GL_INVALID_OPERATION,
-                     "%s(zero is not valid vaobj name in a core profile "
-                     "context)", caller);
+                     "%s(zero is not valid vaobj name%s)",
+                     caller,
+                     is_ext_dsa ? "" : " in a core profile context");
          return NULL;
       }
 
@@ -267,11 +273,22 @@ _mesa_lookup_vao_err(struct gl_context *ctx, GLuint id, const char *caller)
           *     [compatibility profile: zero or] the name of an existing
           *     vertex array object."
           */
-         if (!vao || !vao->EverBound) {
+         if (!vao || (!is_ext_dsa && !vao->EverBound)) {
             _mesa_error(ctx, GL_INVALID_OPERATION,
                         "%s(non-existent vaobj=%u)", caller, id);
             return NULL;
          }
+
+         /* The EXT_direct_state_access specification says:
+         *
+         *    "If the vertex array object named by the vaobj parameter has not
+         *     been previously bound but has been generated (without subsequent
+         *     deletion) by GenVertexArrays, the GL first creates a new state
+         *     vector in the same manner as when BindVertexArray creates a new
+         *     vertex array object."
+         */
+         if (vao && is_ext_dsa && !vao->EverBound)
+            vao->EverBound = true;
 
          _mesa_reference_vao(ctx, &ctx->Array.LastLookedUpVAO, vao);
       }
@@ -913,6 +930,90 @@ _mesa_all_buffers_are_unmapped(const struct gl_vertex_array_object *vao)
    return true;
 }
 
+
+/**
+ * Map buffer objects used in attribute arrays.
+ */
+void
+_mesa_vao_map_arrays(struct gl_context *ctx, struct gl_vertex_array_object *vao,
+                     GLbitfield access)
+{
+   GLbitfield mask = vao->Enabled & vao->VertexAttribBufferMask;
+   while (mask) {
+      /* Do not use u_bit_scan as we can walk multiple attrib arrays at once */
+      const gl_vert_attrib attr = ffs(mask) - 1;
+      const GLubyte bindex = vao->VertexAttrib[attr].BufferBindingIndex;
+      struct gl_vertex_buffer_binding *binding = &vao->BufferBinding[bindex];
+      mask &= ~binding->_BoundArrays;
+
+      struct gl_buffer_object *bo = binding->BufferObj;
+      assert(_mesa_is_bufferobj(bo));
+      if (_mesa_bufferobj_mapped(bo, MAP_INTERNAL))
+         continue;
+
+      ctx->Driver.MapBufferRange(ctx, 0, bo->Size, access, bo, MAP_INTERNAL);
+   }
+}
+
+
+/**
+ * Map buffer objects used in the vao, attribute arrays and index buffer.
+ */
+void
+_mesa_vao_map(struct gl_context *ctx, struct gl_vertex_array_object *vao,
+              GLbitfield access)
+{
+   struct gl_buffer_object *bo = vao->IndexBufferObj;
+
+   /* map the index buffer, if there is one, and not already mapped */
+   if (_mesa_is_bufferobj(bo) && !_mesa_bufferobj_mapped(bo, MAP_INTERNAL))
+      ctx->Driver.MapBufferRange(ctx, 0, bo->Size, access, bo, MAP_INTERNAL);
+
+   _mesa_vao_map_arrays(ctx, vao, access);
+}
+
+
+/**
+ * Unmap buffer objects used in attribute arrays.
+ */
+void
+_mesa_vao_unmap_arrays(struct gl_context *ctx,
+                       struct gl_vertex_array_object *vao)
+{
+   GLbitfield mask = vao->Enabled & vao->VertexAttribBufferMask;
+   while (mask) {
+      /* Do not use u_bit_scan as we can walk multiple attrib arrays at once */
+      const gl_vert_attrib attr = ffs(mask) - 1;
+      const GLubyte bindex = vao->VertexAttrib[attr].BufferBindingIndex;
+      struct gl_vertex_buffer_binding *binding = &vao->BufferBinding[bindex];
+      mask &= ~binding->_BoundArrays;
+
+      struct gl_buffer_object *bo = binding->BufferObj;
+      assert(_mesa_is_bufferobj(bo));
+      if (!_mesa_bufferobj_mapped(bo, MAP_INTERNAL))
+         continue;
+
+      ctx->Driver.UnmapBuffer(ctx, bo, MAP_INTERNAL);
+   }
+}
+
+
+/**
+ * Unmap buffer objects used in the vao, attribute arrays and index buffer.
+ */
+void
+_mesa_vao_unmap(struct gl_context *ctx, struct gl_vertex_array_object *vao)
+{
+   struct gl_buffer_object *bo = vao->IndexBufferObj;
+
+   /* unmap the index buffer, if there is one, and still mapped */
+   if (_mesa_is_bufferobj(bo) && _mesa_bufferobj_mapped(bo, MAP_INTERNAL))
+      ctx->Driver.UnmapBuffer(ctx, bo, MAP_INTERNAL);
+
+   _mesa_vao_unmap_arrays(ctx, vao);
+}
+
+
 /**********************************************************************/
 /* API Functions                                                      */
 /**********************************************************************/
@@ -965,7 +1066,6 @@ bind_vertex_array(struct gl_context *ctx, GLuint id, bool no_error)
     */
    _mesa_set_draw_vao(ctx, ctx->Array._EmptyVAO, 0);
 
-   ctx->NewState |= _NEW_ARRAY;
    _mesa_reference_vao(ctx, &ctx->Array.VAO, newObj);
 }
 
@@ -1190,7 +1290,7 @@ vertex_array_element_buffer(struct gl_context *ctx, GLuint vaobj, GLuint buffer,
        *     VertexArrayElementBuffer if <vaobj> is not [compatibility profile:
        *     zero or] the name of an existing vertex array object."
        */
-      vao =_mesa_lookup_vao_err(ctx, vaobj, "glVertexArrayElementBuffer");
+      vao =_mesa_lookup_vao_err(ctx, vaobj, false, "glVertexArrayElementBuffer");
       if (!vao)
          return;
    } else {
@@ -1213,8 +1313,10 @@ vertex_array_element_buffer(struct gl_context *ctx, GLuint vaobj, GLuint buffer,
       bufObj = ctx->Shared->NullBufferObj;
    }
 
-   if (bufObj)
+   if (bufObj) {
+      bufObj->UsageHistory |= USAGE_ELEMENT_ARRAY_BUFFER;
       _mesa_reference_buffer_object(ctx, &vao->IndexBufferObj, bufObj);
+   }
 }
 
 
@@ -1248,7 +1350,7 @@ _mesa_GetVertexArrayiv(GLuint vaobj, GLenum pname, GLint *param)
     *    [compatibility profile: zero or] the name of an existing
     *    vertex array object."
     */
-   vao =_mesa_lookup_vao_err(ctx, vaobj, "glGetVertexArrayiv");
+   vao = _mesa_lookup_vao_err(ctx, vaobj, false, "glGetVertexArrayiv");
    if (!vao)
       return;
 

@@ -28,6 +28,7 @@
 #ifndef FD6_UTIL_H_
 #define FD6_UTIL_H_
 
+#include "freedreno_resource.h"
 #include "freedreno_util.h"
 
 #include "a6xx.xml.h"
@@ -40,8 +41,14 @@ enum a6xx_tex_fetchsize fd6_pipe2fetchsize(enum pipe_format format);
 enum a6xx_depth_format fd6_pipe2depth(enum pipe_format format);
 enum a6xx_tex_swiz fd6_pipe2swiz(unsigned swiz);
 
-uint32_t fd6_tex_swiz(struct pipe_resource *prsc, unsigned swizzle_r,
-		unsigned swizzle_g, unsigned swizzle_b, unsigned swizzle_a);
+void fd6_tex_swiz(enum pipe_format format, unsigned char *swiz,
+			 unsigned swizzle_r, unsigned swizzle_g,
+			 unsigned swizzle_b, unsigned swizzle_a);
+
+uint32_t fd6_tex_const_0(struct pipe_resource *prsc,
+					  unsigned level, enum pipe_format format,
+					  unsigned swizzle_r, unsigned swizzle_g,
+					  unsigned swizzle_b, unsigned swizzle_a);
 
 static inline enum a6xx_2d_ifmt
 fd6_ifmt(enum a6xx_color_fmt fmt)
@@ -53,7 +60,7 @@ fd6_ifmt(enum a6xx_color_fmt fmt)
 	case RB6_R8G8_UNORM:
 	case RB6_R8G8_SNORM:
 	case RB6_R8G8B8A8_UNORM:
-	case RB6_R8G8B8_UNORM:
+	case RB6_R8G8B8X8_UNORM:
 	case RB6_R8G8B8A8_SNORM:
 		return R2D_UNORM8;
 
@@ -95,21 +102,27 @@ fd6_ifmt(enum a6xx_color_fmt fmt)
 	case RB6_R16_FLOAT:
 	case RB6_R16G16_FLOAT:
 	case RB6_R16G16B16A16_FLOAT:
+	case RB6_R11G11B10_FLOAT:
 		return R2D_FLOAT16;
 
+	case RB6_R10G10B10A2_UNORM:
 	case RB6_R4G4B4A4_UNORM:
 	case RB6_R5G5B5A1_UNORM:
 	case RB6_R5G6B5_UNORM:
-	case RB6_R10G10B10A2_UNORM:
 	case RB6_R10G10B10A2_UINT:
-	case RB6_R11G11B10_FLOAT:
-	case RB6_X8Z24_UNORM:
-		// ???
-		return 0;
+	case RB6_Z24_UNORM_S8_UINT:
+	case RB6_Z24_UNORM_S8_UINT_AS_R8G8B8A8:
+		return R2D_RAW;
 	default:
 		unreachable("bad format");
 		return 0;
 	}
+}
+
+static inline uint32_t
+fd6_resource_swap(struct fd_resource *rsc, enum pipe_format format)
+{
+	return rsc->layout.tile_mode ? WZYX : fd6_pipe2swap(format);
 }
 
 #endif /* FD6_UTIL_H_ */

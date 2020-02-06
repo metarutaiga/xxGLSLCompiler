@@ -50,7 +50,8 @@ extern struct gl_vertex_array_object *
 _mesa_lookup_vao(struct gl_context *ctx, GLuint id);
 
 extern struct gl_vertex_array_object *
-_mesa_lookup_vao_err(struct gl_context *ctx, GLuint id, const char *caller);
+_mesa_lookup_vao_err(struct gl_context *ctx, GLuint id,
+                     bool is_ext_dsa, const char *caller);
 
 extern struct gl_vertex_array_object *
 _mesa_new_vao(struct gl_context *ctx, GLuint name);
@@ -98,6 +99,24 @@ _mesa_all_varyings_in_vbos(const struct gl_vertex_array_object *vao);
 /* Returns true if all vbos are unmapped */
 extern bool
 _mesa_all_buffers_are_unmapped(const struct gl_vertex_array_object *vao);
+
+
+extern void
+_mesa_vao_map_arrays(struct gl_context *ctx, struct gl_vertex_array_object *vao,
+                     GLbitfield access);
+
+extern void
+_mesa_vao_map(struct gl_context *ctx, struct gl_vertex_array_object *vao,
+              GLbitfield access);
+
+
+extern void
+_mesa_vao_unmap_arrays(struct gl_context *ctx,
+                       struct gl_vertex_array_object *vao);
+
+extern void
+_mesa_vao_unmap(struct gl_context *ctx,
+                struct gl_vertex_array_object *vao);
 
 
 /**

@@ -46,7 +46,7 @@
 
 #include "tgsi/tgsi_scan.h"
 
-#ifdef HAVE_LLVM
+#ifdef LLVM_AVAILABLE
 struct gallivm_state;
 #endif
 
@@ -196,6 +196,7 @@ struct draw_context
          int eltBias;         
          unsigned min_index;
          unsigned max_index;
+         unsigned drawid;
          
          /** vertex arrays */
          struct draw_vertex_buffer vbuffer[PIPE_MAX_ATTRIBS];
@@ -205,7 +206,13 @@ struct draw_context
          unsigned vs_constants_size[PIPE_MAX_CONSTANT_BUFFERS];
          const void *gs_constants[PIPE_MAX_CONSTANT_BUFFERS];
          unsigned gs_constants_size[PIPE_MAX_CONSTANT_BUFFERS];
-         
+
+         /** shader buffers (for vertex/geometry shader) */
+         const void *vs_ssbos[PIPE_MAX_SHADER_BUFFERS];
+         unsigned vs_ssbos_size[PIPE_MAX_SHADER_BUFFERS];
+         const void *gs_ssbos[PIPE_MAX_SHADER_BUFFERS];
+         unsigned gs_ssbos_size[PIPE_MAX_SHADER_BUFFERS];
+
          /* pointer to planes */
          float (*planes)[DRAW_TOTAL_CLIP_PLANES][4]; 
       } user;
@@ -336,8 +343,13 @@ struct draw_context
    const struct pipe_sampler_state *samplers[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
    unsigned num_samplers[PIPE_SHADER_TYPES];
 
+   struct pipe_image_view *images[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_IMAGES];
+   unsigned num_images[PIPE_SHADER_TYPES];
+
    struct pipe_query_data_pipeline_statistics statistics;
    boolean collect_statistics;
+
+   bool collect_primgen;
 
    struct draw_assembler *ia;
 

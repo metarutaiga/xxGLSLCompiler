@@ -29,6 +29,7 @@
 #include "st_context.h"
 #include "st_cb_bitmap.h"
 #include "st_cb_perfmon.h"
+#include "st_util.h"
 
 #include "util/bitset.h"
 
@@ -87,9 +88,8 @@ init_perf_monitor(struct gl_context *ctx, struct gl_perf_monitor_object *m)
    for (gid = 0; gid < ctx->PerfMonitor.NumGroups; gid++) {
       const struct gl_perf_monitor_group *g = &ctx->PerfMonitor.Groups[gid];
       const struct st_perf_monitor_group *stg = &st->perfmon[gid];
-      BITSET_WORD tmp;
 
-      BITSET_FOREACH_SET(cid, tmp, m->ActiveCounters[gid], g->NumCounters) {
+      BITSET_FOREACH_SET(cid, m->ActiveCounters[gid], g->NumCounters) {
          const struct st_perf_monitor_counter *stc = &stg->counters[cid];
          struct st_perf_counter_object *cntr =
             &stm->active_counters[stm->num_active_counters];
@@ -343,7 +343,7 @@ static void
 st_InitPerfMonitorGroups(struct gl_context *ctx)
 {
    struct st_context *st = st_context(ctx);
-   struct gl_perf_monitor_state *perfmon = &st->ctx->PerfMonitor;
+   struct gl_perf_monitor_state *perfmon = &ctx->PerfMonitor;
    struct pipe_screen *screen = st->pipe->screen;
    struct gl_perf_monitor_group *groups = NULL;
    struct st_perf_monitor_group *stgroups = NULL;

@@ -14,7 +14,6 @@ C_SOURCES := \
 	freedreno_fence.h \
 	freedreno_gmem.c \
 	freedreno_gmem.h \
-	freedreno_perfcntr.h \
 	freedreno_program.c \
 	freedreno_program.h \
 	freedreno_query.c \
@@ -50,7 +49,6 @@ a2xx_SOURCES := \
 	a2xx/fd2_emit.h \
 	a2xx/fd2_gmem.c \
 	a2xx/fd2_gmem.h \
-	a2xx/fd2_perfcntr.c \
 	a2xx/fd2_program.c \
 	a2xx/fd2_program.h \
 	a2xx/fd2_query.c \
@@ -73,7 +71,6 @@ a2xx_SOURCES := \
 	a2xx/ir2_assemble.c \
 	a2xx/ir2_cp.c \
 	a2xx/ir2_nir.c \
-	a2xx/ir2_nir_lower_scalar.c \
 	a2xx/ir2_private.h \
 	a2xx/ir2_ra.c
 
@@ -96,6 +93,8 @@ a3xx_SOURCES := \
 	a3xx/fd3_query.h \
 	a3xx/fd3_rasterizer.c \
 	a3xx/fd3_rasterizer.h \
+	a3xx/fd3_resource.c \
+	a3xx/fd3_resource.h \
 	a3xx/fd3_screen.c \
 	a3xx/fd3_screen.h \
 	a3xx/fd3_texture.c \
@@ -148,7 +147,6 @@ a5xx_SOURCES := \
 	a5xx/fd5_gmem.h \
 	a5xx/fd5_image.c \
 	a5xx/fd5_image.h \
-	a5xx/fd5_perfcntr.c \
 	a5xx/fd5_program.c \
 	a5xx/fd5_program.h \
 	a5xx/fd5_query.c \
@@ -169,6 +167,8 @@ a6xx_SOURCES := \
 	a6xx/fd6_blend.h \
 	a6xx/fd6_blitter.c \
 	a6xx/fd6_blitter.h \
+	a6xx/fd6_compute.c \
+	a6xx/fd6_compute.h \
 	a6xx/fd6_context.c \
 	a6xx/fd6_context.h \
 	a6xx/fd6_draw.c \

@@ -681,6 +681,27 @@ This instruction replicates its result.
   Unconditional discard.  Allowed in fragment shaders only.
 
 
+.. opcode:: DEMOTE - Demote Invocation to a Helper
+
+  This demotes the current invocation to a helper, but continues
+  execution (while KILL may or may not terminate the
+  invocation). After this runs, all the usual helper invocation rules
+  apply about discarding buffer and render target writes. This is
+  useful for having accurate derivatives in the other invocations
+  which have not been demoted.
+
+  Allowed in fragment shaders only.
+
+
+.. opcode:: READ_HELPER - Reads Invocation Helper Status
+
+  This is identical to ``TGSI_SEMANTIC_HELPER_INVOCATION``, except
+  this will read the current value, which might change as a result of
+  a ``DEMOTE`` instruction.
+
+  Allowed in fragment shaders only.
+
+
 .. opcode:: TXB - Texture Lookup With Bias
 
   for cube map array textures and shadow cube maps, the bias value
@@ -941,13 +962,21 @@ XXX doesn't look like most of the opcodes really belong here.
   require another CAP is hw can do it natively. For now we lower that before
   TGSI.
 
+  PIPE_CAP_TGSI_TG4_COMPONENT_IN_SWIZZLE changes the encoding so that component
+  is stored in the sampler source swizzle x.
+
 .. math::
 
    coord = src0
 
+   (without TGSI_TG4_COMPONENT_IN_SWIZZLE)
    component = src1
 
    dst = texture\_gather4 (unit, coord, component)
+
+   (with TGSI_TG4_COMPONENT_IN_SWIZZLE)
+   dst = texture\_gather4 (unit, coord)
+   component is encoded in sampler swizzle.
 
 (with SM5 - cube array shadow)
 
@@ -2834,6 +2863,36 @@ These atomic operations may only be used with 32-bit integer image formats.
   resource[offset] = (dst_x > src_x ? dst_x : src_x)
 
 
+.. opcode:: ATOMINC_WRAP - Atomic increment + wrap around
+
+  Syntax: ``ATOMINC_WRAP dst, resource, offset, src``
+
+  Example: ``ATOMINC_WRAP TEMP[0], BUFFER[0], TEMP[1], TEMP[2]``
+
+  The following operation is performed atomically:
+
+.. math::
+
+  dst_x = resource[offset] + 1
+
+  resource[offset] = dst_x <= src_x ? dst_x : 0
+
+
+.. opcode:: ATOMDEC_WRAP - Atomic decrement + wrap around
+
+  Syntax: ``ATOMDEC_WRAP dst, resource, offset, src``
+
+  Example: ``ATOMDEC_WRAP TEMP[0], BUFFER[0], TEMP[1], TEMP[2]``
+
+  The following operation is performed atomically:
+
+.. math::
+
+  dst_x = resource[offset]
+
+  resource[offset] = (dst_x > 0 && dst_x < src_x) ? dst_x - 1 : 0
+
+
 .. _interlaneopcodes:
 
 Inter-lane opcodes
@@ -3463,6 +3522,18 @@ TGSI_SEMANTIC_SUBGROUP_LT_MASK
 
 A bit mask of ``bit index < TGSI_SEMANTIC_SUBGROUP_INVOCATION``, i.e.
 ``(1 << subgroup_invocation) - 1`` in arbitrary precision arithmetic.
+
+
+TGSI_SEMANTIC_TESS_DEFAULT_OUTER_LEVEL
+""""""""""""""""""""""""""""""""""""""
+
+A system value equal to the default_outer_level array set via set_tess_level.
+
+
+TGSI_SEMANTIC_TESS_DEFAULT_INNER_LEVEL
+""""""""""""""""""""""""""""""""""""""
+
+A system value equal to the default_inner_level array set via set_tess_level.
 
 
 Declaration Interpolate

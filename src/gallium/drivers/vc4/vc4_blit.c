@@ -21,7 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_surface.h"
 #include "util/u_blitter.h"
 #include "compiler/nir/nir_builder.h"
@@ -360,7 +360,7 @@ vc4_yuv_blit(struct pipe_context *pctx, const struct pipe_blit_info *info)
                 util_blitter_unset_running_flag(vc4->blitter);
                 return false;
         }
-        dst_surf->width /= 2;
+        dst_surf->width = align(dst_surf->width, 8) / 2;
         if (dst->cpp == 1)
                 dst_surf->height /= 2;
 

@@ -27,6 +27,7 @@
 
 #include "nir.h"
 #include "nir_control_flow.h"
+#include "nir_search_helpers.h"
 
 /*
  * Implements a small peephole optimization that looks for
@@ -107,9 +108,10 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
 
       case nir_instr_type_alu: {
          nir_alu_instr *mov = nir_instr_as_alu(instr);
+         bool movelike = false;
+
          switch (mov->op) {
-         case nir_op_fmov:
-         case nir_op_imov:
+         case nir_op_mov:
          case nir_op_fneg:
          case nir_op_ineg:
          case nir_op_fabs:
@@ -117,6 +119,7 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
          case nir_op_vec2:
          case nir_op_vec3:
          case nir_op_vec4:
+            movelike = true;
             break;
 
          case nir_op_fcos:
@@ -150,14 +153,20 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
             return false;
 
          if (alu_ok) {
-            (*count)++;
+            /* If the ALU operation is an fsat or a move-like operation, do
+             * not count it.  The expectation is that it will eventually be
+             * merged as a destination modifier or source modifier on some
+             * other instruction.
+             */
+            if (mov->op != nir_op_fsat && !movelike)
+               (*count)++;
          } else {
             /* Can't handle saturate */
             if (mov->dest.saturate)
                return false;
 
             /* It cannot have any if-uses */
-            if (!list_empty(&mov->dest.dest.ssa.if_uses))
+            if (!list_is_empty(&mov->dest.dest.ssa.if_uses))
                return false;
 
             /* The only uses of this definition must be phis in the successor */
@@ -191,6 +200,10 @@ nir_opt_peephole_select_block(nir_block *block, nir_shader *shader,
       return false;
 
    nir_if *if_stmt = nir_cf_node_as_if(prev_node);
+
+   if (if_stmt->control == nir_selection_control_dont_flatten)
+      return false;
+
    nir_block *then_block = nir_if_first_then_block(if_stmt);
    nir_block *else_block = nir_if_first_else_block(if_stmt);
 
@@ -198,6 +211,12 @@ nir_opt_peephole_select_block(nir_block *block, nir_shader *shader,
    if (nir_if_last_then_block(if_stmt) != then_block ||
        nir_if_last_else_block(if_stmt) != else_block)
       return false;
+
+   if (if_stmt->control == nir_selection_control_flatten) {
+      /* Override driver defaults */
+      indirect_load_ok = true;
+      expensive_alu_ok = true;
+   }
 
    /* ... and those blocks must only contain "allowed" instructions. */
    unsigned count = 0;
@@ -207,7 +226,7 @@ nir_opt_peephole_select_block(nir_block *block, nir_shader *shader,
                                        indirect_load_ok, expensive_alu_ok))
       return false;
 
-   if (count > limit)
+   if (count > limit && if_stmt->control != nir_selection_control_flatten)
       return false;
 
    /* At this point, we know that the previous CFG node is an if-then

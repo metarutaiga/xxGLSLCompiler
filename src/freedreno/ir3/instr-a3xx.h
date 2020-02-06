@@ -51,6 +51,10 @@ typedef enum {
 	OPC_CHSH            = _OPC(0, 10),
 	OPC_FLOW_REV        = _OPC(0, 11),
 
+	OPC_IF              = _OPC(0, 13),
+	OPC_ELSE            = _OPC(0, 14),
+	OPC_ENDIF           = _OPC(0, 15),
+
 	/* category 1: */
 	OPC_MOV             = _OPC(1, 0),
 
@@ -90,8 +94,8 @@ typedef enum {
 	OPC_CMPV_U          = _OPC(2, 33),
 	OPC_CMPV_S          = _OPC(2, 34),
 	/* 35-47 - invalid */
-	OPC_MUL_U           = _OPC(2, 48),
-	OPC_MUL_S           = _OPC(2, 49),
+	OPC_MUL_U24         = _OPC(2, 48), /* 24b mul into 32b result */
+	OPC_MUL_S24         = _OPC(2, 49), /* 24b mul into 32b result with sign extension */
 	OPC_MULL_U          = _OPC(2, 50),
 	OPC_BFREV_B         = _OPC(2, 51),
 	OPC_CLZ_S           = _OPC(2, 52),
@@ -133,7 +137,14 @@ typedef enum {
 	OPC_SIN             = _OPC(4, 4),
 	OPC_COS             = _OPC(4, 5),
 	OPC_SQRT            = _OPC(4, 6),
-	// 7-63 - invalid
+	/* NOTE that these are 8+opc from their highp equivs, so it's possible
+	 * that the high order bit in the opc field has been repurposed for
+	 * half-precision use?  But note that other ops (rcp/lsin/cos/sqrt)
+	 * still use the same opc as highp
+	 */
+	OPC_HRSQ            = _OPC(4, 9),
+	OPC_HLOG2           = _OPC(4, 10),
+	OPC_HEXP2           = _OPC(4, 11),
 
 	/* category 5: */
 	OPC_ISAM            = _OPC(5, 0),
@@ -172,7 +183,7 @@ typedef enum {
 	OPC_STG             = _OPC(6, 3),        /* store-global */
 	OPC_STL             = _OPC(6, 4),
 	OPC_STP             = _OPC(6, 5),
-	OPC_STI             = _OPC(6, 6),
+	OPC_LDIB            = _OPC(6, 6),
 	OPC_G2L             = _OPC(6, 7),
 	OPC_L2G             = _OPC(6, 8),
 	OPC_PREFETCH        = _OPC(6, 9),
@@ -204,13 +215,21 @@ typedef enum {
 	/* meta instructions (category -1): */
 	/* placeholder instr to mark shader inputs: */
 	OPC_META_INPUT      = _OPC(-1, 0),
-	/* The "fan-in" and "fan-out" instructions are used for keeping
+	/* The "collect" and "split" instructions are used for keeping
 	 * track of instructions that write to multiple dst registers
-	 * (fan-out) like texture sample instructions, or read multiple
-	 * consecutive scalar registers (fan-in) (bary.f, texture samp)
+	 * (split) like texture sample instructions, or read multiple
+	 * consecutive scalar registers (collect) (bary.f, texture samp)
+	 *
+	 * A "split" extracts a scalar component from a vecN, and a
+	 * "collect" gathers multiple scalar components into a vecN
 	 */
-	OPC_META_FO         = _OPC(-1, 2),
-	OPC_META_FI         = _OPC(-1, 3),
+	OPC_META_SPLIT      = _OPC(-1, 2),
+	OPC_META_COLLECT    = _OPC(-1, 3),
+
+	/* placeholder for texture fetches that run before FS invocation
+	 * starts:
+	 */
+	OPC_META_TEX_PREFETCH = _OPC(-1, 4),
 
 } opc_t;
 
@@ -279,6 +298,8 @@ typedef union PACKED {
 	uint32_t dummy12   : 12;
 	uint32_t dummy13   : 13;
 	uint32_t dummy8    : 8;
+	int32_t  idummy13  : 13;
+	int32_t  idummy8   : 8;
 } reg_t;
 
 /* special registers: */
@@ -741,6 +762,10 @@ typedef union PACKED {
  *    src1    - vecN offset/coords
  *    src2    - value to store
  *
+ * For ldib:
+ *    pad1=1, pad2=c, pad3=0, pad4=2
+ *    src1    - vecN offset/coords
+ *
  * for ldc (load from UBO using descriptor):
  *    pad1=0, pad2=8, pad3=0, pad4=2
  */
@@ -755,7 +780,7 @@ typedef struct PACKED {
 	uint32_t src1     : 8;  /* coordinate/offset */
 
 	/* dword1: */
-	uint32_t src2     : 8;
+	uint32_t src2     : 8;  /* or the dst for load instructions */
 	uint32_t pad3     : 1;  //mustbe0 ?? or zero means imm vs reg for ssbo??
 	uint32_t ssbo     : 8;  /* ssbo/image binding point */
 	uint32_t type     : 3;
@@ -831,6 +856,28 @@ static inline bool instr_sat(instr_t *instr)
 	}
 }
 
+/* We can probably drop the gpu_id arg, but keeping it for now so we can
+ * assert if we see something we think should be new encoding on an older
+ * gpu.
+ */
+static inline bool is_cat6_legacy(instr_t *instr, unsigned gpu_id)
+{
+	instr_cat6_a6xx_t *cat6 = &instr->cat6_a6xx;
+
+	/* At least one of these two bits is pad in all the possible
+	 * "legacy" cat6 encodings, and a analysis of all the pre-a6xx
+	 * cmdstream traces I have indicates that the pad bit is zero
+	 * in all cases.  So we can use this to detect new encoding:
+	 */
+	if ((cat6->pad2 & 0x8) && (cat6->pad4 & 0x2)) {
+		assert(gpu_id >= 600);
+		assert(instr->cat6.opc == 0);
+		return false;
+	}
+
+	return true;
+}
+
 static inline uint32_t instr_opc(instr_t *instr, unsigned gpu_id)
 {
 	switch (instr->opc_cat) {
@@ -841,10 +888,7 @@ static inline uint32_t instr_opc(instr_t *instr, unsigned gpu_id)
 	case 4:  return instr->cat4.opc;
 	case 5:  return instr->cat5.opc;
 	case 6:
-		// TODO not sure if this is the best way to figure
-		// out if new vs old encoding, but it kinda seems
-		// to work:
-		if ((gpu_id >= 600) && (instr->cat6.opc == 0))
+		if (!is_cat6_legacy(instr, gpu_id))
 			return instr->cat6_a6xx.opc;
 		return instr->cat6.opc;
 	case 7:  return instr->cat7.opc;
@@ -906,6 +950,18 @@ static inline bool is_ssbo(opc_t opc)
 	case OPC_LDGB:
 	case OPC_STGB:
 	case OPC_STIB:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static inline bool is_isam(opc_t opc)
+{
+	switch (opc) {
+	case OPC_ISAM:
+	case OPC_ISAML:
+	case OPC_ISAMM:
 		return true;
 	default:
 		return false;

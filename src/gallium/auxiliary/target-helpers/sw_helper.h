@@ -12,6 +12,10 @@
  * llvmpipe, softpipe, swr.
  */
 
+#ifdef GALLIUM_ZINK
+#include "zink/zink_public.h"
+#endif
+
 #ifdef GALLIUM_SOFTPIPE
 #include "softpipe/sp_public.h"
 #endif
@@ -43,7 +47,7 @@ sw_screen_create_named(struct sw_winsys *winsys, const char *driver)
    if (screen == NULL && strcmp(driver, "virpipe") == 0) {
       struct virgl_winsys *vws;
       vws = virgl_vtest_winsys_wrap(winsys);
-      screen = virgl_create_screen(vws);
+      screen = virgl_create_screen(vws, NULL);
    }
 #endif
 
@@ -55,6 +59,11 @@ sw_screen_create_named(struct sw_winsys *winsys, const char *driver)
 #if defined(GALLIUM_SWR)
    if (screen == NULL && strcmp(driver, "swr") == 0)
       screen = swr_create_screen(winsys);
+#endif
+
+#if defined(GALLIUM_ZINK)
+   if (screen == NULL && strcmp(driver, "zink") == 0)
+      screen = zink_create_screen(winsys);
 #endif
 
    return screen;
@@ -73,6 +82,8 @@ sw_screen_create(struct sw_winsys *winsys)
    default_driver = "softpipe";
 #elif defined(GALLIUM_SWR)
    default_driver = "swr";
+#elif defined(GALLIUM_SWR)
+   default_driver = "zink";
 #else
    default_driver = "";
 #endif

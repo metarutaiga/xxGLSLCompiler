@@ -24,6 +24,7 @@
 #ifndef GLSL_LINKER_UTIL_H
 #define GLSL_LINKER_UTIL_H
 
+struct gl_context;
 struct gl_shader_program;
 struct gl_uniform_storage;
 
@@ -51,6 +52,14 @@ void
 linker_warning(struct gl_shader_program *prog, const char *fmt, ...);
 
 bool
+link_util_should_add_buffer_variable(struct gl_shader_program *prog,
+                                     struct gl_uniform_storage *uniform,
+                                     int top_level_array_base_offset,
+                                     int top_level_array_size_in_bytes,
+                                     int second_element_offset,
+                                     int block_index);
+
+bool
 link_util_add_program_resource(struct gl_shader_program *prog,
                                struct set *resource_set,
                                GLenum type, const void *data, uint8_t stages);
@@ -61,6 +70,16 @@ link_util_find_empty_block(struct gl_shader_program *prog,
 
 void
 link_util_update_empty_uniform_locations(struct gl_shader_program *prog);
+
+void
+link_util_check_subroutine_resources(struct gl_shader_program *prog);
+
+void
+link_util_check_uniform_resources(struct gl_context *ctx,
+                                  struct gl_shader_program *prog);
+
+void
+link_util_calculate_subroutine_compat(struct gl_shader_program *prog);
 
 #ifdef __cplusplus
 }

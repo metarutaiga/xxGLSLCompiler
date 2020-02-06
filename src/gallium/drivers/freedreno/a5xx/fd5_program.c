@@ -28,7 +28,7 @@
 #include "util/u_string.h"
 #include "util/u_memory.h"
 #include "util/u_inlines.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/bitset.h"
 
 #include "freedreno_program.h"
@@ -39,43 +39,6 @@
 #include "fd5_format.h"
 
 #include "ir3_cache.h"
-
-static struct ir3_shader *
-create_shader_stateobj(struct pipe_context *pctx, const struct pipe_shader_state *cso,
-		gl_shader_stage type)
-{
-	struct fd_context *ctx = fd_context(pctx);
-	struct ir3_compiler *compiler = ctx->screen->compiler;
-	return ir3_shader_create(compiler, cso, type, &ctx->debug);
-}
-
-static void *
-fd5_fp_state_create(struct pipe_context *pctx,
-		const struct pipe_shader_state *cso)
-{
-	return create_shader_stateobj(pctx, cso, MESA_SHADER_FRAGMENT);
-}
-
-static void
-fd5_fp_state_delete(struct pipe_context *pctx, void *hwcso)
-{
-	struct ir3_shader *so = hwcso;
-	ir3_shader_destroy(so);
-}
-
-static void *
-fd5_vp_state_create(struct pipe_context *pctx,
-		const struct pipe_shader_state *cso)
-{
-	return create_shader_stateobj(pctx, cso, MESA_SHADER_VERTEX);
-}
-
-static void
-fd5_vp_state_delete(struct pipe_context *pctx, void *hwcso)
-{
-	struct ir3_shader *so = hwcso;
-	ir3_shader_destroy(so);
-}
 
 void
 fd5_emit_shader(struct fd_ringbuffer *ring, const struct ir3_shader_variant *so)
@@ -357,7 +320,7 @@ fd5_program_emit(struct fd_context *ctx, struct fd_ringbuffer *ring,
 	face_regid      = ir3_find_sysval_regid(s[FS].v, SYSTEM_VALUE_FRONT_FACE);
 	coord_regid     = ir3_find_sysval_regid(s[FS].v, SYSTEM_VALUE_FRAG_COORD);
 	zwcoord_regid   = (coord_regid == regid(63,0)) ? regid(63,0) : (coord_regid + 2);
-	vcoord_regid    = ir3_find_sysval_regid(s[FS].v, SYSTEM_VALUE_VARYING_COORD);
+	vcoord_regid    = ir3_find_sysval_regid(s[FS].v, SYSTEM_VALUE_BARYCENTRIC_PERSP_PIXEL);
 
 	/* we could probably divide this up into things that need to be
 	 * emitted if frag-prog is dirty vs if vert-prog is dirty..
@@ -606,8 +569,7 @@ fd5_program_emit(struct fd_context *ctx, struct fd_ringbuffer *ring,
 	OUT_PKT4(ring, REG_A5XX_SP_FS_OUTPUT_REG(0), 8);
 	for (i = 0; i < 8; i++) {
 		OUT_RING(ring, A5XX_SP_FS_OUTPUT_REG_REGID(color_regid[i]) |
-				COND(emit->key.half_precision,
-					A5XX_SP_FS_OUTPUT_REG_HALF_PRECISION));
+				COND(color_regid[i] & HALF_REG_ID, A5XX_SP_FS_OUTPUT_REG_HALF_PRECISION));
 	}
 
 
@@ -723,11 +685,6 @@ fd5_program_emit(struct fd_context *ctx, struct fd_ringbuffer *ring,
 void
 fd5_prog_init(struct pipe_context *pctx)
 {
-	pctx->create_fs_state = fd5_fp_state_create;
-	pctx->delete_fs_state = fd5_fp_state_delete;
-
-	pctx->create_vs_state = fd5_vp_state_create;
-	pctx->delete_vs_state = fd5_vp_state_delete;
-
+	ir3_prog_init(pctx);
 	fd_prog_init(pctx);
 }

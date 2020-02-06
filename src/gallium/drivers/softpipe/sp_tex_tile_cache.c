@@ -35,7 +35,7 @@
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
 #include "util/u_tile.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_math.h"
 #include "sp_context.h"
 #include "sp_texture.h"
@@ -50,7 +50,7 @@ sp_create_tex_tile_cache( struct pipe_context *pipe )
    uint pos;
 
    /* make sure max texture size works */
-   assert((TEX_TILE_SIZE << TEX_ADDR_BITS) >= (1 << (SP_MAX_TEXTURE_2D_LEVELS-1)));
+   assert((TEX_TILE_SIZE << TEX_Y_BITS) >= (1 << (SP_MAX_TEXTURE_2D_LEVELS-1)));
 
    tc = CALLOC_STRUCT( softpipe_tex_tile_cache );
    if (tc) {

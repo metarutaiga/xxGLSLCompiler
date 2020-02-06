@@ -25,7 +25,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_sampler.h"
 #include "vl/vl_zscan.h"
 
@@ -845,7 +845,7 @@ nv84_screen_get_video_param(struct pipe_screen *pscreen,
    }
 }
 
-boolean
+bool
 nv84_screen_video_supported(struct pipe_screen *screen,
                             enum pipe_format format,
                             enum pipe_video_profile profile,

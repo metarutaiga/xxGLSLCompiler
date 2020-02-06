@@ -58,6 +58,7 @@
 #include "util/u_memory.h"
 
 #include "swr_tex_sample.h"
+#include "gen_surf_state_llvm.h"
 #include "gen_swr_context_llvm.h"
 
 using namespace SwrJit;
@@ -125,6 +126,12 @@ swr_texture_member(const struct lp_sampler_dynamic_state *base,
       break;
    case PIPE_SHADER_GEOMETRY:
       indices[1] = lp_build_const_int32(gallivm, swr_draw_context_texturesGS);
+      break;
+   case PIPE_SHADER_TESS_CTRL:
+      indices[1] = lp_build_const_int32(gallivm, swr_draw_context_texturesTCS);
+      break;
+   case PIPE_SHADER_TESS_EVAL:
+      indices[1] = lp_build_const_int32(gallivm, swr_draw_context_texturesTES);
       break;
    default:
       assert(0 && "unsupported shader type");
@@ -222,6 +229,12 @@ swr_sampler_member(const struct lp_sampler_dynamic_state *base,
       break;
    case PIPE_SHADER_GEOMETRY:
       indices[1] = lp_build_const_int32(gallivm, swr_draw_context_samplersGS);
+      break;
+   case PIPE_SHADER_TESS_CTRL:
+      indices[1] = lp_build_const_int32(gallivm, swr_draw_context_samplersTCS);
+      break;
+   case PIPE_SHADER_TESS_EVAL:
+      indices[1] = lp_build_const_int32(gallivm, swr_draw_context_samplersTES);
       break;
    default:
       assert(0 && "unsupported shader type");

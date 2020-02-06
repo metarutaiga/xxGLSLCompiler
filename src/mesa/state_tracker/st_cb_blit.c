@@ -41,8 +41,9 @@
 #include "st_cb_fbo.h"
 #include "st_manager.h"
 #include "st_scissor.h"
+#include "st_util.h"
 
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 
 static void
 st_BlitFramebuffer(struct gl_context *ctx,

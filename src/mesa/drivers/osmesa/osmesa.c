@@ -455,10 +455,11 @@ osmesa_renderbuffer_storage(struct gl_context *ctx, struct gl_renderbuffer *rb,
     */
    if (osmesa->format == OSMESA_RGBA) {
       if (osmesa->DataType == GL_UNSIGNED_BYTE) {
-         if (_mesa_little_endian())
+#if UTIL_ARCH_LITTLE_ENDIAN
             rb->Format = MESA_FORMAT_R8G8B8A8_UNORM;
-         else
+#else
             rb->Format = MESA_FORMAT_A8B8G8R8_UNORM;
+#endif
       }
       else if (osmesa->DataType == GL_UNSIGNED_SHORT) {
          rb->Format = MESA_FORMAT_RGBA_UNORM16;
@@ -469,10 +470,11 @@ osmesa_renderbuffer_storage(struct gl_context *ctx, struct gl_renderbuffer *rb,
    }
    else if (osmesa->format == OSMESA_BGRA) {
       if (osmesa->DataType == GL_UNSIGNED_BYTE) {
-         if (_mesa_little_endian())
+#if UTIL_ARCH_LITTLE_ENDIAN
             rb->Format = MESA_FORMAT_B8G8R8A8_UNORM;
-         else
+#else
             rb->Format = MESA_FORMAT_A8R8G8B8_UNORM;
+#endif
       }
       else if (osmesa->DataType == GL_UNSIGNED_SHORT) {
          _mesa_warning(ctx, "Unsupported OSMesa format BGRA/GLushort");
@@ -485,10 +487,11 @@ osmesa_renderbuffer_storage(struct gl_context *ctx, struct gl_renderbuffer *rb,
    }
    else if (osmesa->format == OSMESA_ARGB) {
       if (osmesa->DataType == GL_UNSIGNED_BYTE) {
-         if (_mesa_little_endian())
+#if UTIL_ARCH_LITTLE_ENDIAN
             rb->Format = MESA_FORMAT_A8R8G8B8_UNORM;
-         else
+#else
             rb->Format = MESA_FORMAT_B8G8R8A8_UNORM;
+#endif
       }
       else if (osmesa->DataType == GL_UNSIGNED_SHORT) {
          _mesa_warning(ctx, "Unsupported OSMesa format ARGB/GLushort");
@@ -854,7 +857,7 @@ OSMesaCreateContextAttribs(const int *attribList, OSMesaContext sharelist)
       osmesa->gl_buffer = _mesa_create_framebuffer(osmesa->gl_visual);
       if (!osmesa->gl_buffer) {
          _mesa_destroy_visual( osmesa->gl_visual );
-         _mesa_free_context_data( &osmesa->mesa );
+         _mesa_free_context_data(&osmesa->mesa);
          free(osmesa);
          return NULL;
       }
@@ -864,9 +867,9 @@ OSMesaCreateContextAttribs(const int *attribList, OSMesaContext sharelist)
        */
       _swrast_add_soft_renderbuffers(osmesa->gl_buffer,
                                      GL_FALSE, /* color */
-                                     osmesa->gl_visual->haveDepthBuffer,
-                                     osmesa->gl_visual->haveStencilBuffer,
-                                     osmesa->gl_visual->haveAccumBuffer,
+                                     osmesa->gl_visual->depthBits > 0,
+                                     osmesa->gl_visual->stencilBits > 0,
+                                     osmesa->gl_visual->accumRedBits > 0,
                                      GL_FALSE, /* alpha */
                                      GL_FALSE /* aux */ );
 
@@ -955,7 +958,7 @@ OSMesaDestroyContext( OSMesaContext osmesa )
       _mesa_destroy_visual( osmesa->gl_visual );
       _mesa_reference_framebuffer( &osmesa->gl_buffer, NULL );
 
-      _mesa_free_context_data( &osmesa->mesa );
+      _mesa_free_context_data(&osmesa->mesa);
       free( osmesa );
    }
 }
@@ -1289,11 +1292,7 @@ OSMesaPostprocess(OSMesaContext osmesa, const char *filter,
 #include "glapi/glapi.h"
 #include "glapitable.h"
 
-#if defined(USE_MGL_NAMESPACE)
-#define NAME(func)  mgl##func
-#else
 #define NAME(func)  gl##func
-#endif
 
 #define DISPATCH(FUNC, ARGS, MESSAGE)		\
    GET_DISPATCH()->FUNC ARGS

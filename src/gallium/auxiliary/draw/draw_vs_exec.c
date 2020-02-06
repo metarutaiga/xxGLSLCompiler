@@ -93,7 +93,8 @@ vs_exec_run_linear(struct draw_vertex_shader *shader,
                     const unsigned const_size[PIPE_MAX_CONSTANT_BUFFERS],
                    unsigned count,
                    unsigned input_stride,
-                   unsigned output_stride)
+                   unsigned output_stride,
+                   const unsigned *fetch_elts)
 {
    struct exec_vertex_shader *evs = exec_vertex_shader(shader);
    struct tgsi_exec_machine *machine = evs->machine;
@@ -128,23 +129,22 @@ vs_exec_run_linear(struct draw_vertex_shader *shader,
                          input[slot][3]);
          }
 #endif
+	 int basevertex = shader->draw->pt.user.eltSize ? shader->draw->pt.user.eltBias : shader->draw->start_index;
 
          if (shader->info.uses_vertexid) {
             unsigned vid = machine->SysSemanticToIndex[TGSI_SEMANTIC_VERTEXID];
             assert(vid < ARRAY_SIZE(machine->SystemValue));
-            machine->SystemValue[vid].xyzw[0].i[j] = i + j;
-            /* XXX this should include base vertex. Where to get it??? */
+            machine->SystemValue[vid].xyzw[0].i[j] = fetch_elts ? fetch_elts[i + j] : (i + j + basevertex);
          }
          if (shader->info.uses_basevertex) {
             unsigned vid = machine->SysSemanticToIndex[TGSI_SEMANTIC_BASEVERTEX];
             assert(vid < ARRAY_SIZE(machine->SystemValue));
-            machine->SystemValue[vid].xyzw[0].i[j] = 0;
-            /* XXX Where to get it??? */
+            machine->SystemValue[vid].xyzw[0].i[j] = basevertex;
          }
          if (shader->info.uses_vertexid_nobase) {
             unsigned vid = machine->SysSemanticToIndex[TGSI_SEMANTIC_VERTEXID_NOBASE];
             assert(vid < ARRAY_SIZE(machine->SystemValue));
-            machine->SystemValue[vid].xyzw[0].i[j] = i + j;
+            machine->SystemValue[vid].xyzw[0].i[j] = fetch_elts ? (fetch_elts[i + j] - basevertex) : (i + j);
          }
 
          for (slot = 0; slot < shader->info.num_inputs; slot++) {
@@ -230,6 +230,7 @@ draw_create_vs_exec(struct draw_context *draw,
 
    tgsi_scan_shader(state->tokens, &vs->base.info);
 
+   vs->base.state.type = state->type;
    vs->base.state.stream_output = state->stream_output;
    vs->base.draw = draw;
    vs->base.prepare = vs_exec_prepare;

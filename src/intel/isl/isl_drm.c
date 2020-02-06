@@ -24,8 +24,8 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include <drm_fourcc.h>
-#include <i915_drm.h>
+#include "drm-uapi/drm_fourcc.h"
+#include "drm-uapi/i915_drm.h"
 
 #include "isl.h"
 #include "dev/gen_device_info.h"
@@ -41,13 +41,14 @@ isl_tiling_to_i915_tiling(enum isl_tiling tiling)
       return I915_TILING_X;
 
    case ISL_TILING_Y0:
+   case ISL_TILING_HIZ:
+   case ISL_TILING_CCS:
       return I915_TILING_Y;
 
    case ISL_TILING_W:
    case ISL_TILING_Yf:
    case ISL_TILING_Ys:
-   case ISL_TILING_HIZ:
-   case ISL_TILING_CCS:
+   case ISL_TILING_GEN12_CCS:
       return I915_TILING_NONE;
    }
 

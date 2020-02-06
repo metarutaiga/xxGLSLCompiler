@@ -41,8 +41,11 @@ struct amdgpu_cs;
 #define NUM_SLAB_ALLOCATORS 3
 
 struct amdgpu_winsys {
-   struct radeon_winsys base;
    struct pipe_reference reference;
+
+   /* File descriptor which was passed to amdgpu_device_initialize */
+   int fd;
+
    struct pb_cache bo_cache;
 
    /* Each slab buffer can only contain suballocations of equal sizes, so we
@@ -88,18 +91,43 @@ struct amdgpu_winsys {
    struct list_head global_bo_list;
    unsigned num_buffers;
 
+   /* Single-linked list of all structs amdgpu_screen_winsys referencing this
+    * struct amdgpu_winsys
+    */
+   simple_mtx_t sws_list_lock;
+   struct amdgpu_screen_winsys *sws_list;
+
    /* For returning the same amdgpu_winsys_bo instance for exported
     * and re-imported buffers. */
    struct util_hash_table *bo_export_table;
    simple_mtx_t bo_export_table_lock;
 };
 
+struct amdgpu_screen_winsys {
+   struct radeon_winsys base;
+   struct amdgpu_winsys *aws;
+   int fd;
+   struct pipe_reference reference;
+   struct amdgpu_screen_winsys *next;
+
+   /* Maps a BO to its KMS handle valid for this DRM file descriptor
+    * Protected by amdgpu_winsys::sws_list_lock
+    */
+   struct hash_table *kms_handles;
+};
+
+static inline struct amdgpu_screen_winsys *
+amdgpu_screen_winsys(struct radeon_winsys *base)
+{
+   return (struct amdgpu_screen_winsys*)base;
+}
+
 static inline struct amdgpu_winsys *
 amdgpu_winsys(struct radeon_winsys *base)
 {
-   return (struct amdgpu_winsys*)base;
+   return amdgpu_screen_winsys(base)->aws;
 }
 
-void amdgpu_surface_init_functions(struct amdgpu_winsys *ws);
+void amdgpu_surface_init_functions(struct amdgpu_screen_winsys *ws);
 
 #endif

@@ -35,6 +35,8 @@ files_r600 = files(
   'r600_asm.h',
   'r600_blit.c',
   'r600d.h',
+  'r600_dump.c',
+  'r600_dump.h',
   'r600_formats.h',
   'r600_hw_context.c',
   'r600_isa.c',
@@ -121,7 +123,7 @@ endif
 libr600 = static_library(
   'r600',
   [files_r600, egd_tables_h],
-  c_args : [c_vis_args, r600_c_args],
+  c_args : [c_vis_args, r600_c_args, '-Wstrict-overflow=0'],
   cpp_args : [cpp_vis_args],
   include_directories : [
     inc_src, inc_include, inc_gallium, inc_gallium_aux, inc_amd_common,

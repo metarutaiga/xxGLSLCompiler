@@ -32,7 +32,7 @@
 #include "nouveau_vp3_video.h"
 
 #include "util/u_video.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_sampler.h"
 
 static struct pipe_sampler_view **
@@ -492,7 +492,7 @@ nouveau_vp3_screen_get_video_param(struct pipe_screen *pscreen,
    }
 }
 
-boolean
+bool
 nouveau_vp3_screen_video_supported(struct pipe_screen *screen,
                                    enum pipe_format format,
                                    enum pipe_video_profile profile,

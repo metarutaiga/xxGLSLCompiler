@@ -34,7 +34,9 @@
  */
 
 
-#include "util/u_format.h"
+#include <llvm/Config/llvm-config.h>
+
+#include "util/format/u_format.h"
 #include "util/u_math.h"
 #include "util/u_string.h"
 #include "util/u_cpu_detect.h"
@@ -77,24 +79,17 @@ lp_build_uninterleave2_half(struct gallivm_state *gallivm,
                             unsigned lo_hi)
 {
    LLVMValueRef shuffle, elems[LP_MAX_VECTOR_LENGTH];
-   unsigned i, j;
+   unsigned i;
 
    assert(type.length <= LP_MAX_VECTOR_LENGTH);
    assert(lo_hi < 2);
 
    if (type.length * type.width == 256) {
-      assert(type.length >= 4);
-      for (i = 0, j = 0; i < type.length; ++i) {
-         if (i == type.length / 4) {
-            j = type.length;
-         } else if (i == type.length / 2) {
-            j = type.length / 2;
-         } else if (i == 3 * type.length / 4) {
-            j = 3 * type.length / 4;
-         } else {
-            j += 2;
-         }
-         elems[i] = lp_build_const_int32(gallivm, j + lo_hi);
+      assert(type.length == 8);
+      assert(type.width == 32);
+      static const unsigned shufvals[8] = {0, 2, 8, 10, 4, 6, 12, 14};
+      for (i = 0; i < type.length; ++i) {
+         elems[i] = lp_build_const_int32(gallivm, shufvals[i] + lo_hi);
       }
    } else {
       for (i = 0; i < type.length; ++i) {
@@ -277,7 +272,7 @@ lp_build_gather_s3tc(struct gallivm_state *gallivm,
    }
    else {
       LLVMValueRef tmp[4], cc01, cc23;
-      struct lp_type lp_type32, lp_type64, lp_type32dxt;
+      struct lp_type lp_type32, lp_type64;
       memset(&lp_type32, 0, sizeof lp_type32);
       lp_type32.width = 32;
       lp_type32.length = length;
@@ -309,10 +304,13 @@ lp_build_gather_s3tc(struct gallivm_state *gallivm,
                                               lp_build_const_extend_shuffle(gallivm, 2, 4), "");
          }
          if (length == 8) {
+            struct lp_type lp_type32_4 = {0};
+            lp_type32_4.width = 32;
+            lp_type32_4.length = 4;
             for (i = 0; i < 4; ++i) {
                tmp[0] = elems[i];
                tmp[1] = elems[i+4];
-               elems[i] = lp_build_concat(gallivm, tmp, lp_type32, 2);
+               elems[i] = lp_build_concat(gallivm, tmp, lp_type32_4, 2);
             }
          }
          cc01 = lp_build_interleave2_half(gallivm, lp_type32, elems[0], elems[1], 0);
@@ -469,7 +467,7 @@ lp_build_pavgb(struct lp_build_context *bld8,
    LLVMBuilderRef builder = gallivm->builder;
    assert(bld8->type.width == 8);
    assert(bld8->type.length == 16 || bld8->type.length == 32);
-   if (HAVE_LLVM < 0x0600) {
+   if (LLVM_VERSION_MAJOR < 6) {
       LLVMValueRef intrargs[2];
       char *intr_name = bld8->type.length == 32 ? "llvm.x86.avx2.pavg.b" :
                                                   "llvm.x86.sse2.pavg.b";
@@ -811,7 +809,7 @@ s3tc_dxt3_to_rgba_aos(struct gallivm_state *gallivm,
    tmp = lp_build_select(&bld, sel_mask, alpha_low, alpha_hi);
    bit_pos = LLVMBuildAnd(builder, bit_pos,
                           lp_build_const_int_vec(gallivm, type, 0xffffffdf), "");
-   /* Warning: slow shift with per element count */
+   /* Warning: slow shift with per element count (without avx2) */
    /*
     * Could do pshufb here as well - just use appropriate 2 bits in bit_pos
     * to select the right byte with pshufb. Then for the remaining one bit
@@ -1640,7 +1638,6 @@ s3tc_decode_block_dxt5(struct gallivm_state *gallivm,
                           lp_build_const_int_vec(gallivm, type16, 8), "");
    alpha = LLVMBuildBitCast(builder, alpha,  i64t, "");
    shuffle1 = lp_build_const_shuffle1(gallivm, 0, 8);
-   /* XXX this shuffle broken with LLVM 2.8 */
    alpha0 = LLVMBuildShuffleVector(builder, alpha0, alpha0, shuffle1, "");
    alpha1 = LLVMBuildShuffleVector(builder, alpha1, alpha1, shuffle1, "");
 
@@ -1953,8 +1950,8 @@ update_cached_block(struct gallivm_state *gallivm,
    LLVMBasicBlockRef bb;
    LLVMValueRef args[3];
 
-   util_snprintf(name, sizeof name, "%s_update_cache_one_block",
-                 format_desc->short_name);
+   snprintf(name, sizeof name, "%s_update_cache_one_block",
+            format_desc->short_name);
    function = LLVMGetNamedFunction(module, name);
 
    if (!function) {
@@ -2176,6 +2173,9 @@ lp_build_fetch_s3tc_rgba_aos(struct gallivm_state *gallivm,
       return rgba;
    }
 
+   /*
+    * Could use n > 8 here with avx2, but doesn't seem faster.
+    */
    if (n > 4) {
       unsigned count;
       LLVMTypeRef i8_vectype = LLVMVectorType(i8t, 4 * n);
@@ -2191,7 +2191,7 @@ lp_build_fetch_s3tc_rgba_aos(struct gallivm_state *gallivm,
       rgba = LLVMGetUndef(i128_vectype);
 
       for (count = 0; count < n / 4; count++) {
-         LLVMValueRef colors, codewords, alpha_lo, alpha_hi;
+         LLVMValueRef colors, codewords, alpha_lo = NULL, alpha_hi = NULL;
 
          i4 = lp_build_extract_range(gallivm, i, count * 4, 4);
          j4 = lp_build_extract_range(gallivm, j, count * 4, 4);
@@ -2230,7 +2230,7 @@ lp_build_fetch_s3tc_rgba_aos(struct gallivm_state *gallivm,
       rgba = LLVMBuildBitCast(builder, rgba, i8_vectype, "");
    }
    else {
-      LLVMValueRef colors, codewords, alpha_lo, alpha_hi;
+      LLVMValueRef colors, codewords, alpha_lo = NULL, alpha_hi = NULL;
 
       lp_build_gather_s3tc(gallivm, n, format_desc, &colors, &codewords,
                            &alpha_lo, &alpha_hi, base_ptr, offset);

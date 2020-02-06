@@ -60,6 +60,9 @@ nvc0_memory_barrier(struct pipe_context *pipe, unsigned flags)
    struct nouveau_pushbuf *push = nvc0->base.pushbuf;
    int i, s;
 
+   if (!(flags & ~PIPE_BARRIER_UPDATE))
+      return;
+
    if (flags & PIPE_BARRIER_MAPPED_BUFFER) {
       for (i = 0; i < nvc0->num_vtxbufs; ++i) {
          if (!nvc0->vtxbuf[i].buffer.resource && !nvc0->vtxbuf[i].is_user_buffer)
@@ -129,6 +132,12 @@ nvc0_emit_string_marker(struct pipe_context *pipe, const char *str, int len)
       memcpy(&data, &str[string_words * 4], len & 3);
       PUSH_DATA (push, data);
    }
+}
+
+static enum pipe_reset_status
+nvc0_get_device_reset_status(struct pipe_context *pipe)
+{
+   return PIPE_NO_RESET;
 }
 
 static void
@@ -404,6 +413,7 @@ nvc0_create(struct pipe_screen *pscreen, void *priv, unsigned ctxflags)
    pipe->memory_barrier = nvc0_memory_barrier;
    pipe->get_sample_position = nvc0_context_get_sample_position;
    pipe->emit_string_marker = nvc0_emit_string_marker;
+   pipe->get_device_reset_status = nvc0_get_device_reset_status;
 
    nouveau_context_init(&nvc0->base);
    nvc0_init_query_functions(nvc0);

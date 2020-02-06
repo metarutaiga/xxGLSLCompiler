@@ -216,9 +216,6 @@ static uint32_t profile2stream_type(struct ruvd_decoder *dec, unsigned family)
 	case PIPE_VIDEO_FORMAT_MPEG4:
 		return RUVD_CODEC_MPEG4;
 
-	case PIPE_VIDEO_FORMAT_HEVC:
-		return RUVD_CODEC_H265;
-
 	case PIPE_VIDEO_FORMAT_JPEG:
 		return RUVD_CODEC_MJPEG;
 
@@ -247,7 +244,7 @@ static unsigned calc_ctx_size_h265_main(struct ruvd_decoder *dec)
 
 static unsigned calc_ctx_size_h265_main10(struct ruvd_decoder *dec, struct pipe_h265_picture_desc *pic)
 {
-	unsigned block_size, log2_ctb_size, width_in_ctb, height_in_ctb, num_16x16_block_per_ctb;
+	unsigned log2_ctb_size, width_in_ctb, height_in_ctb, num_16x16_block_per_ctb;
 	unsigned context_buffer_size_per_ctb_row, cm_buffer_size, max_mb_address, db_left_tile_pxl_size;
 	unsigned db_left_tile_ctx_size = 4096 / 16 * (32 + 16 * 4);
 
@@ -262,8 +259,8 @@ static unsigned calc_ctx_size_h265_main10(struct ruvd_decoder *dec, struct pipe_
 	else
 		max_references = MAX2(max_references, 17);
 
-	block_size = (1 << (pic->pps->sps->log2_min_luma_coding_block_size_minus3 + 3));
-	log2_ctb_size = block_size + pic->pps->sps->log2_diff_max_min_luma_coding_block_size;
+	log2_ctb_size = pic->pps->sps->log2_min_luma_coding_block_size_minus3 + 3 +
+		pic->pps->sps->log2_diff_max_min_luma_coding_block_size;
 
 	width_in_ctb = (width + ((1 << log2_ctb_size) - 1)) >> log2_ctb_size;
 	height_in_ctb = (height + ((1 << log2_ctb_size) - 1)) >> log2_ctb_size;
@@ -359,20 +356,6 @@ static unsigned calc_dpb_size(struct ruvd_decoder *dec)
 		}
 		break;
 	}
-
-	case PIPE_VIDEO_FORMAT_HEVC:
-		if (dec->base.width * dec->base.height >= 4096*2000)
-			max_references = MAX2(max_references, 8);
-		else
-			max_references = MAX2(max_references, 17);
-
-		width = align (width, 16);
-		height = align (height, 16);
-		if (dec->base.profile == PIPE_VIDEO_PROFILE_HEVC_MAIN_10)
-			dpb_size = align((align(width, get_db_pitch_alignment(dec)) * height * 9) / 4, 256) * max_references;
-		else
-			dpb_size = align((align(width, get_db_pitch_alignment(dec)) * height * 3) / 2, 256) * max_references;
-		break;
 
 	case PIPE_VIDEO_FORMAT_VC1:
 		// the firmware seems to allways assume a minimum of ref frames
@@ -663,18 +646,6 @@ static struct ruvd_h265 get_h265_msg(struct ruvd_decoder *dec, struct pipe_video
 	for (i = 0 ; i < 2 ; i++) {
 		for (int j = 0 ; j < 15 ; j++)
 			result.direct_reflist[i][j] = pic->RefPicList[i][j];
-	}
-
-	if (pic->base.profile == PIPE_VIDEO_PROFILE_HEVC_MAIN_10) {
-		if (target->buffer_format == PIPE_FORMAT_P016) {
-			result.p010_mode = 1;
-			result.msb_mode = 1;
-		} else {
-			result.luma_10to8 = 5;
-			result.chroma_10to8 = 5;
-			result.sclr_luma10to8 = 4;
-			result.sclr_chroma10to8 = 4;
-		}
 	}
 
 	/* TODO
@@ -1196,24 +1167,6 @@ static void ruvd_end_frame(struct pipe_video_codec *decoder,
 		dec->msg->body.decode.codec.h264 = get_h264_msg(dec, (struct pipe_h264_picture_desc*)picture);
 		break;
 
-	case PIPE_VIDEO_FORMAT_HEVC:
-		dec->msg->body.decode.codec.h265 = get_h265_msg(dec, target, (struct pipe_h265_picture_desc*)picture);
-		if (dec->ctx.res == NULL) {
-			unsigned ctx_size;
-			if (dec->base.profile == PIPE_VIDEO_PROFILE_HEVC_MAIN_10)
-				ctx_size = calc_ctx_size_h265_main10(dec, (struct pipe_h265_picture_desc*)picture);
-			else
-				ctx_size = calc_ctx_size_h265_main(dec);
-			if (!rvid_create_buffer(dec->screen, &dec->ctx, ctx_size, PIPE_USAGE_DEFAULT)) {
-				RVID_ERR("Can't allocated context buffer.\n");
-			}
-			rvid_clear_buffer(decoder->context, &dec->ctx);
-		}
-
-		if (dec->ctx.res)
-			dec->msg->body.decode.dpb_reserved = dec->ctx.res->buf->size;
-		break;
-
 	case PIPE_VIDEO_FORMAT_VC1:
 		dec->msg->body.decode.codec.vc1 = get_vc1_msg((struct pipe_vc1_picture_desc*)picture);
 		break;
@@ -1314,8 +1267,7 @@ struct pipe_video_codec *ruvd_create_decoder(struct pipe_context *context,
 	if (!dec)
 		return NULL;
 
-	if (info.drm_major < 3)
-		dec->use_legacy = true;
+	dec->use_legacy = true;
 
 	dec->base = *templ;
 	dec->base.context = context;
