@@ -27,6 +27,7 @@
     <ClCompile Include="..\src\compiler\glsl\builtin_functions.cpp" />
     <ClCompile Include="..\src\compiler\glsl\builtin_types.cpp" />
     <ClCompile Include="..\src\compiler\glsl\builtin_variables.cpp" />
+    <ClCompile Include="..\src\compiler\glsl\generate_ir.cpp" />
     <ClCompile Include="..\src\compiler\glsl\glcpp\glcpp-lex.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -75,16 +76,17 @@
     <ClCompile Include="..\src\compiler\glsl\link_uniform_initializers.cpp" />
     <ClCompile Include="..\src\compiler\glsl\link_varyings.cpp" />
     <ClCompile Include="..\src\compiler\glsl\loop_analysis.cpp" />
-    <ClCompile Include="..\src\compiler\glsl\loop_controls.cpp" />
     <ClCompile Include="..\src\compiler\glsl\loop_unroll.cpp" />
     <ClCompile Include="..\src\compiler\glsl\lower_blend_equation_advanced.cpp" />
     <ClCompile Include="..\src\compiler\glsl\lower_buffer_access.cpp" />
     <ClCompile Include="..\src\compiler\glsl\lower_const_arrays_to_uniforms.cpp" />
+    <ClCompile Include="..\src\compiler\glsl\lower_cs_derived.cpp" />
     <ClCompile Include="..\src\compiler\glsl\lower_discard.cpp" />
     <ClCompile Include="..\src\compiler\glsl\lower_discard_flow.cpp" />
     <ClCompile Include="..\src\compiler\glsl\lower_distance.cpp" />
     <ClCompile Include="..\src\compiler\glsl\lower_if_to_cond_assign.cpp" />
     <ClCompile Include="..\src\compiler\glsl\lower_instructions.cpp" />
+    <ClCompile Include="..\src\compiler\glsl\lower_int64.cpp" />
     <ClCompile Include="..\src\compiler\glsl\lower_jumps.cpp" />
     <ClCompile Include="..\src\compiler\glsl\lower_mat_op_to_vec.cpp" />
     <ClCompile Include="..\src\compiler\glsl\lower_named_interface_blocks.cpp" />
@@ -124,11 +126,10 @@
     <ClCompile Include="..\src\compiler\glsl\opt_function_inlining.cpp" />
     <ClCompile Include="..\src\compiler\glsl\opt_if_simplification.cpp" />
     <ClCompile Include="..\src\compiler\glsl\opt_minmax.cpp" />
-    <ClCompile Include="..\src\compiler\glsl\opt_noop_swizzle.cpp" />
     <ClCompile Include="..\src\compiler\glsl\opt_rebalance_tree.cpp" />
     <ClCompile Include="..\src\compiler\glsl\opt_redundant_jumps.cpp" />
     <ClCompile Include="..\src\compiler\glsl\opt_structure_splitting.cpp" />
-    <ClCompile Include="..\src\compiler\glsl\opt_swizzle_swizzle.cpp" />
+    <ClCompile Include="..\src\compiler\glsl\opt_swizzle.cpp" />
     <ClCompile Include="..\src\compiler\glsl\opt_tree_grafting.cpp" />
     <ClCompile Include="..\src\compiler\glsl\opt_vectorize.cpp" />
     <ClCompile Include="..\src\compiler\glsl\propagate_invariance.cpp" />
@@ -161,7 +162,7 @@
     <ClCompile Include="..\src\util\set.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="..\src\util\strndup.c" />
+    <ClCompile Include="..\src\util\string_buffer.c" />
     <ClCompile Include="..\src\util\strtod.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -170,10 +171,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\compiler\glsl\builtin_functions.h" />
+    <ClInclude Include="..\src\compiler\glsl\builtin_int64.h" />
     <ClInclude Include="..\src\compiler\glsl\glcpp\glcpp.h" />
     <ClInclude Include="..\src\compiler\glsl\ir_array_refcount.h" />
     <ClInclude Include="..\src\compiler\glsl\ir_builder_print_visitor.h" />
     <ClInclude Include="..\src\compiler\glsl\opt_add_neg_to_sub.h" />
+    <ClInclude Include="..\src\compiler\glsl\string_to_uint_map.h" />
     <ClInclude Include="..\src\gallium\auxiliary\util\u_math.h" />
     <ClInclude Include="..\src\getopt\getopt.h" />
     <ClInclude Include="..\src\mesa\main\compiler.h" />
@@ -196,11 +199,16 @@
     <ClInclude Include="..\src\mesa\program\prog_parameter.h" />
     <ClInclude Include="..\src\mesa\program\prog_statevars.h" />
     <ClInclude Include="..\src\util\bitset.h" />
+    <ClInclude Include="..\src\util\build_id.h" />
+    <ClInclude Include="..\src\util\futex.h" />
     <ClInclude Include="..\src\util\list.h" />
     <ClInclude Include="..\src\util\macros.h" />
     <ClInclude Include="..\src\util\rounding.h" />
+    <ClInclude Include="..\src\util\simple_mtx.h" />
+    <ClInclude Include="..\src\util\string_buffer.h" />
     <ClInclude Include="..\src\util\string_to_uint_map.h" />
     <ClInclude Include="..\src\util\u_atomic.h" />
+    <ClInclude Include="..\src\util\u_dynarray.h" />
     <ClInclude Include="..\src\util\u_endian.h" />
     <ClInclude Include="..\include\c11\threads.h" />
     <ClInclude Include="..\include\c11\threads_posix.h" />
@@ -253,6 +261,7 @@
     <ClInclude Include="..\src\util\set.h" />
     <ClInclude Include="..\src\util\strndup.h" />
     <ClInclude Include="..\src\util\strtod.h" />
+    <ClInclude Include="..\src\util\u_string.h" />
     <ClInclude Include="..\xxMiniCRT\xxMSVCRT.h" />
   </ItemGroup>
   <ItemGroup>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Intel Corporation
+ * Copyright © 2016 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -17,31 +17,17 @@
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
- * IN THE SOFTWARE.
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  */
+#include "ir_builder.h"
+#include "builtin_functions.h"
+#include "program/prog_instruction.h" /* for SWIZZLE_X, &c. */
 
-#if defined(_WIN32)
-#include <stdlib.h>
-#include <string.h>
-#include "strndup.h"
+using namespace ir_builder;
 
-char *
-strndup(const char *str, size_t max)
-{
-   size_t n;
-   char *ptr;
+namespace generate_ir {
 
-   if (!str)
-      return NULL;
+#include "builtin_int64.h"
 
-   n = strnlen(str, max);
-   ptr = (char *) calloc(n + 1, sizeof(char));
-   if (!ptr)
-      return NULL;
-
-   memcpy(ptr, str, n);
-   return ptr;
 }
-
-#endif

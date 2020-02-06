@@ -78,7 +78,7 @@ _mesa_create_visual( GLboolean dbFlag,
                      GLint accumGreenBits,
                      GLint accumBlueBits,
                      GLint accumAlphaBits,
-                     GLint numSamples );
+                     GLuint numSamples );
 
 extern GLboolean
 _mesa_initialize_visual( struct gl_config *v,
@@ -94,7 +94,7 @@ _mesa_initialize_visual( struct gl_config *v,
                          GLint accumGreenBits,
                          GLint accumBlueBits,
                          GLint accumAlphaBits,
-                         GLint numSamples );
+                         GLuint numSamples );
 
 extern void
 _mesa_destroy_visual( struct gl_config *vis );
@@ -121,10 +121,6 @@ _mesa_destroy_context( struct gl_context *ctx );
 
 extern void
 _mesa_copy_context(const struct gl_context *src, struct gl_context *dst, GLuint mask);
-
-
-extern void
-_mesa_check_init_viewport(struct gl_context *ctx, GLuint width, GLuint height);
 
 extern GLboolean
 _mesa_make_current( struct gl_context *ctx, struct gl_framebuffer *drawBuffer,
@@ -155,13 +151,6 @@ _mesa_set_context_lost_dispatch(struct gl_context *ctx);
 
 /** \name Miscellaneous */
 /*@{*/
-
-extern void
-_mesa_record_error( struct gl_context *ctx, GLenum error );
-
-
-extern void
-_mesa_finish(struct gl_context *ctx);
 
 extern void
 _mesa_flush(struct gl_context *ctx);
@@ -320,6 +309,13 @@ static inline bool
 _mesa_is_gles32(const struct gl_context *ctx)
 {
    return ctx->API == API_OPENGLES2 && ctx->Version >= 32;
+}
+
+
+static inline bool
+_mesa_is_no_error_enabled(const struct gl_context *ctx)
+{
+   return ctx->Const.ContextFlags & GL_CONTEXT_FLAG_NO_ERROR_BIT_KHR;
 }
 
 
