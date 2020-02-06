@@ -44,7 +44,7 @@
 #include <float.h>
 #include <stdarg.h>
 
-#include "util/bitscan.h"
+#include "bitscan.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -177,14 +177,6 @@ static inline float
 util_fast_pow(float x, float y)
 {
    return util_fast_exp2(util_fast_log2(x) * y);
-}
-
-/* Note that this counts zero as a power of two.
- */
-static inline boolean
-util_is_power_of_two( unsigned v )
-{
-   return (v & (v-1)) == 0;
 }
 
 
@@ -368,7 +360,6 @@ uif(uint32_t ui)
 
 /**
  * Convert ubyte to float in [0, 1].
- * XXX a 256-entry lookup table would be slightly faster.
  */
 static inline float
 ubyte_to_float(ubyte ub)
@@ -383,16 +374,16 @@ ubyte_to_float(ubyte ub)
 static inline ubyte
 float_to_ubyte(float f)
 {
-   union fi tmp;
-
-   tmp.f = f;
-   if (tmp.i < 0) {
+   /* return 0 for NaN too */
+   if (!(f > 0.0f)) {
       return (ubyte) 0;
    }
-   else if (tmp.i >= 0x3f800000 /* 1.0f */) {
+   else if (f >= 1.0f) {
       return (ubyte) 255;
    }
    else {
+      union fi tmp;
+      tmp.f = f;
       tmp.f = tmp.f * (255.0f/256.0f) + 32768.0f;
       return (ubyte) tmp.i;
    }
@@ -429,6 +420,23 @@ util_logbase2(unsigned n)
 #endif
 }
 
+static inline uint64_t
+util_logbase2_64(uint64_t n)
+{
+#if defined(HAVE___BUILTIN_CLZLL)
+   return ((sizeof(uint64_t) * 8 - 1) - __builtin_clzll(n | 1));
+#else
+   uint64_t pos = 0ull;
+   if (n >= 1ull<<32) { n >>= 32; pos += 32; }
+   if (n >= 1ull<<16) { n >>= 16; pos += 16; }
+   if (n >= 1ull<< 8) { n >>=  8; pos +=  8; }
+   if (n >= 1ull<< 4) { n >>=  4; pos +=  4; }
+   if (n >= 1ull<< 2) { n >>=  2; pos +=  2; }
+   if (n >= 1ull<< 1) {           pos +=  1; }
+   return pos;
+#endif
+}
+
 /**
  * Returns the ceiling of log n base 2, and 0 when n == 0. Equivalently,
  * returns the smallest x such that n <= 2**x.
@@ -440,6 +448,15 @@ util_logbase2_ceil(unsigned n)
       return 0;
 
    return 1 + util_logbase2(n - 1);
+}
+
+static inline uint64_t
+util_logbase2_ceil64(uint64_t n)
+{
+   if (n <= 1)
+      return 0;
+
+   return 1ull + util_logbase2_64(n - 1);
 }
 
 /**
@@ -459,7 +476,7 @@ util_next_power_of_two(unsigned x)
    if (x <= 1)
       return 1;
 
-   if (util_is_power_of_two(x))
+   if (util_is_power_of_two_or_zero(x))
       return x;
 
    val--;
@@ -468,6 +485,35 @@ util_next_power_of_two(unsigned x)
    val = (val >> 4) | val;
    val = (val >> 8) | val;
    val = (val >> 16) | val;
+   val++;
+   return val;
+#endif
+}
+
+static inline uint64_t
+util_next_power_of_two64(uint64_t x)
+{
+#if defined(HAVE___BUILTIN_CLZLL)
+   if (x <= 1)
+       return 1;
+
+   return (1ull << ((sizeof(uint64_t) * 8) - __builtin_clzll(x - 1)));
+#else
+   uint64_t val = x;
+
+   if (x <= 1)
+      return 1;
+
+   if (util_is_power_of_two_or_zero64(x))
+      return x;
+
+   val--;
+   val = (val >> 1)  | val;
+   val = (val >> 2)  | val;
+   val = (val >> 4)  | val;
+   val = (val >> 8)  | val;
+   val = (val >> 16) | val;
+   val = (val >> 32) | val;
    val++;
    return val;
 #endif

@@ -330,6 +330,9 @@
     <ClInclude Include="..\src\util\u_string.h">
       <Filter>src\util</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\compiler\glsl\linker_util.h">
+      <Filter>src\compiler</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\compiler\glsl_types.cpp">
@@ -566,9 +569,6 @@
     <ClCompile Include="..\src\compiler\glsl\opt_constant_variable.cpp">
       <Filter>src\compiler\glsl</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\compiler\glsl\opt_copy_propagation.cpp">
-      <Filter>src\compiler\glsl</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\compiler\glsl\opt_copy_propagation_elements.cpp">
       <Filter>src\compiler\glsl</Filter>
     </ClCompile>
@@ -697,6 +697,9 @@
     </ClCompile>
     <ClCompile Include="..\src\util\string_buffer.c">
       <Filter>src\util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\compiler\glsl\linker_util.cpp">
+      <Filter>src\compiler</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
