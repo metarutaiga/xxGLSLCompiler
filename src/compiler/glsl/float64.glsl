@@ -218,6 +218,18 @@ __fge64(uint64_t a, uint64_t b)
    return !__flt64_nonnan(a, b);
 }
 
+uint64_t
+__fsat64(uint64_t __a)
+{
+   if (__flt64(__a, 0ul))
+      return 0ul;
+
+   if (__fge64(__a, 0x3FF0000000000000ul /* 1.0 */))
+      return 0x3FF0000000000000ul;
+
+   return __a;
+}
+
 /* Adds the 64-bit value formed by concatenating `a0' and `a1' to the 64-bit
  * value formed by concatenating `b0' and `b1'.  Addition is modulo 2^64, so
  * any carry out is lost.  The result is broken into two 32-bit pieces which
@@ -1287,43 +1299,35 @@ __fp64_to_fp32(uint64_t __a)
 float
 __uint64_to_fp32(uint64_t __a)
 {
-   uint zFrac = 0u;
    uvec2 aFrac = unpackUint2x32(__a);
-   int shiftCount = __countLeadingZeros32(mix(aFrac.y, aFrac.x, aFrac.y == 0u));
-   shiftCount -= mix(40, 8, aFrac.y == 0u);
+   int shiftCount = mix(__countLeadingZeros32(aFrac.y) - 33,
+                        __countLeadingZeros32(aFrac.x) - 1,
+                        aFrac.y == 0u);
 
-   if (0 <= shiftCount) {
+   if (0 <= shiftCount)
       __shortShift64Left(aFrac.y, aFrac.x, shiftCount, aFrac.y, aFrac.x);
-      bool is_zero = (aFrac.y | aFrac.x) == 0u;
-      return mix(__packFloat32(0u, 0x95 - shiftCount, aFrac.x), 0, is_zero);
-   }
+   else
+      __shift64RightJamming(aFrac.y, aFrac.x, -shiftCount, aFrac.y, aFrac.x);
 
-   shiftCount += 7;
-   __shift64RightJamming(aFrac.y, aFrac.x, -shiftCount, aFrac.y, aFrac.x);
-   zFrac = mix(aFrac.x<<shiftCount, aFrac.x, shiftCount < 0);
-   return __roundAndPackFloat32(0u, 0x9C - shiftCount, zFrac);
+   return __roundAndPackFloat32(0u, 0x9C - shiftCount, aFrac.x);
 }
 
 float
 __int64_to_fp32(int64_t __a)
 {
-   uint zFrac = 0u;
    uint aSign = uint(__a < 0);
    uint64_t absA = mix(uint64_t(__a), uint64_t(-__a), __a < 0);
    uvec2 aFrac = unpackUint2x32(absA);
-   int shiftCount = __countLeadingZeros32(mix(aFrac.y, aFrac.x, aFrac.y == 0u));
-   shiftCount -= mix(40, 8, aFrac.y == 0u);
+   int shiftCount = mix(__countLeadingZeros32(aFrac.y) - 33,
+                        __countLeadingZeros32(aFrac.x) - 1,
+                        aFrac.y == 0u);
 
-   if (0 <= shiftCount) {
+   if (0 <= shiftCount)
       __shortShift64Left(aFrac.y, aFrac.x, shiftCount, aFrac.y, aFrac.x);
-      bool is_zero = (aFrac.y | aFrac.x) == 0u;
-      return mix(__packFloat32(aSign, 0x95 - shiftCount, aFrac.x), 0, absA == 0u);
-   }
+   else
+      __shift64RightJamming(aFrac.y, aFrac.x, -shiftCount, aFrac.y, aFrac.x);
 
-   shiftCount += 7;
-   __shift64RightJamming(aFrac.y, aFrac.x, -shiftCount, aFrac.y, aFrac.x);
-   zFrac = mix(aFrac.x<<shiftCount, aFrac.x, shiftCount < 0);
-   return __roundAndPackFloat32(aSign, 0x9C - shiftCount, zFrac);
+   return __roundAndPackFloat32(aSign, 0x9C - shiftCount, aFrac.x);
 }
 
 /* Returns the result of converting the single-precision floating-point value
@@ -1681,17 +1685,22 @@ __fround64(uint64_t __a)
 
    if (unbiasedExp < 20) {
       if (unbiasedExp < 0) {
+         if ((aHi & 0x80000000u) != 0u && aLo == 0u) {
+            return 0;
+         }
          aHi &= 0x80000000u;
-         if (unbiasedExp == -1 && aLo != 0u)
-            aHi |= (1023u << 20);
+         if ((a.y & 0x000FFFFFu) == 0u && a.x == 0u) {
+            aLo = 0u;
+            return packUint2x32(uvec2(aLo, aHi));
+         }
+         aHi = mix(aHi, (aHi | 0x3FF00000u), unbiasedExp == -1);
          aLo = 0u;
       } else {
          uint maskExp = 0x000FFFFFu >> unbiasedExp;
-         /* a is an integral value */
-         if (((aHi & maskExp) == 0u) && (aLo == 0u))
-            return __a;
-
+         uint lastBit = maskExp + 1;
          aHi += 0x00080000u >> unbiasedExp;
+         if ((aHi & maskExp) == 0u)
+            aHi &= ~lastBit;
          aHi &= ~maskExp;
          aLo = 0u;
       }
@@ -1708,9 +1717,7 @@ __fround64(uint64_t __a)
       aLo &= ~maskExp;
    }
 
-   a.x = aLo;
-   a.y = aHi;
-   return packUint2x32(a);
+   return packUint2x32(uvec2(aLo, aHi));
 }
 
 uint64_t

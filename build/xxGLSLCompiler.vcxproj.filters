@@ -333,6 +333,27 @@
     <ClInclude Include="..\src\compiler\glsl\linker_util.h">
       <Filter>src\compiler</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\util\detect_os.h">
+      <Filter>src\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\util\fast_urem_by_const.h">
+      <Filter>src\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\util\fnv1a.h">
+      <Filter>src\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\util\softfloat.h">
+      <Filter>src\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\util\u_math.h">
+      <Filter>src\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\util\xxhash.h">
+      <Filter>src\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\compiler\glsl\glcpp\pp_standalone_scaffolding.h">
+      <Filter>src\compiler\glsl\glcpp</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\compiler\glsl_types.cpp">
@@ -700,6 +721,12 @@
     </ClCompile>
     <ClCompile Include="..\src\compiler\glsl\linker_util.cpp">
       <Filter>src\compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\util\softfloat.c">
+      <Filter>src\util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\compiler\glsl\glcpp\pp_standalone_scaffolding.c">
+      <Filter>src\compiler\glsl\glcpp</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -57,6 +57,7 @@ struct gl_shader_program;
 #define DDIV_TO_MUL_RCP           0x100000
 #define DIV_TO_MUL_RCP            (FDIV_TO_MUL_RCP | DDIV_TO_MUL_RCP)
 #define SQRT_TO_ABS_SQRT          0x200000
+#define MUL64_TO_MUL_AND_MUL_HIGH 0x400000
 
 /* Opertaions for lower_64bit_integer_instructions() */
 #define MUL64                     (1U << 0)
@@ -139,7 +140,7 @@ bool lower_variable_index_to_cond_assign(gl_shader_stage stage,
     exec_list *instructions, bool lower_input, bool lower_output,
     bool lower_temp, bool lower_uniform);
 bool lower_quadop_vector(exec_list *instructions, bool dont_lower_swz);
-bool lower_const_arrays_to_uniforms(exec_list *instructions, unsigned stage);
+bool lower_const_arrays_to_uniforms(exec_list *instructions, unsigned stage, unsigned max_uniform_components);
 bool lower_clip_cull_distance(struct gl_shader_program *prog,
                               gl_linked_shader *shader);
 void lower_output_reads(unsigned stage, exec_list *instructions);

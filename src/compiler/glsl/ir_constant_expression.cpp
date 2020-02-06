@@ -73,7 +73,8 @@ dot_d(ir_constant *op0, ir_constant *op1)
 static float
 bitcast_u2f(unsigned int u)
 {
-   assert(sizeof(float) == sizeof(unsigned int));
+   static_assert(sizeof(float) == sizeof(unsigned int),
+                 "float and unsigned int size mismatch");
    float f;
    memcpy(&f, &u, sizeof(f));
    return f;
@@ -82,7 +83,8 @@ bitcast_u2f(unsigned int u)
 static unsigned int
 bitcast_f2u(float f)
 {
-   assert(sizeof(float) == sizeof(unsigned int));
+   static_assert(sizeof(float) == sizeof(unsigned int),
+                 "float and unsigned int size mismatch");
    unsigned int u;
    memcpy(&u, &f, sizeof(f));
    return u;
@@ -91,7 +93,8 @@ bitcast_f2u(float f)
 static double
 bitcast_u642d(uint64_t u)
 {
-   assert(sizeof(double) == sizeof(uint64_t));
+   static_assert(sizeof(double) == sizeof(uint64_t),
+                 "double and uint64_t size mismatch");
    double d;
    memcpy(&d, &u, sizeof(d));
    return d;
@@ -100,25 +103,28 @@ bitcast_u642d(uint64_t u)
 static double
 bitcast_i642d(int64_t i)
 {
-   assert(sizeof(double) == sizeof(int64_t));
+   static_assert(sizeof(double) == sizeof(int64_t),
+                 "double and int64_t size mismatch");
    double d;
    memcpy(&d, &i, sizeof(d));
    return d;
 }
 
-static double
+static uint64_t
 bitcast_d2u64(double d)
 {
-   assert(sizeof(double) == sizeof(uint64_t));
+   static_assert(sizeof(double) == sizeof(uint64_t),
+                 "double and uint64_t size mismatch");
    uint64_t u;
    memcpy(&u, &d, sizeof(d));
    return u;
 }
 
-static double
+static int64_t
 bitcast_d2i64(double d)
 {
-   assert(sizeof(double) == sizeof(int64_t));
+   static_assert(sizeof(double) == sizeof(int64_t),
+                 "double and int64_t size mismatch");
    int64_t i;
    memcpy(&i, &d, sizeof(d));
    return i;
@@ -410,6 +416,42 @@ unpack_half_1x16(uint16_t u)
    return _mesa_half_to_float(u);
 }
 
+static int32_t
+iadd_saturate(int32_t a, int32_t b)
+{
+   return CLAMP(int64_t(a) + int64_t(b), INT32_MIN, INT32_MAX);
+}
+
+static int64_t
+iadd64_saturate(int64_t a, int64_t b)
+{
+   if (a < 0 && b < INT64_MIN - a)
+      return INT64_MIN;
+
+   if (a > 0 && b > INT64_MAX - a)
+      return INT64_MAX;
+
+   return a + b;
+}
+
+static int32_t
+isub_saturate(int32_t a, int32_t b)
+{
+   return CLAMP(int64_t(a) - int64_t(b), INT32_MIN, INT32_MAX);
+}
+
+static int64_t
+isub64_saturate(int64_t a, int64_t b)
+{
+   if (b > 0 && a < INT64_MIN + b)
+      return INT64_MIN;
+
+   if (b < 0 && a > INT64_MAX + b)
+      return INT64_MAX;
+
+   return a - b;
+}
+
 /**
  * Get the constant that is ultimately referenced by an r-value, in a constant
  * expression evaluation context.
@@ -435,7 +477,8 @@ constant_referenced(const ir_dereference *deref,
       ir_constant *const index_c =
          da->array_index->constant_expression_value(variable_context);
 
-      if (!index_c || !index_c->type->is_scalar() || !index_c->type->is_integer())
+      if (!index_c || !index_c->type->is_scalar() ||
+          !index_c->type->is_integer_32())
          break;
 
       const int index = index_c->type->base_type == GLSL_TYPE_INT ?

@@ -114,7 +114,7 @@ _mesa_initialize_context( struct gl_context *ctx,
                           const struct dd_function_table *driverFunctions);
 
 extern void
-_mesa_free_context_data( struct gl_context *ctx );
+_mesa_free_context_data(struct gl_context *ctx);
 
 extern void
 _mesa_destroy_context( struct gl_context *ctx );

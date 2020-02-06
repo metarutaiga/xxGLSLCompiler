@@ -257,7 +257,9 @@ ir_expression::ir_expression(int op, ir_rvalue *op0)
    case ir_unop_dFdy_fine:
    case ir_unop_bitfield_reverse:
    case ir_unop_interpolate_at_centroid:
+   case ir_unop_clz:
    case ir_unop_saturate:
+   case ir_unop_atan:
       this->type = op0->type;
       break;
 
@@ -452,6 +454,7 @@ ir_expression::ir_expression(int op, ir_rvalue *op0, ir_rvalue *op1)
    case ir_binop_mul:
    case ir_binop_div:
    case ir_binop_mod:
+   case ir_binop_atan2:
       if (op0->type->is_scalar()) {
 	 this->type = op1->type;
       } else if (op1->type->is_scalar()) {
@@ -498,6 +501,7 @@ ir_expression::ir_expression(int op, ir_rvalue *op0, ir_rvalue *op1)
       break;
 
    case ir_binop_imul_high:
+   case ir_binop_mul_32x16:
    case ir_binop_carry:
    case ir_binop_borrow:
    case ir_binop_lshift:
@@ -507,6 +511,44 @@ ir_expression::ir_expression(int op, ir_rvalue *op0, ir_rvalue *op1)
    case ir_binop_interpolate_at_sample:
       this->type = op0->type;
       break;
+
+   case ir_binop_add_sat:
+   case ir_binop_sub_sat:
+   case ir_binop_avg:
+   case ir_binop_avg_round:
+      assert(op0->type == op1->type);
+      this->type = op0->type;
+      break;
+
+   case ir_binop_abs_sub: {
+      enum glsl_base_type base;
+
+      assert(op0->type == op1->type);
+
+      switch (op0->type->base_type) {
+      case GLSL_TYPE_UINT:
+      case GLSL_TYPE_INT:
+         base = GLSL_TYPE_UINT;
+         break;
+      case GLSL_TYPE_UINT8:
+      case GLSL_TYPE_INT8:
+         base = GLSL_TYPE_UINT8;
+         break;
+      case GLSL_TYPE_UINT16:
+      case GLSL_TYPE_INT16:
+         base = GLSL_TYPE_UINT16;
+         break;
+      case GLSL_TYPE_UINT64:
+      case GLSL_TYPE_INT64:
+         base = GLSL_TYPE_UINT64;
+         break;
+      default:
+         unreachable(!"Invalid base type.");
+      }
+
+      this->type = glsl_type::get_instance(base, op0->type->vector_elements, 1);
+      break;
+   }
 
    case ir_binop_vector_extract:
       this->type = op0->type->get_scalar_type();
@@ -754,14 +796,14 @@ ir_constant::ir_constant(const struct glsl_type *type, exec_list *value_list)
    this->type = type;
 
    assert(type->is_scalar() || type->is_vector() || type->is_matrix()
-	  || type->is_record() || type->is_array());
+	  || type->is_struct() || type->is_array());
 
    /* If the constant is a record, the types of each of the entries in
     * value_list must be a 1-for-1 match with the structure components.  Each
     * entry must also be a constant.  Just move the nodes from the value_list
     * to the list in the ir_constant.
     */
-   if (type->is_array() || type->is_record()) {
+   if (type->is_array() || type->is_struct()) {
       this->const_elements = ralloc_array(this, ir_constant *, type->length);
       unsigned i = 0;
       foreach_in_list(ir_constant, value, value_list) {
@@ -909,7 +951,7 @@ ir_constant *
 ir_constant::zero(void *mem_ctx, const glsl_type *type)
 {
    assert(type->is_scalar() || type->is_vector() || type->is_matrix()
-	  || type->is_record() || type->is_array());
+	  || type->is_struct() || type->is_array());
 
    ir_constant *c = new(mem_ctx) ir_constant;
    c->type = type;
@@ -922,7 +964,7 @@ ir_constant::zero(void *mem_ctx, const glsl_type *type)
 	 c->const_elements[i] = ir_constant::zero(c, type->fields.array);
    }
 
-   if (type->is_record()) {
+   if (type->is_struct()) {
       c->const_elements = ralloc_array(c, ir_constant *, type->length);
 
       for (unsigned i = 0; i < type->length; i++) {
@@ -1114,7 +1156,7 @@ ir_constant::get_array_element(unsigned i) const
 ir_constant *
 ir_constant::get_record_field(int idx)
 {
-   assert(this->type->is_record());
+   assert(this->type->is_struct());
    assert(idx >= 0 && (unsigned) idx < this->type->length);
 
    return const_elements[idx];
@@ -1185,7 +1227,7 @@ ir_constant::copy_offset(ir_constant *src, int offset)
 void
 ir_constant::copy_masked_offset(ir_constant *src, int offset, unsigned int mask)
 {
-   assert (!type->is_array() && !type->is_record());
+   assert (!type->is_array() && !type->is_struct());
 
    if (!type->is_vector() && !type->is_matrix()) {
       offset = 0;
@@ -1233,7 +1275,7 @@ ir_constant::has_value(const ir_constant *c) const
    if (this->type != c->type)
       return false;
 
-   if (this->type->is_array() || this->type->is_record()) {
+   if (this->type->is_array() || this->type->is_struct()) {
       for (unsigned i = 0; i < this->type->length; i++) {
 	 if (!this->const_elements[i]->has_value(c->const_elements[i]))
 	    return false;
@@ -1358,7 +1400,7 @@ ir_constant::is_negative_one() const
 bool
 ir_constant::is_uint16_constant() const
 {
-   if (!type->is_integer())
+   if (!type->is_integer_32())
       return false;
 
    return value.u[0] < (1 << 16);
@@ -1718,23 +1760,36 @@ ir_variable::ir_variable(const struct glsl_type *type, const char *name,
    this->u.max_ifc_array_access = NULL;
 
    this->data.explicit_location = false;
+   this->data.explicit_index = false;
+   this->data.explicit_binding = false;
+   this->data.explicit_component = false;
    this->data.has_initializer = false;
+   this->data.is_unmatched_generic_inout = false;
+   this->data.is_xfb_only = false;
+   this->data.explicit_xfb_buffer = false;
+   this->data.explicit_xfb_offset = false;
+   this->data.explicit_xfb_stride = false;
    this->data.location = -1;
    this->data.location_frac = 0;
+   this->data.matrix_layout = GLSL_MATRIX_LAYOUT_INHERITED;
+   this->data.from_named_ifc_block = false;
+   this->data.must_be_shader_input = false;
+   this->data.index = 0;
    this->data.binding = 0;
    this->data.warn_extension_index = 0;
    this->constant_value = NULL;
    this->constant_initializer = NULL;
-   this->data.origin_upper_left = false;
-   this->data.pixel_center_integer = false;
    this->data.depth_layout = ir_depth_layout_none;
    this->data.used = false;
+   this->data.assigned = false;
    this->data.always_active_io = false;
    this->data.read_only = false;
    this->data.centroid = false;
    this->data.sample = false;
    this->data.patch = false;
+   this->data.explicit_invariant = false;
    this->data.invariant = false;
+   this->data.precise = false;
    this->data.how_declared = ir_var_declared_normally;
    this->data.mode = mode;
    this->data.interpolation = INTERP_MODE_NONE;
@@ -1747,9 +1802,18 @@ ir_variable::ir_variable(const struct glsl_type *type, const char *name,
    this->data.memory_volatile = false;
    this->data.memory_restrict = false;
    this->data.from_ssbo_unsized_array = false;
+   this->data.implicit_sized_array = false;
    this->data.fb_fetch_output = false;
    this->data.bindless = false;
    this->data.bound = false;
+   this->data.image_format = GL_NONE;
+   this->data._num_state_slots = 0;
+   this->data.param_index = 0;
+   this->data.stream = 0;
+   this->data.xfb_buffer = -1;
+   this->data.xfb_stride = -1;
+
+   this->interface_type = NULL;
 
    if (type != NULL) {
       if (type->is_interface())
@@ -1805,6 +1869,7 @@ ir_function_signature::ir_function_signature(const glsl_type *return_type,
                                              builtin_available_predicate b)
    : ir_instruction(ir_type_function_signature),
      return_type(return_type), is_defined(false),
+     return_precision(GLSL_PRECISION_NONE),
      intrinsic_id(ir_intrinsic_invalid), builtin_avail(b), _function(NULL)
 {
    this->origin = NULL;
@@ -1946,7 +2011,7 @@ steal_memory(ir_instruction *ir, void *new_ctx)
     * visitor, so steal their values by hand.
     */
    if (constant != NULL &&
-       (constant->type->is_array() || constant->type->is_record())) {
+       (constant->type->is_array() || constant->type->is_struct())) {
       for (unsigned int i = 0; i < constant->type->length; i++) {
          steal_memory(constant->const_elements[i], ir);
       }

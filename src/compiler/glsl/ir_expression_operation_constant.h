@@ -48,7 +48,7 @@
             data.d[c] = -op[0]->value.d[c];
             break;
          case GLSL_TYPE_UINT64:
-            data.u64[c] = -op[0]->value.u64[c];
+            data.u64[c] = -((int64_t) op[0]->value.u64[c]);
             break;
          case GLSL_TYPE_INT64:
             data.i64[c] = -op[0]->value.i64[c];
@@ -836,6 +836,18 @@
       }
       break;
 
+   case ir_unop_atan:
+      for (unsigned c = 0; c < op[0]->type->components(); c++) {
+         switch (op[0]->type->base_type) {
+         case GLSL_TYPE_FLOAT:
+            data.f[c] = atan(op[0]->value.f[c]);
+            break;
+         default:
+            unreachable("invalid type");
+         }
+      }
+      break;
+
    case ir_unop_dFdx:
       for (unsigned c = 0; c < op[0]->type->components(); c++) {
          switch (op[0]->type->base_type) {
@@ -1038,6 +1050,18 @@
       }
       break;
 
+   case ir_unop_clz:
+      for (unsigned c = 0; c < op[0]->type->components(); c++) {
+         switch (op[0]->type->base_type) {
+         case GLSL_TYPE_UINT:
+            data.u[c] = (unsigned)(31 - find_msb_uint(op[0]->value.u[c]));
+            break;
+         default:
+            unreachable("invalid type");
+         }
+      }
+      break;
+
    case ir_unop_saturate:
       for (unsigned c = 0; c < op[0]->type->components(); c++) {
          switch (op[0]->type->base_type) {
@@ -1152,6 +1176,111 @@
       }
       break;
 
+   case ir_binop_add_sat:
+      for (unsigned c = 0; c < op[0]->type->components(); c++) {
+         switch (op[0]->type->base_type) {
+         case GLSL_TYPE_UINT:
+            data.u[c] = (op[0]->value.u[c] + op[1]->value.u[c]) < op[0]->value.u[c] ? UINT32_MAX : (op[0]->value.u[c] + op[1]->value.u[c]);
+            break;
+         case GLSL_TYPE_INT:
+            data.i[c] = iadd_saturate(op[0]->value.i[c], op[1]->value.i[c]);
+            break;
+         case GLSL_TYPE_UINT64:
+            data.u64[c] = (op[0]->value.u64[c] + op[1]->value.u64[c]) < op[0]->value.u64[c] ? UINT64_MAX : (op[0]->value.u64[c] + op[1]->value.u64[c]);
+            break;
+         case GLSL_TYPE_INT64:
+            data.i64[c] = iadd64_saturate(op[0]->value.i64[c], op[1]->value.i64[c]);
+            break;
+         default:
+            unreachable("invalid type");
+         }
+      }
+      break;
+
+   case ir_binop_sub_sat:
+      for (unsigned c = 0; c < op[0]->type->components(); c++) {
+         switch (op[0]->type->base_type) {
+         case GLSL_TYPE_UINT:
+            data.u[c] = (op[1]->value.u[c] > op[0]->value.u[c]) ? 0 : op[0]->value.u[c] - op[1]->value.u[c];
+            break;
+         case GLSL_TYPE_INT:
+            data.i[c] = isub_saturate(op[0]->value.i[c], op[1]->value.i[c]);
+            break;
+         case GLSL_TYPE_UINT64:
+            data.u64[c] = (op[1]->value.u64[c] > op[0]->value.u64[c]) ? 0 : op[0]->value.u64[c] - op[1]->value.u64[c];
+            break;
+         case GLSL_TYPE_INT64:
+            data.i64[c] = isub64_saturate(op[0]->value.i64[c], op[1]->value.i64[c]);
+            break;
+         default:
+            unreachable("invalid type");
+         }
+      }
+      break;
+
+   case ir_binop_abs_sub:
+      for (unsigned c = 0; c < op[0]->type->components(); c++) {
+         switch (op[0]->type->base_type) {
+         case GLSL_TYPE_UINT:
+            data.u[c] = (op[1]->value.u[c] > op[0]->value.u[c]) ? op[1]->value.u[c] - op[0]->value.u[c] : op[0]->value.u[c] - op[1]->value.u[c];
+            break;
+         case GLSL_TYPE_INT:
+            data.i[c] = (op[1]->value.i[c] > op[0]->value.i[c]) ? (unsigned)op[1]->value.i[c] - (unsigned)op[0]->value.i[c] : (unsigned)op[0]->value.i[c] - (unsigned)op[1]->value.i[c];
+            break;
+         case GLSL_TYPE_UINT64:
+            data.u64[c] = (op[1]->value.u64[c] > op[0]->value.u64[c]) ? op[1]->value.u64[c] - op[0]->value.u64[c] : op[0]->value.u64[c] - op[1]->value.u64[c];
+            break;
+         case GLSL_TYPE_INT64:
+            data.i64[c] = (op[1]->value.i64[c] > op[0]->value.i64[c]) ? (uint64_t)op[1]->value.i64[c] - (uint64_t)op[0]->value.i64[c] : (uint64_t)op[0]->value.i64[c] - (uint64_t)op[1]->value.i64[c];
+            break;
+         default:
+            unreachable("invalid type");
+         }
+      }
+      break;
+
+   case ir_binop_avg:
+      for (unsigned c = 0; c < op[0]->type->components(); c++) {
+         switch (op[0]->type->base_type) {
+         case GLSL_TYPE_UINT:
+            data.u[c] = (op[0]->value.u[c] >> 1) + (op[1]->value.u[c] >> 1) + ((op[0]->value.u[c] & op[1]->value.u[c]) & 1);
+            break;
+         case GLSL_TYPE_INT:
+            data.i[c] = (op[0]->value.i[c] >> 1) + (op[1]->value.i[c] >> 1) + ((op[0]->value.i[c] & op[1]->value.i[c]) & 1);
+            break;
+         case GLSL_TYPE_UINT64:
+            data.u64[c] = (op[0]->value.u64[c] >> 1) + (op[1]->value.u64[c] >> 1) + ((op[0]->value.u64[c] & op[1]->value.u64[c]) & 1);
+            break;
+         case GLSL_TYPE_INT64:
+            data.i64[c] = (op[0]->value.i64[c] >> 1) + (op[1]->value.i64[c] >> 1) + ((op[0]->value.i64[c] & op[1]->value.i64[c]) & 1);
+            break;
+         default:
+            unreachable("invalid type");
+         }
+      }
+      break;
+
+   case ir_binop_avg_round:
+      for (unsigned c = 0; c < op[0]->type->components(); c++) {
+         switch (op[0]->type->base_type) {
+         case GLSL_TYPE_UINT:
+            data.u[c] = (op[0]->value.u[c] >> 1) + (op[1]->value.u[c] >> 1) + ((op[0]->value.u[c] | op[1]->value.u[c]) & 1);
+            break;
+         case GLSL_TYPE_INT:
+            data.i[c] = (op[0]->value.i[c] >> 1) + (op[1]->value.i[c] >> 1) + ((op[0]->value.i[c] | op[1]->value.i[c]) & 1);
+            break;
+         case GLSL_TYPE_UINT64:
+            data.u64[c] = (op[0]->value.u64[c] >> 1) + (op[1]->value.u64[c] >> 1) + ((op[0]->value.u64[c] | op[1]->value.u64[c]) & 1);
+            break;
+         case GLSL_TYPE_INT64:
+            data.i64[c] = (op[0]->value.i64[c] >> 1) + (op[1]->value.i64[c] >> 1) + ((op[0]->value.i64[c] | op[1]->value.i64[c]) & 1);
+            break;
+         default:
+            unreachable("invalid type");
+         }
+      }
+      break;
+
    case ir_binop_mul:
       /* Check for equal types, or unequal types involving scalars */
       if ((op[0]->type == op[1]->type && !op[0]->type->is_matrix())
@@ -1208,6 +1337,21 @@
                      data.f[i+n*j] += op[0]->value.f[i+n*k]*op[1]->value.f[k+m*j];
                }
             }
+         }
+      }
+      break;
+
+   case ir_binop_mul_32x16:
+      for (unsigned c = 0; c < op[0]->type->components(); c++) {
+         switch (op[0]->type->base_type) {
+         case GLSL_TYPE_UINT:
+            data.u[c] = op[0]->value.u[c] * (uint16_t)op[1]->value.u[c];
+            break;
+         case GLSL_TYPE_INT:
+            data.i[c] = op[0]->value.i[c] * (int16_t)op[0]->value.i[c];
+            break;
+         default:
+            unreachable("invalid type");
          }
       }
       break;
@@ -1704,6 +1848,18 @@
       }
       break;
    }
+
+   case ir_binop_atan2:
+      for (unsigned c = 0; c < op[0]->type->components(); c++) {
+         switch (op[0]->type->base_type) {
+         case GLSL_TYPE_FLOAT:
+            data.f[c] = atan2(op[0]->value.f[c], op[1]->value.f[c]);
+            break;
+         default:
+            unreachable("invalid type");
+         }
+      }
+      break;
 
    case ir_triop_fma:
       for (unsigned c = 0; c < op[0]->type->components(); c++) {

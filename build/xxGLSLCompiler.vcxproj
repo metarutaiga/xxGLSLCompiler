@@ -41,6 +41,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\src\compiler\glsl\glcpp\pp.c" />
+    <ClCompile Include="..\src\compiler\glsl\glcpp\pp_standalone_scaffolding.c" />
     <ClCompile Include="..\src\compiler\glsl\glsl_lexer.cpp" />
     <ClCompile Include="..\src\compiler\glsl\glsl_parser.cpp" />
     <ClCompile Include="..\src\compiler\glsl\glsl_parser_extras.cpp" />
@@ -162,6 +163,7 @@
     <ClCompile Include="..\src\util\set.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="..\src\util\softfloat.c" />
     <ClCompile Include="..\src\util\string_buffer.c" />
     <ClCompile Include="..\src\util\strtod.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -173,6 +175,7 @@
     <ClInclude Include="..\src\compiler\glsl\builtin_functions.h" />
     <ClInclude Include="..\src\compiler\glsl\builtin_int64.h" />
     <ClInclude Include="..\src\compiler\glsl\glcpp\glcpp.h" />
+    <ClInclude Include="..\src\compiler\glsl\glcpp\pp_standalone_scaffolding.h" />
     <ClInclude Include="..\src\compiler\glsl\ir_array_refcount.h" />
     <ClInclude Include="..\src\compiler\glsl\ir_builder_print_visitor.h" />
     <ClInclude Include="..\src\compiler\glsl\linker_util.h" />
@@ -201,11 +204,15 @@
     <ClInclude Include="..\src\mesa\program\prog_statevars.h" />
     <ClInclude Include="..\src\util\bitset.h" />
     <ClInclude Include="..\src\util\build_id.h" />
+    <ClInclude Include="..\src\util\detect_os.h" />
+    <ClInclude Include="..\src\util\fast_urem_by_const.h" />
+    <ClInclude Include="..\src\util\fnv1a.h" />
     <ClInclude Include="..\src\util\futex.h" />
     <ClInclude Include="..\src\util\list.h" />
     <ClInclude Include="..\src\util\macros.h" />
     <ClInclude Include="..\src\util\rounding.h" />
     <ClInclude Include="..\src\util\simple_mtx.h" />
+    <ClInclude Include="..\src\util\softfloat.h" />
     <ClInclude Include="..\src\util\string_buffer.h" />
     <ClInclude Include="..\src\util\string_to_uint_map.h" />
     <ClInclude Include="..\src\util\u_atomic.h" />
@@ -262,7 +269,9 @@
     <ClInclude Include="..\src\util\set.h" />
     <ClInclude Include="..\src\util\strndup.h" />
     <ClInclude Include="..\src\util\strtod.h" />
+    <ClInclude Include="..\src\util\u_math.h" />
     <ClInclude Include="..\src\util\u_string.h" />
+    <ClInclude Include="..\src\util\xxhash.h" />
     <ClInclude Include="..\xxMiniCRT\xxMSVCRT.h" />
   </ItemGroup>
   <ItemGroup>
@@ -359,7 +368,7 @@
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_USE_MATH_DEFINES;DEBUG;WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>../include;../src;../src/getopt;../src/gallium/auxiliary;../src/gallium/include;../src/mesa;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include;../src;../src/compiler;../src/getopt;../src/gallium/auxiliary;../src/gallium/include;../src/mesa;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4244;4267;4291;4305</DisableSpecificWarnings>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>false</ExceptionHandling>
@@ -378,7 +387,7 @@
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_USE_MATH_DEFINES;DEBUG;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>../include;../src;../src/getopt;../src/gallium/auxiliary;../src/gallium/include;../src/mesa;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include;../src;../src/compiler;../src/getopt;../src/gallium/auxiliary;../src/gallium/include;../src/mesa;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4244;4267;4291;4305</DisableSpecificWarnings>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>false</ExceptionHandling>
@@ -398,7 +407,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_USE_MATH_DEFINES;NDEBUG;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>../include;../src;../src/getopt;../src/gallium/auxiliary;../src/gallium/include;../src/mesa;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include;../src;../src/compiler;../src/getopt;../src/gallium/auxiliary;../src/gallium/include;../src/mesa;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4244;4267;4291;4305</DisableSpecificWarnings>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>false</ExceptionHandling>
@@ -422,7 +431,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_USE_MATH_DEFINES;NDEBUG;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>../include;../src;../src/getopt;../src/gallium/auxiliary;../src/gallium/include;../src/mesa;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include;../src;../src/compiler;../src/getopt;../src/gallium/auxiliary;../src/gallium/include;../src/mesa;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4244;4267;4291;4305</DisableSpecificWarnings>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>false</ExceptionHandling>

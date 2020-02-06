@@ -1,8 +1,9 @@
-/* A Bison parser, made by GNU Bison 3.2.  */
+/* A Bison parser, made by GNU Bison 3.5.0.  */
 
 /* Bison interface for Yacc-like parsers in C
 
-   Copyright (C) 1984, 1989-1990, 2000-2015, 2018 Free Software Foundation, Inc.
+   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2019 Free Software Foundation,
+   Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -33,8 +34,8 @@
 /* Undocumented macros, especially those whose name start with YY_,
    are private implementation details.  Do not rely on them.  */
 
-#ifndef YY_GLCPP_PARSER_GLSL_GLCPP_GLCPP_PARSE_H_INCLUDED
-# define YY_GLCPP_PARSER_GLSL_GLCPP_GLCPP_PARSE_H_INCLUDED
+#ifndef YY_GLCPP_PARSER_GLCPP_PARSE_H_INCLUDED
+# define YY_GLCPP_PARSER_GLCPP_PARSE_H_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 1
@@ -77,16 +78,18 @@ extern int glcpp_parser_debug;
     SPACE = 284,
     PLUS_PLUS = 285,
     MINUS_MINUS = 286,
-    PASTE = 287,
-    OR = 288,
-    AND = 289,
-    EQUAL = 290,
-    NOT_EQUAL = 291,
-    LESS_OR_EQUAL = 292,
-    GREATER_OR_EQUAL = 293,
-    LEFT_SHIFT = 294,
-    RIGHT_SHIFT = 295,
-    UNARY = 296
+    PATH = 287,
+    INCLUDE = 288,
+    PASTE = 289,
+    OR = 290,
+    AND = 291,
+    EQUAL = 292,
+    NOT_EQUAL = 293,
+    LESS_OR_EQUAL = 294,
+    GREATER_OR_EQUAL = 295,
+    LEFT_SHIFT = 296,
+    RIGHT_SHIFT = 297,
+    UNARY = 298
   };
 #endif
 
@@ -110,4 +113,4 @@ struct YYLTYPE
 
 int glcpp_parser_parse (glcpp_parser_t *parser);
 
-#endif /* !YY_GLCPP_PARSER_GLSL_GLCPP_GLCPP_PARSE_H_INCLUDED  */
+#endif /* !YY_GLCPP_PARSER_GLCPP_PARSE_H_INCLUDED  */

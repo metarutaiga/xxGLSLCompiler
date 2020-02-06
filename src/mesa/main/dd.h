@@ -975,6 +975,13 @@ struct dd_function_table {
 					     void *image_handle);
 
    /**
+    * \name GL_EXT_EGL_image_storage interface
+    */
+   void (*EGLImageTargetTexStorage)(struct gl_context *ctx, GLenum target,
+                                    struct gl_texture_object *texObj,
+                                    struct gl_texture_image *texImage,
+                                    GLeglImageOES image_handle);
+   /**
     * \name GL_EXT_transform_feedback interface
     */
    struct gl_transform_feedback_object *
@@ -1298,6 +1305,13 @@ struct dd_function_table {
    void (*ShaderCacheSerializeDriverBlob)(struct gl_context *ctx,
                                           struct gl_program *prog);
    /*@}*/
+
+   /**
+    * \name Set the number of compiler threads for ARB_parallel_shader_compile
+    */
+   void (*SetMaxShaderCompilerThreads)(struct gl_context *ctx, unsigned count);
+   bool (*GetShaderProgramCompletionStatus)(struct gl_context *ctx,
+                                            struct gl_shader_program *shprog);
 };
 
 
