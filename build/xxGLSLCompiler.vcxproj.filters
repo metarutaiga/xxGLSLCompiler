@@ -46,6 +46,9 @@
     <Filter Include="src\mesa\math">
       <UniqueIdentifier>{491c25b8-cf66-4222-9333-04aaaa6d4fee}</UniqueIdentifier>
     </Filter>
+    <Filter Include="xxMiniCRT">
+      <UniqueIdentifier>{aa19788e-8aa3-4b26-aa46-93fed111df46}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\compiler\builtin_type_macros.h">
@@ -299,6 +302,9 @@
     </ClInclude>
     <ClInclude Include="..\src\compiler\glsl\opt_add_neg_to_sub.h">
       <Filter>src\compiler\glsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xxMiniCRT\xxMSVCRT.h">
+      <Filter>xxMiniCRT</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -658,6 +664,12 @@
     </ClCompile>
     <ClCompile Include="..\src\util\strndup.c">
       <Filter>src\util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xxMiniCRT\xxMSVCRT.cpp">
+      <Filter>xxMiniCRT</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xxMiniCRT\xxFakeMain.cpp">
+      <Filter>xxMiniCRT</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
