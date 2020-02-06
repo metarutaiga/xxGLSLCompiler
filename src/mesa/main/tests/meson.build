@@ -30,7 +30,7 @@ if with_shared_glapi
   )
   link_main_test += libglapi
 else
-  files_main_test += files('stub.cpp')
+  files_main_test += files('stubs.cpp')
 endif
 
 test(
@@ -41,5 +41,6 @@ test(
     include_directories : [inc_include, inc_src, inc_mapi, inc_mesa],
     dependencies : [idep_gtest, dep_clock, dep_dl, dep_thread],
     link_with : [libmesa_classic, link_main_test],
-  )
+  ),
+  suite : ['mesa'],
 )

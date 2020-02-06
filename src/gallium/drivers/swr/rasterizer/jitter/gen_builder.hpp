@@ -29,18 +29,18 @@
 // Generation Command Line:
 //  ./rasterizer/codegen/gen_llvm_ir_macros.py
 //    --input
-//    /usr/local/include/llvm/IR/IRBuilder.h
+//    /usr/include/llvm/IR/IRBuilder.h
 //    --output
 //    rasterizer/jitter
 //    --gen_h
 //
 //============================================================================
+// clang-format off
 #pragma once
 
 //============================================================================
 // Auto-generated Builder IR Wrappers
 //============================================================================
-
 GlobalVariable* GLOBAL_STRING(StringRef Str, const Twine &Name = "", unsigned AddressSpace = 0)
 {
     return IRB()->CreateGlobalString(Str, Name, AddressSpace);
@@ -56,24 +56,99 @@ CallInst* MEMSET(Value *Ptr, Value *Val, Value *Size, unsigned Align, bool isVol
     return IRB()->CreateMemSet(Ptr, Val, Size, Align, isVolatile, TBAATag, ScopeTag, NoAliasTag);
 }
 
-CallInst* MEMCOPY(Value *Dst, Value *Src, uint64_t Size, unsigned Align, bool isVolatile = false, MDNode *TBAATag = nullptr, MDNode *TBAAStructTag = nullptr, MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr)
+CallInst* ELEMENT_UNORDERED_ATOMIC_MEM_SET(Value *Ptr, Value *Val, uint64_t Size, unsigned Align, uint32_t ElementSize, MDNode *TBAATag = nullptr, MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr)
 {
-    return IRB()->CreateMemCpy(Dst, Src, Size, Align, isVolatile, TBAATag, TBAAStructTag, ScopeTag, NoAliasTag);
+    return IRB()->CreateElementUnorderedAtomicMemSet(Ptr, Val, Size, Align, ElementSize, TBAATag, ScopeTag, NoAliasTag);
 }
 
-CallInst* MEMCOPY(Value *Dst, Value *Src, Value *Size, unsigned Align, bool isVolatile = false, MDNode *TBAATag = nullptr, MDNode *TBAAStructTag = nullptr, MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr)
+CallInst* ELEMENT_UNORDERED_ATOMIC_MEM_SET(Value *Ptr, Value *Val, Value *Size, unsigned Align, uint32_t ElementSize, MDNode *TBAATag = nullptr, MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr)
 {
-    return IRB()->CreateMemCpy(Dst, Src, Size, Align, isVolatile, TBAATag, TBAAStructTag, ScopeTag, NoAliasTag);
+    return IRB()->CreateElementUnorderedAtomicMemSet(Ptr, Val, Size, Align, ElementSize, TBAATag, ScopeTag, NoAliasTag);
 }
 
-CallInst* MEMMOVE(Value *Dst, Value *Src, uint64_t Size, unsigned Align, bool isVolatile = false, MDNode *TBAATag = nullptr, MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr)
+CallInst* MEMCOPY(Value *Dst, unsigned DstAlign, Value *Src, unsigned SrcAlign, uint64_t Size, bool isVolatile = false, MDNode *TBAATag = nullptr, MDNode *TBAAStructTag = nullptr, MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr)
 {
-    return IRB()->CreateMemMove(Dst, Src, Size, Align, isVolatile, TBAATag, ScopeTag, NoAliasTag);
+    return IRB()->CreateMemCpy(Dst, DstAlign, Src, SrcAlign, Size, isVolatile, TBAATag, TBAAStructTag, ScopeTag, NoAliasTag);
 }
 
-CallInst* MEMMOVE(Value *Dst, Value *Src, Value *Size, unsigned Align, bool isVolatile = false, MDNode *TBAATag = nullptr, MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr)
+CallInst* MEMCOPY(Value *Dst, unsigned DstAlign, Value *Src, unsigned SrcAlign, Value *Size, bool isVolatile = false, MDNode *TBAATag = nullptr, MDNode *TBAAStructTag = nullptr, MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr)
 {
-    return IRB()->CreateMemMove(Dst, Src, Size, Align, isVolatile, TBAATag, ScopeTag, NoAliasTag);
+    return IRB()->CreateMemCpy(Dst, DstAlign, Src, SrcAlign, Size, isVolatile, TBAATag, TBAAStructTag, ScopeTag, NoAliasTag);
+}
+
+CallInst* MEMMOVE(Value *Dst, unsigned DstAlign, Value *Src, unsigned SrcAlign, uint64_t Size, bool isVolatile = false, MDNode *TBAATag = nullptr, MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr)
+{
+    return IRB()->CreateMemMove(Dst, DstAlign, Src, SrcAlign, Size, isVolatile, TBAATag, ScopeTag, NoAliasTag);
+}
+
+CallInst* MEMMOVE(Value *Dst, unsigned DstAlign, Value *Src, unsigned SrcAlign, Value *Size, bool isVolatile = false, MDNode *TBAATag = nullptr, MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr)
+{
+    return IRB()->CreateMemMove(Dst, DstAlign, Src, SrcAlign, Size, isVolatile, TBAATag, ScopeTag, NoAliasTag);
+}
+
+CallInst* ELEMENT_UNORDERED_ATOMIC_MEM_MOVE(Value *Dst, unsigned DstAlign, Value *Src, unsigned SrcAlign, uint64_t Size, uint32_t ElementSize, MDNode *TBAATag = nullptr, MDNode *TBAAStructTag = nullptr, MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr)
+{
+    return IRB()->CreateElementUnorderedAtomicMemMove(Dst, DstAlign, Src, SrcAlign, Size, ElementSize, TBAATag, TBAAStructTag, ScopeTag, NoAliasTag);
+}
+
+CallInst* ELEMENT_UNORDERED_ATOMIC_MEM_MOVE(Value *Dst, unsigned DstAlign, Value *Src, unsigned SrcAlign, Value *Size, uint32_t ElementSize, MDNode *TBAATag = nullptr, MDNode *TBAAStructTag = nullptr, MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr)
+{
+    return IRB()->CreateElementUnorderedAtomicMemMove(Dst, DstAlign, Src, SrcAlign, Size, ElementSize, TBAATag, TBAAStructTag, ScopeTag, NoAliasTag);
+}
+
+CallInst* FADD_REDUCE(Value *Acc, Value *Src)
+{
+    return IRB()->CreateFAddReduce(Acc, Src);
+}
+
+CallInst* FMUL_REDUCE(Value *Acc, Value *Src)
+{
+    return IRB()->CreateFMulReduce(Acc, Src);
+}
+
+CallInst* ADD_REDUCE(Value *Src)
+{
+    return IRB()->CreateAddReduce(Src);
+}
+
+CallInst* MUL_REDUCE(Value *Src)
+{
+    return IRB()->CreateMulReduce(Src);
+}
+
+CallInst* AND_REDUCE(Value *Src)
+{
+    return IRB()->CreateAndReduce(Src);
+}
+
+CallInst* OR_REDUCE(Value *Src)
+{
+    return IRB()->CreateOrReduce(Src);
+}
+
+CallInst* XOR_REDUCE(Value *Src)
+{
+    return IRB()->CreateXorReduce(Src);
+}
+
+CallInst* INT_MAX_REDUCE(Value *Src, bool IsSigned = false)
+{
+    return IRB()->CreateIntMaxReduce(Src, IsSigned);
+}
+
+CallInst* INT_MIN_REDUCE(Value *Src, bool IsSigned = false)
+{
+    return IRB()->CreateIntMinReduce(Src, IsSigned);
+}
+
+CallInst* FP_MAX_REDUCE(Value *Src, bool NoNaN = false)
+{
+    return IRB()->CreateFPMaxReduce(Src, NoNaN);
+}
+
+CallInst* FP_MIN_REDUCE(Value *Src, bool NoNaN = false)
+{
+    return IRB()->CreateFPMinReduce(Src, NoNaN);
 }
 
 CallInst* LIFETIME_START(Value *Ptr, ConstantInt *Size = nullptr)
@@ -86,9 +161,9 @@ CallInst* LIFETIME_END(Value *Ptr, ConstantInt *Size = nullptr)
     return IRB()->CreateLifetimeEnd(Ptr, Size);
 }
 
-CallInst* MASKED_LOAD(Value *Ptr, unsigned Align, Value *Mask, Value *PassThru = nullptr, const Twine &Name = "")
+CallInst* INVARIANT_START(Value *Ptr, ConstantInt *Size = nullptr)
 {
-    return IRB()->CreateMaskedLoad(Ptr, Align, Mask, PassThru, Name);
+    return IRB()->CreateInvariantStart(Ptr, Size);
 }
 
 CallInst* MASKED_STORE(Value *Val, Value *Ptr, unsigned Align, Value *Mask)
@@ -151,6 +226,31 @@ CallInst* GC_RELOCATE(Instruction *Statepoint, int BaseOffset, int DerivedOffset
     return IRB()->CreateGCRelocate(Statepoint, BaseOffset, DerivedOffset, ResultType, Name);
 }
 
+CallInst* BINARY_INTRINSIC(Intrinsic::ID ID, Value *LHS, Value *RHS, const Twine &Name = "")
+{
+    return IRB()->CreateBinaryIntrinsic(ID, LHS, RHS, Name);
+}
+
+CallInst* INTRINSIC(Intrinsic::ID ID, Instruction *FMFSource = nullptr, const Twine &Name = "")
+{
+    return IRB()->CreateIntrinsic(ID, FMFSource, Name);
+}
+
+CallInst* INTRINSIC(Intrinsic::ID ID, ArrayRef<Value *> Args, Instruction *FMFSource = nullptr, const Twine &Name = "")
+{
+    return IRB()->CreateIntrinsic(ID, Args, FMFSource, Name);
+}
+
+CallInst* MIN_NUM(Value *LHS, Value *RHS, const Twine &Name = "")
+{
+    return IRB()->CreateMinNum(LHS, RHS, Name);
+}
+
+CallInst* MAX_NUM(Value *LHS, Value *RHS, const Twine &Name = "")
+{
+    return IRB()->CreateMaxNum(LHS, RHS, Name);
+}
+
 ReturnInst* RET_VOID()
 {
     return IRB()->CreateRetVoid();
@@ -174,6 +274,11 @@ BranchInst* BR(BasicBlock *Dest)
 BranchInst* COND_BR(Value *Cond, BasicBlock *True, BasicBlock *False, MDNode *BranchWeights = nullptr, MDNode *Unpredictable = nullptr)
 {
     return IRB()->CreateCondBr(Cond, True, False, BranchWeights, Unpredictable);
+}
+
+BranchInst* COND_BR(Value *Cond, BasicBlock *True, BasicBlock *False, Instruction *MDSrc)
+{
+    return IRB()->CreateCondBr(Cond, True, False, MDSrc);
 }
 
 SwitchInst* SWITCH(Value *V, BasicBlock *Dest, unsigned NumCases = 10, MDNode *BranchWeights = nullptr, MDNode *Unpredictable = nullptr)
@@ -246,11 +351,6 @@ Value* NUW_ADD(Value *LHS, Value *RHS, const Twine &Name = "")
     return IRB()->CreateNUWAdd(LHS, RHS, Name);
 }
 
-Value* FADD(Value *LHS, Value *RHS, const Twine &Name = "", MDNode *FPMathTag = nullptr)
-{
-    return IRB()->CreateFAdd(LHS, RHS, Name, FPMathTag);
-}
-
 Value* SUB(Value *LHS, Value *RHS, const Twine &Name = "", bool HasNUW = false, bool HasNSW = false)
 {
     return IRB()->CreateSub(LHS, RHS, Name, HasNUW, HasNSW);
@@ -266,11 +366,6 @@ Value* NUW_SUB(Value *LHS, Value *RHS, const Twine &Name = "")
     return IRB()->CreateNUWSub(LHS, RHS, Name);
 }
 
-Value* FSUB(Value *LHS, Value *RHS, const Twine &Name = "", MDNode *FPMathTag = nullptr)
-{
-    return IRB()->CreateFSub(LHS, RHS, Name, FPMathTag);
-}
-
 Value* MUL(Value *LHS, Value *RHS, const Twine &Name = "", bool HasNUW = false, bool HasNSW = false)
 {
     return IRB()->CreateMul(LHS, RHS, Name, HasNUW, HasNSW);
@@ -284,11 +379,6 @@ Value* NSW_MUL(Value *LHS, Value *RHS, const Twine &Name = "")
 Value* NUW_MUL(Value *LHS, Value *RHS, const Twine &Name = "")
 {
     return IRB()->CreateNUWMul(LHS, RHS, Name);
-}
-
-Value* FMUL(Value *LHS, Value *RHS, const Twine &Name = "", MDNode *FPMathTag = nullptr)
-{
-    return IRB()->CreateFMul(LHS, RHS, Name, FPMathTag);
 }
 
 Value* UDIV(Value *LHS, Value *RHS, const Twine &Name = "", bool isExact = false)
@@ -311,11 +401,6 @@ Value* EXACT_S_DIV(Value *LHS, Value *RHS, const Twine &Name = "")
     return IRB()->CreateExactSDiv(LHS, RHS, Name);
 }
 
-Value* FDIV(Value *LHS, Value *RHS, const Twine &Name = "", MDNode *FPMathTag = nullptr)
-{
-    return IRB()->CreateFDiv(LHS, RHS, Name, FPMathTag);
-}
-
 Value* UREM(Value *LHS, Value *RHS, const Twine &Name = "")
 {
     return IRB()->CreateURem(LHS, RHS, Name);
@@ -324,11 +409,6 @@ Value* UREM(Value *LHS, Value *RHS, const Twine &Name = "")
 Value* SREM(Value *LHS, Value *RHS, const Twine &Name = "")
 {
     return IRB()->CreateSRem(LHS, RHS, Name);
-}
-
-Value* FREM(Value *LHS, Value *RHS, const Twine &Name = "", MDNode *FPMathTag = nullptr)
-{
-    return IRB()->CreateFRem(LHS, RHS, Name, FPMathTag);
 }
 
 Value* SHL(Value *LHS, Value *RHS, const Twine &Name = "", bool HasNUW = false, bool HasNSW = false)
@@ -421,6 +501,56 @@ Value* XOR(Value *LHS, uint64_t RHS, const Twine &Name = "")
     return IRB()->CreateXor(LHS, RHS, Name);
 }
 
+Value* FADD(Value *L, Value *R, const Twine &Name = "", MDNode *FPMD = nullptr)
+{
+    return IRB()->CreateFAdd(L, R, Name, FPMD);
+}
+
+Value* FADD_FMF(Value *L, Value *R, Instruction *FMFSource, const Twine &Name = "")
+{
+    return IRB()->CreateFAddFMF(L, R, FMFSource, Name);
+}
+
+Value* FSUB(Value *L, Value *R, const Twine &Name = "", MDNode *FPMD = nullptr)
+{
+    return IRB()->CreateFSub(L, R, Name, FPMD);
+}
+
+Value* FSUB_FMF(Value *L, Value *R, Instruction *FMFSource, const Twine &Name = "")
+{
+    return IRB()->CreateFSubFMF(L, R, FMFSource, Name);
+}
+
+Value* FMUL(Value *L, Value *R, const Twine &Name = "", MDNode *FPMD = nullptr)
+{
+    return IRB()->CreateFMul(L, R, Name, FPMD);
+}
+
+Value* FMUL_FMF(Value *L, Value *R, Instruction *FMFSource, const Twine &Name = "")
+{
+    return IRB()->CreateFMulFMF(L, R, FMFSource, Name);
+}
+
+Value* FDIV(Value *L, Value *R, const Twine &Name = "", MDNode *FPMD = nullptr)
+{
+    return IRB()->CreateFDiv(L, R, Name, FPMD);
+}
+
+Value* FDIV_FMF(Value *L, Value *R, Instruction *FMFSource, const Twine &Name = "")
+{
+    return IRB()->CreateFDivFMF(L, R, FMFSource, Name);
+}
+
+Value* FREM(Value *L, Value *R, const Twine &Name = "", MDNode *FPMD = nullptr)
+{
+    return IRB()->CreateFRem(L, R, Name, FPMD);
+}
+
+Value* FREM_FMF(Value *L, Value *R, Instruction *FMFSource, const Twine &Name = "")
+{
+    return IRB()->CreateFRemFMF(L, R, FMFSource, Name);
+}
+
 Value* BINOP(Instruction::BinaryOps Opc, Value *LHS, Value *RHS, const Twine &Name = "", MDNode *FPMathTag = nullptr)
 {
     return IRB()->CreateBinOp(Opc, LHS, RHS, Name, FPMathTag);
@@ -451,29 +581,14 @@ Value* NOT(Value *V, const Twine &Name = "")
     return IRB()->CreateNot(V, Name);
 }
 
+AllocaInst* ALLOCA(Type *Ty, unsigned AddrSpace, Value *ArraySize = nullptr, const Twine &Name = "")
+{
+    return IRB()->CreateAlloca(Ty, AddrSpace, ArraySize, Name);
+}
+
 AllocaInst* ALLOCA(Type *Ty, Value *ArraySize = nullptr, const Twine &Name = "")
 {
     return IRB()->CreateAlloca(Ty, ArraySize, Name);
-}
-
-LoadInst* LOAD(Value *Ptr, const char *Name)
-{
-    return IRB()->CreateLoad(Ptr, Name);
-}
-
-LoadInst* LOAD(Value *Ptr, const Twine &Name = "")
-{
-    return IRB()->CreateLoad(Ptr, Name);
-}
-
-LoadInst* LOAD(Type *Ty, Value *Ptr, const Twine &Name = "")
-{
-    return IRB()->CreateLoad(Ty, Ptr, Name);
-}
-
-LoadInst* LOAD(Value *Ptr, bool isVolatile, const Twine &Name = "")
-{
-    return IRB()->CreateLoad(Ptr, isVolatile, Name);
 }
 
 StoreInst* STORE(Value *Val, Value *Ptr, bool isVolatile = false)
@@ -501,16 +616,6 @@ StoreInst* ALIGNED_STORE(Value *Val, Value *Ptr, unsigned Align, bool isVolatile
     return IRB()->CreateAlignedStore(Val, Ptr, Align, isVolatile);
 }
 
-Value* GEPA(Value *Ptr, ArrayRef<Value *> IdxList, const Twine &Name = "")
-{
-    return IRB()->CreateGEP(Ptr, IdxList, Name);
-}
-
-Value* GEPA(Type *Ty, Value *Ptr, ArrayRef<Value *> IdxList, const Twine &Name = "")
-{
-    return IRB()->CreateGEP(Ty, Ptr, IdxList, Name);
-}
-
 Value* IN_BOUNDS_GEP(Value *Ptr, ArrayRef<Value *> IdxList, const Twine &Name = "")
 {
     return IRB()->CreateInBoundsGEP(Ptr, IdxList, Name);
@@ -519,16 +624,6 @@ Value* IN_BOUNDS_GEP(Value *Ptr, ArrayRef<Value *> IdxList, const Twine &Name = 
 Value* IN_BOUNDS_GEP(Type *Ty, Value *Ptr, ArrayRef<Value *> IdxList, const Twine &Name = "")
 {
     return IRB()->CreateInBoundsGEP(Ty, Ptr, IdxList, Name);
-}
-
-Value* GEP(Value *Ptr, Value *Idx, const Twine &Name = "")
-{
-    return IRB()->CreateGEP(Ptr, Idx, Name);
-}
-
-Value* GEP(Type *Ty, Value *Ptr, Value *Idx, const Twine &Name = "")
-{
-    return IRB()->CreateGEP(Ty, Ptr, Idx, Name);
 }
 
 Value* IN_BOUNDS_GEP(Type *Ty, Value *Ptr, Value *Idx, const Twine &Name = "")
@@ -586,7 +681,12 @@ Value* STRUCT_GEP(Type *Ty, Value *Ptr, unsigned Idx, const Twine &Name = "")
     return IRB()->CreateStructGEP(Ty, Ptr, Idx, Name);
 }
 
-Value* GLOBAL_STRING_PTR(StringRef Str, const Twine &Name = "", unsigned AddressSpace = 0)
+Value* STRUCT_GEP(Value *Ptr, unsigned Idx, const Twine &Name = "")
+{
+    return IRB()->CreateStructGEP(Ptr, Idx, Name);
+}
+
+Constant* GLOBAL_STRING_PTR(StringRef Str, const Twine &Name = "", unsigned AddressSpace = 0)
 {
     return IRB()->CreateGlobalStringPtr(Str, Name, AddressSpace);
 }
@@ -851,7 +951,7 @@ CallInst* CALLA(Value *Callee, ArrayRef<Value *> Args = None, const Twine &Name 
     return IRB()->CreateCall(Callee, Args, Name, FPMathTag);
 }
 
-CallInst* CALLA(llvm::FunctionType *FTy, Value *Callee, ArrayRef<Value *> Args, const Twine &Name = "", MDNode *FPMathTag = nullptr)
+CallInst* CALLA(FunctionType *FTy, Value *Callee, ArrayRef<Value *> Args, const Twine &Name = "", MDNode *FPMathTag = nullptr)
 {
     return IRB()->CreateCall(FTy, Callee, Args, Name, FPMathTag);
 }
@@ -936,9 +1036,14 @@ Value* PTR_DIFF(Value *LHS, Value *RHS, const Twine &Name = "")
     return IRB()->CreatePtrDiff(LHS, RHS, Name);
 }
 
-Value* INVARIANT_GROUP_BARRIER(Value *Ptr)
+Value* LAUNDER_INVARIANT_GROUP(Value *Ptr)
 {
-    return IRB()->CreateInvariantGroupBarrier(Ptr);
+    return IRB()->CreateLaunderInvariantGroup(Ptr);
+}
+
+Value* STRIP_INVARIANT_GROUP(Value *Ptr)
+{
+    return IRB()->CreateStripInvariantGroup(Ptr);
 }
 
 Value* VECTOR_SPLAT(unsigned NumElts, Value *V, const Twine &Name = "")
@@ -956,3 +1061,9 @@ CallInst* ALIGNMENT_ASSUMPTION(const DataLayout &DL, Value *PtrValue, unsigned A
     return IRB()->CreateAlignmentAssumption(DL, PtrValue, Alignment, OffsetValue);
 }
 
+CallInst* ALIGNMENT_ASSUMPTION(const DataLayout &DL, Value *PtrValue, Value *Alignment, Value *OffsetValue = nullptr)
+{
+    return IRB()->CreateAlignmentAssumption(DL, PtrValue, Alignment, OffsetValue);
+}
+
+    // clang-format on

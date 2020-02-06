@@ -208,7 +208,24 @@ void bc_finalizer::finalize_if(region_node* r) {
 		r->push_front(if_jump);
 		r->push_back(if_pop);
 
+		/* the depart/repeat 1 is actually part of the "else" code.
+		 * if it's a depart for an outer loop region it will want to
+		 * insert a LOOP_BREAK or LOOP_CONTINUE in here, so we need
+		 * to emit the else clause.
+		 */
 		bool has_else = n_if->next;
+
+		if (repdep1->is_depart()) {
+			depart_node *dep1 = static_cast<depart_node*>(repdep1);
+			if (dep1->target != r && dep1->target->is_loop())
+				has_else = true;
+		}
+
+		if (repdep1->is_repeat()) {
+			repeat_node *rep1 = static_cast<repeat_node*>(repdep1);
+			if (rep1->target != r && rep1->target->is_loop())
+				has_else = true;
+		}
 
 		if (has_else) {
 			cf_node *nelse = sh.create_cf(CF_OP_ELSE);
@@ -294,7 +311,7 @@ void bc_finalizer::finalize_alu_group(alu_group_node* g, node *prev_node) {
 		value *d = n->dst.empty() ? NULL : n->dst[0];
 
 		if (d && d->is_special_reg()) {
-			assert((n->bc.op_ptr->flags & AF_MOVA) || d->is_geometry_emit() || d->is_lds_oq() || d->is_lds_access());
+			assert((n->bc.op_ptr->flags & AF_MOVA) || d->is_geometry_emit() || d->is_lds_oq() || d->is_lds_access() || d->is_scratch());
 			d = NULL;
 		}
 
@@ -761,8 +778,15 @@ void bc_finalizer::finalize_cf(cf_node* c) {
 		int reg = -1;
 		unsigned mask = 0;
 
+
 		for (unsigned chan = 0; chan < 4; ++chan) {
-			value *v = c->src[chan];
+			value *v;
+			if (ctx.hw_class == HW_CLASS_R600 && c->bc.op == CF_OP_MEM_SCRATCH &&
+			    (c->bc.type == 2 || c->bc.type == 3))
+				v = c->dst[chan];
+			else
+				v = c->src[chan];
+
 			if (!v || v->is_undef())
 				continue;
 

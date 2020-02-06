@@ -33,6 +33,7 @@
 
 #include "state_tracker/drm_driver.h"
 #include "pipe/p_screen.h"
+#include "util/u_format.h"
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
 
@@ -73,7 +74,7 @@ renderonly_create_kms_dumb_buffer_for_resource(struct pipe_resource *rsc,
    struct drm_mode_create_dumb create_dumb = {
       .width = rsc->width0,
       .height = rsc->height0,
-      .bpp = 32,
+      .bpp = util_format_get_blocksizebits(rsc->format),
    };
    struct drm_mode_destroy_dumb destroy_dumb = { };
 
@@ -97,7 +98,7 @@ renderonly_create_kms_dumb_buffer_for_resource(struct pipe_resource *rsc,
 
    /* fill in winsys handle */
    memset(out_handle, 0, sizeof(*out_handle));
-   out_handle->type = DRM_API_HANDLE_TYPE_FD;
+   out_handle->type = WINSYS_HANDLE_TYPE_FD;
    out_handle->stride = create_dumb.pitch;
 
    err = drmPrimeHandleToFD(ro->kms_fd, create_dumb.handle, O_CLOEXEC,
@@ -129,7 +130,7 @@ renderonly_create_gpu_import_for_resource(struct pipe_resource *rsc,
    boolean status;
    int fd, err;
    struct winsys_handle handle = {
-      .type = DRM_API_HANDLE_TYPE_FD
+      .type = WINSYS_HANDLE_TYPE_FD
    };
 
    scanout = CALLOC_STRUCT(renderonly_scanout);
@@ -137,7 +138,7 @@ renderonly_create_gpu_import_for_resource(struct pipe_resource *rsc,
       return NULL;
 
    status = screen->resource_get_handle(screen, NULL, rsc, &handle,
-         PIPE_HANDLE_USAGE_READ_WRITE);
+         PIPE_HANDLE_USAGE_FRAMEBUFFER_WRITE);
    if (!status)
       goto free_scanout;
 

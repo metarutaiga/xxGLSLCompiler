@@ -1,4 +1,4 @@
-# Copyright © 2017 Intel Corporation
+# Copyright © 2017-2018 Intel Corporation
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,15 +18,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-libva_version = ['2', '3', '0']
+libva_version = dep_va.version().split('.')
 
 libva_st = static_library(
   'va_st',
   files(
     'buffer.c', 'config.c', 'context.c', 'display.c', 'image.c', 'picture.c',
     'picture_mpeg12.c', 'picture_mpeg4.c', 'picture_h264.c', 'picture_hevc.c',
-    'picture_vc1.c', 'picture_mjpeg.c', 'postproc.c', 'subpicture.c',
-    'surface.c',
+    'picture_vc1.c', 'picture_mjpeg.c', 'picture_vp9.c','postproc.c',
+    'subpicture.c', 'surface.c', 'picture_h264_enc.c', 'picture_hevc_enc.c',
   ),
   c_args : [
     c_vis_args,
@@ -35,5 +35,5 @@ libva_st = static_library(
     ),
   ],
   include_directories : [inc_common],
-  dependencies : [dep_va, dep_x11_xcb, dep_xcb, dep_xcb_dri2, dep_xcb_dri3],
+  dependencies : [dep_va_headers, dep_x11_xcb, dep_xcb, dep_xcb_dri2, dep_xcb_dri3],
 )

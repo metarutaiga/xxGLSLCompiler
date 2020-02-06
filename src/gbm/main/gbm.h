@@ -190,6 +190,9 @@ enum gbm_bo_format {
 #define GBM_FORMAT_YUV444	__gbm_fourcc_code('Y', 'U', '2', '4') /* non-subsampled Cb (1) and Cr (2) planes */
 #define GBM_FORMAT_YVU444	__gbm_fourcc_code('Y', 'V', '2', '4') /* non-subsampled Cr (1) and Cb (2) planes */
 
+struct gbm_format_name_desc {
+   char name[5];
+};
 
 /**
  * Flags to indicate the intended use for the buffer - these are passed into
@@ -386,8 +389,6 @@ gbm_surface_create_with_modifiers(struct gbm_device *gbm,
                                   uint32_t format,
                                   const uint64_t *modifiers,
                                   const unsigned int count);
-int
-gbm_surface_needs_lock_front_buffer(struct gbm_surface *surface);
 
 struct gbm_bo *
 gbm_surface_lock_front_buffer(struct gbm_surface *surface);
@@ -400,6 +401,9 @@ gbm_surface_has_free_buffers(struct gbm_surface *surface);
 
 void
 gbm_surface_destroy(struct gbm_surface *surface);
+
+char *
+gbm_format_get_name(uint32_t gbm_format, struct gbm_format_name_desc *desc);
 
 #ifdef __cplusplus
 }

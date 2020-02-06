@@ -1,4 +1,4 @@
-# Copyright © 2017 Intel Corporation
+# Copyright © 2017-2018 Intel Corporation
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,7 @@ if with_ld_dynamic_list
   vdpau_link_depends += files('../dri-vdpau.dyn')
 endif
 
+
 libvdpau_gallium = shared_library(
   'vdpau_gallium',
   'target.c',
@@ -44,26 +45,28 @@ libvdpau_gallium = shared_library(
   include_directories : [
     inc_common, inc_util, inc_gallium_winsys, inc_gallium_drivers,
   ],
+  link_whole : [libvdpau_st],
   link_with : [
-    libvdpau_st, libgalliumvlwinsys, libgalliumvl, libgallium, libmesa_util,
-    libpipe_loader_static, libws_null, libwsw,
+    libgalliumvlwinsys, libgalliumvl, libgallium, libmesa_util,
+    libpipe_loader_static, libws_null, libwsw, libswdri, libswkmsdri,
   ],
   dependencies : [
-    dep_thread, dep_xcb, dep_x11_xcb, dep_xcb_dri2, dep_libdrm,
-    driver_r300, driver_r600, driver_radeonsi, driver_nouveau,
+    dep_thread, driver_r300, driver_r600, driver_radeonsi, driver_nouveau,
   ],
   link_depends : vdpau_link_depends,
+  soversion : '@0@.@1@.0'.format(VDPAU_MAJOR, VDPAU_MINOR),
 )
 foreach d : [[with_gallium_r300, 'r300'],
              [with_gallium_r600, 'r600'],
              [with_gallium_radeonsi, 'radeonsi'],
              [with_gallium_nouveau, 'nouveau']]
   if d[0]
-    vdpau_drivers += 'libvdpau_@0@.so.1.0.0'.format(d[1])
+    vdpau_drivers += 'libvdpau_@0@.so.@1@.@2@.0'.format(d[1], VDPAU_MAJOR, VDPAU_MINOR)
   endif
 endforeach
 
 meson.add_install_script(
+  prog_python.path(),
   join_paths(meson.source_root(), 'bin/install_megadrivers.py'),
   libvdpau_gallium.full_path(),
   vdpau_drivers_path,

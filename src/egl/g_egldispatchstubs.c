@@ -151,6 +151,26 @@ static EGLBoolean EGLAPIENTRY dispatch_eglExportDRMImageMESA(EGLDisplay dpy, EGL
     }
     return _ret;
 }
+static char * EGLAPIENTRY dispatch_eglGetDisplayDriverConfig(EGLDisplay dpy)
+{
+    typedef char * EGLAPIENTRY (* _pfn_eglGetDisplayDriverConfig)(EGLDisplay dpy);
+    char * _ret = NULL;
+    _pfn_eglGetDisplayDriverConfig _ptr_eglGetDisplayDriverConfig = (_pfn_eglGetDisplayDriverConfig) __eglDispatchFetchByDisplay(dpy, __EGL_DISPATCH_eglGetDisplayDriverConfig);
+    if(_ptr_eglGetDisplayDriverConfig != NULL) {
+        _ret = _ptr_eglGetDisplayDriverConfig(dpy);
+    }
+    return _ret;
+}
+static const char * EGLAPIENTRY dispatch_eglGetDisplayDriverName(EGLDisplay dpy)
+{
+    typedef const char * EGLAPIENTRY (* _pfn_eglGetDisplayDriverName)(EGLDisplay dpy);
+    const char * _ret = NULL;
+    _pfn_eglGetDisplayDriverName _ptr_eglGetDisplayDriverName = (_pfn_eglGetDisplayDriverName) __eglDispatchFetchByDisplay(dpy, __EGL_DISPATCH_eglGetDisplayDriverName);
+    if(_ptr_eglGetDisplayDriverName != NULL) {
+        _ret = _ptr_eglGetDisplayDriverName(dpy);
+    }
+    return _ret;
+}
 static EGLBoolean EGLAPIENTRY dispatch_eglGetSyncAttribKHR(EGLDisplay dpy, EGLSyncKHR sync, EGLint attribute, EGLint *value)
 {
     typedef EGLBoolean EGLAPIENTRY (* _pfn_eglGetSyncAttribKHR)(EGLDisplay dpy, EGLSyncKHR sync, EGLint attribute, EGLint *value);
@@ -178,6 +198,36 @@ static EGLBoolean EGLAPIENTRY dispatch_eglPostSubBufferNV(EGLDisplay dpy, EGLSur
     _pfn_eglPostSubBufferNV _ptr_eglPostSubBufferNV = (_pfn_eglPostSubBufferNV) __eglDispatchFetchByDisplay(dpy, __EGL_DISPATCH_eglPostSubBufferNV);
     if(_ptr_eglPostSubBufferNV != NULL) {
         _ret = _ptr_eglPostSubBufferNV(dpy, surface, x, y, width, height);
+    }
+    return _ret;
+}
+static EGLBoolean EGLAPIENTRY dispatch_eglQueryDeviceAttribEXT(EGLDeviceEXT device, EGLint attribute, EGLAttrib *value)
+{
+    typedef EGLBoolean EGLAPIENTRY (* _pfn_eglQueryDeviceAttribEXT)(EGLDeviceEXT device, EGLint attribute, EGLAttrib *value);
+    EGLBoolean _ret = EGL_FALSE;
+    _pfn_eglQueryDeviceAttribEXT _ptr_eglQueryDeviceAttribEXT = (_pfn_eglQueryDeviceAttribEXT) __eglDispatchFetchByDevice(device, __EGL_DISPATCH_eglQueryDeviceAttribEXT);
+    if(_ptr_eglQueryDeviceAttribEXT != NULL) {
+        _ret = _ptr_eglQueryDeviceAttribEXT(device, attribute, value);
+    }
+    return _ret;
+}
+static const char * EGLAPIENTRY dispatch_eglQueryDeviceStringEXT(EGLDeviceEXT device, EGLint name)
+{
+    typedef const char * EGLAPIENTRY (* _pfn_eglQueryDeviceStringEXT)(EGLDeviceEXT device, EGLint name);
+    const char * _ret = NULL;
+    _pfn_eglQueryDeviceStringEXT _ptr_eglQueryDeviceStringEXT = (_pfn_eglQueryDeviceStringEXT) __eglDispatchFetchByDevice(device, __EGL_DISPATCH_eglQueryDeviceStringEXT);
+    if(_ptr_eglQueryDeviceStringEXT != NULL) {
+        _ret = _ptr_eglQueryDeviceStringEXT(device, name);
+    }
+    return _ret;
+}
+static EGLBoolean EGLAPIENTRY dispatch_eglQueryDisplayAttribEXT(EGLDisplay dpy, EGLint attribute, EGLAttrib *value)
+{
+    typedef EGLBoolean EGLAPIENTRY (* _pfn_eglQueryDisplayAttribEXT)(EGLDisplay dpy, EGLint attribute, EGLAttrib *value);
+    EGLBoolean _ret = EGL_FALSE;
+    _pfn_eglQueryDisplayAttribEXT _ptr_eglQueryDisplayAttribEXT = (_pfn_eglQueryDisplayAttribEXT) __eglDispatchFetchByDisplay(dpy, __EGL_DISPATCH_eglQueryDisplayAttribEXT);
+    if(_ptr_eglQueryDisplayAttribEXT != NULL) {
+        _ret = _ptr_eglQueryDisplayAttribEXT(dpy, attribute, value);
     }
     return _ret;
 }
@@ -210,6 +260,14 @@ static EGLBoolean EGLAPIENTRY dispatch_eglQueryWaylandBufferWL(EGLDisplay dpy, s
         _ret = _ptr_eglQueryWaylandBufferWL(dpy, buffer, attribute, value);
     }
     return _ret;
+}
+static void EGLAPIENTRY dispatch_eglSetBlobCacheFuncsANDROID(EGLDisplay dpy, EGLSetBlobFuncANDROID set, EGLGetBlobFuncANDROID get)
+{
+    typedef void EGLAPIENTRY (* _pfn_eglSetBlobCacheFuncsANDROID)(EGLDisplay dpy, EGLSetBlobFuncANDROID set, EGLGetBlobFuncANDROID get);
+    _pfn_eglSetBlobCacheFuncsANDROID _ptr_eglSetBlobCacheFuncsANDROID = (_pfn_eglSetBlobCacheFuncsANDROID) __eglDispatchFetchByDisplay(dpy, __EGL_DISPATCH_eglSetBlobCacheFuncsANDROID);
+    if(_ptr_eglSetBlobCacheFuncsANDROID != NULL) {
+        _ptr_eglSetBlobCacheFuncsANDROID(dpy, set, get);
+    }
 }
 static EGLBoolean EGLAPIENTRY dispatch_eglSignalSyncKHR(EGLDisplay dpy, EGLSyncKHR sync, EGLenum mode)
 {
@@ -312,6 +370,8 @@ const char * const __EGL_DISPATCH_FUNC_NAMES[__EGL_DISPATCH_COUNT + 1] = {
     "eglGetCurrentDisplay",
     "eglGetCurrentSurface",
     "eglGetDisplay",
+    "eglGetDisplayDriverConfig",
+    "eglGetDisplayDriverName",
     "eglGetError",
     "eglGetPlatformDisplay",
     "eglGetPlatformDisplayEXT",
@@ -324,6 +384,10 @@ const char * const __EGL_DISPATCH_FUNC_NAMES[__EGL_DISPATCH_COUNT + 1] = {
     "eglPostSubBufferNV",
     "eglQueryAPI",
     "eglQueryContext",
+    "eglQueryDeviceAttribEXT",
+    "eglQueryDeviceStringEXT",
+    "eglQueryDevicesEXT",
+    "eglQueryDisplayAttribEXT",
     "eglQueryDmaBufFormatsEXT",
     "eglQueryDmaBufModifiersEXT",
     "eglQueryString",
@@ -331,6 +395,7 @@ const char * const __EGL_DISPATCH_FUNC_NAMES[__EGL_DISPATCH_COUNT + 1] = {
     "eglQueryWaylandBufferWL",
     "eglReleaseTexImage",
     "eglReleaseThread",
+    "eglSetBlobCacheFuncsANDROID",
     "eglSignalSyncKHR",
     "eglSurfaceAttrib",
     "eglSwapBuffers",
@@ -387,6 +452,8 @@ const __eglMustCastToProperFunctionPointerType __EGL_DISPATCH_FUNCS[__EGL_DISPAT
     NULL, // eglGetCurrentDisplay
     NULL, // eglGetCurrentSurface
     NULL, // eglGetDisplay
+    (__eglMustCastToProperFunctionPointerType) dispatch_eglGetDisplayDriverConfig,
+    (__eglMustCastToProperFunctionPointerType) dispatch_eglGetDisplayDriverName,
     NULL, // eglGetError
     NULL, // eglGetPlatformDisplay
     NULL, // eglGetPlatformDisplayEXT
@@ -399,6 +466,10 @@ const __eglMustCastToProperFunctionPointerType __EGL_DISPATCH_FUNCS[__EGL_DISPAT
     (__eglMustCastToProperFunctionPointerType) dispatch_eglPostSubBufferNV,
     NULL, // eglQueryAPI
     NULL, // eglQueryContext
+    (__eglMustCastToProperFunctionPointerType) dispatch_eglQueryDeviceAttribEXT,
+    (__eglMustCastToProperFunctionPointerType) dispatch_eglQueryDeviceStringEXT,
+    NULL, // eglQueryDevicesEXT
+    (__eglMustCastToProperFunctionPointerType) dispatch_eglQueryDisplayAttribEXT,
     (__eglMustCastToProperFunctionPointerType) dispatch_eglQueryDmaBufFormatsEXT,
     (__eglMustCastToProperFunctionPointerType) dispatch_eglQueryDmaBufModifiersEXT,
     NULL, // eglQueryString
@@ -406,6 +477,7 @@ const __eglMustCastToProperFunctionPointerType __EGL_DISPATCH_FUNCS[__EGL_DISPAT
     (__eglMustCastToProperFunctionPointerType) dispatch_eglQueryWaylandBufferWL,
     NULL, // eglReleaseTexImage
     NULL, // eglReleaseThread
+    (__eglMustCastToProperFunctionPointerType) dispatch_eglSetBlobCacheFuncsANDROID,
     (__eglMustCastToProperFunctionPointerType) dispatch_eglSignalSyncKHR,
     NULL, // eglSurfaceAttrib
     NULL, // eglSwapBuffers

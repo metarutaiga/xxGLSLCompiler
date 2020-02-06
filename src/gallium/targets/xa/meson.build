@@ -1,4 +1,4 @@
-# Copyright © 2017 Intel Corporation
+# Copyright © 2017-2018 Intel Corporation
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,8 @@ if with_ld_version_script
   xa_link_depends += files('xa.sym')
 endif
 
+_xa_version = '.'.join(xa_version)
+
 libxatracker = shared_library(
   'xatracker',
   'target.c',
@@ -39,21 +41,22 @@ libxatracker = shared_library(
   include_directories : [
     inc_common, inc_util, inc_gallium_winsys, inc_gallium_drivers,
   ],
+  link_whole : [libxa_st],
   link_with : [
-    libxa_st, libgalliumvl_stub, libgallium, libmesa_util,
-    libpipe_loader_static, libws_null, libwsw,
+    libgalliumvl_stub, libgallium, libmesa_util, libpipe_loader_static,
+    libws_null, libwsw, libswdri, libswkmsdri,
   ],
   link_depends : xa_link_depends,
   dependencies : [
-    dep_xcb, dep_x11_xcb, dep_xcb_dri2, dep_xcb_dri3, dep_libdrm, dep_thread,
-    driver_nouveau, driver_i915, driver_svga, driver_freedreno,
+    dep_thread, driver_nouveau, driver_i915, driver_svga, driver_freedreno,
   ],
+  version : _xa_version,
   install : true,
 )
 
 pkg.generate(
   name : 'xatracker',
   description : 'Xorg gallium3D acceleration library',
-  version : '.'.join(xa_version),
+  version : _xa_version,
   libraries : libxatracker,
 )

@@ -208,7 +208,7 @@ comp_to_swizzle(GLenum comp)
 
 
 static void
-set_swizzle_component(GLuint *swizzle, GLuint comp, GLuint swz)
+set_swizzle_component(GLushort *swizzle, GLuint comp, GLuint swz)
 {
    assert(comp < 4);
    assert(swz <= SWIZZLE_NIL);
@@ -1426,6 +1426,11 @@ get_tex_level_parameter_image(struct gl_context *ctx,
                               _mesa_get_format_bits(texFormat,
                                                     GL_TEXTURE_GREEN_SIZE));
             }
+            if (*params == 0 && pname == GL_TEXTURE_INTENSITY_SIZE) {
+               /* Gallium may store intensity as LA */
+               *params = _mesa_get_format_bits(texFormat, 
+                                               GL_TEXTURE_ALPHA_SIZE);
+            }
          }
          else {
             *params = 0;
@@ -1979,33 +1984,32 @@ get_tex_parameterfv(struct gl_context *ctx,
          break;
 
       case GL_TEXTURE_IMMUTABLE_LEVELS:
-         if (_mesa_is_gles3(ctx) ||
-             (_mesa_is_desktop_gl(ctx) && ctx->Extensions.ARB_texture_view))
+         if (_mesa_is_gles3(ctx) || _mesa_has_texture_view(ctx))
             *params = (GLfloat) obj->ImmutableLevels;
          else
             goto invalid_pname;
          break;
 
       case GL_TEXTURE_VIEW_MIN_LEVEL:
-         if (!ctx->Extensions.ARB_texture_view)
+         if (!_mesa_has_texture_view(ctx))
             goto invalid_pname;
          *params = (GLfloat) obj->MinLevel;
          break;
 
       case GL_TEXTURE_VIEW_NUM_LEVELS:
-         if (!ctx->Extensions.ARB_texture_view)
+         if (!_mesa_has_texture_view(ctx))
             goto invalid_pname;
          *params = (GLfloat) obj->NumLevels;
          break;
 
       case GL_TEXTURE_VIEW_MIN_LAYER:
-         if (!ctx->Extensions.ARB_texture_view)
+         if (!_mesa_has_texture_view(ctx))
             goto invalid_pname;
          *params = (GLfloat) obj->MinLayer;
          break;
 
       case GL_TEXTURE_VIEW_NUM_LAYERS:
-         if (!ctx->Extensions.ARB_texture_view)
+         if (!_mesa_has_texture_view(ctx))
             goto invalid_pname;
          *params = (GLfloat) obj->NumLayers;
          break;
@@ -2306,30 +2310,6 @@ get_tex_parameterIiv(struct gl_context *ctx,
    }
 }
 
-static void
-get_tex_parameterIuiv(struct gl_context *ctx,
-                      struct gl_texture_object *obj,
-                      GLenum pname, GLuint *params, bool dsa)
-{
-   switch (pname) {
-   case GL_TEXTURE_BORDER_COLOR:
-      COPY_4V(params, obj->Sampler.BorderColor.i);
-      break;
-   default:
-      {
-         GLint ip[4];
-         get_tex_parameteriv(ctx, obj, pname, ip, dsa);
-         params[0] = ip[0];
-         if (pname == GL_TEXTURE_SWIZZLE_RGBA_EXT ||
-             pname == GL_TEXTURE_CROP_RECT_OES) {
-            params[1] = ip[1];
-            params[2] = ip[2];
-            params[3] = ip[3];
-         }
-      }
-   }
-}
-
 void GLAPIENTRY
 _mesa_GetTexParameterfv(GLenum target, GLenum pname, GLfloat *params)
 {
@@ -2382,7 +2362,7 @@ _mesa_GetTexParameterIuiv(GLenum target, GLenum pname, GLuint *params)
    if (!texObj)
       return;
 
-   get_tex_parameterIuiv(ctx, texObj, pname, params, false);
+   get_tex_parameterIiv(ctx, texObj, pname, (GLint *) params, false);
 }
 
 
@@ -2436,5 +2416,5 @@ _mesa_GetTextureParameterIuiv(GLuint texture, GLenum pname, GLuint *params)
    if (!texObj)
       return;
 
-   get_tex_parameterIuiv(ctx, texObj, pname, params, true);
+   get_tex_parameterIiv(ctx, texObj, pname, (GLint *) params, true);
 }

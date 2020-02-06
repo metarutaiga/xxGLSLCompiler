@@ -28,6 +28,7 @@
 #include <string.h>
 
 #include "build_id.h"
+#include "macros.h"
 
 #ifndef NT_GNU_BUILD_ID
 #define NT_GNU_BUILD_ID 3
@@ -36,8 +37,6 @@
 #ifndef ElfW
 #define ElfW(type) Elf_##type
 #endif
-
-#define ALIGN(val, align)      (((val) + (align) - 1) & ~((align) - 1))
 
 struct build_id_note {
    ElfW(Nhdr) nhdr;
@@ -58,7 +57,18 @@ build_id_find_nhdr_callback(struct dl_phdr_info *info, size_t size, void *data_)
 {
    struct callback_data *data = data_;
 
-   if ((void *)info->dlpi_addr != data->dli_fbase)
+   /* Calculate address where shared object is mapped into the process space.
+    * (Using the base address and the virtual address of the first LOAD segment)
+    */
+   void *map_start = NULL;
+   for (unsigned i = 0; i < info->dlpi_phnum; i++) {
+      if (info->dlpi_phdr[i].p_type == PT_LOAD) {
+         map_start = (void *)(info->dlpi_addr + info->dlpi_phdr[i].p_vaddr);
+         break;
+      }
+   }
+
+   if (map_start != data->dli_fbase)
       return 0;
 
    for (unsigned i = 0; i < info->dlpi_phnum; i++) {
@@ -79,8 +89,8 @@ build_id_find_nhdr_callback(struct dl_phdr_info *info, size_t size, void *data_)
          }
 
          size_t offset = sizeof(ElfW(Nhdr)) +
-                         ALIGN(note->nhdr.n_namesz, 4) +
-                         ALIGN(note->nhdr.n_descsz, 4);
+                         ALIGN_POT(note->nhdr.n_namesz, 4) +
+                         ALIGN_POT(note->nhdr.n_descsz, 4);
          note = (struct build_id_note *)((char *)note + offset);
          len -= offset;
       }

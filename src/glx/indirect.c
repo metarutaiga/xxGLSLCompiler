@@ -11141,27 +11141,26 @@ static const struct proc_pair {
     const char *name;
     _glapi_proc proc;
 } proc_pairs[20] = {
-    {
-    "AreTexturesResidentEXT", (_glapi_proc) glAreTexturesResidentEXT}, {
-    "DeleteTexturesEXT", (_glapi_proc) glDeleteTexturesEXT}, {
-    "GenTexturesEXT", (_glapi_proc) glGenTexturesEXT}, {
-    "GetColorTableEXT", (_glapi_proc) gl_dispatch_stub_343}, {
-    "GetColorTableParameterfvEXT", (_glapi_proc) gl_dispatch_stub_344}, {
-    "GetColorTableParameterfvSGI", (_glapi_proc) gl_dispatch_stub_344}, {
-    "GetColorTableParameterivEXT", (_glapi_proc) gl_dispatch_stub_345}, {
-    "GetColorTableParameterivSGI", (_glapi_proc) gl_dispatch_stub_345}, {
-    "GetColorTableSGI", (_glapi_proc) gl_dispatch_stub_343}, {
-    "GetConvolutionFilterEXT", (_glapi_proc) gl_dispatch_stub_356}, {
-    "GetConvolutionParameterfvEXT", (_glapi_proc) gl_dispatch_stub_357}, {
-    "GetConvolutionParameterivEXT", (_glapi_proc) gl_dispatch_stub_358}, {
-    "GetHistogramEXT", (_glapi_proc) gl_dispatch_stub_361}, {
-    "GetHistogramParameterfvEXT", (_glapi_proc) gl_dispatch_stub_362}, {
-    "GetHistogramParameterivEXT", (_glapi_proc) gl_dispatch_stub_363}, {
-    "GetMinmaxEXT", (_glapi_proc) gl_dispatch_stub_364}, {
-    "GetMinmaxParameterfvEXT", (_glapi_proc) gl_dispatch_stub_365}, {
-    "GetMinmaxParameterivEXT", (_glapi_proc) gl_dispatch_stub_366}, {
-    "GetSeparableFilterEXT", (_glapi_proc) gl_dispatch_stub_359}, {
-    "IsTextureEXT", (_glapi_proc) glIsTextureEXT}
+    {"AreTexturesResidentEXT", (_glapi_proc) glAreTexturesResidentEXT},
+    {"DeleteTexturesEXT", (_glapi_proc) glDeleteTexturesEXT},
+    {"GenTexturesEXT", (_glapi_proc) glGenTexturesEXT},
+    {"GetColorTableEXT", (_glapi_proc) gl_dispatch_stub_343},
+    {"GetColorTableParameterfvEXT", (_glapi_proc) gl_dispatch_stub_344},
+    {"GetColorTableParameterfvSGI", (_glapi_proc) gl_dispatch_stub_344},
+    {"GetColorTableParameterivEXT", (_glapi_proc) gl_dispatch_stub_345},
+    {"GetColorTableParameterivSGI", (_glapi_proc) gl_dispatch_stub_345},
+    {"GetColorTableSGI", (_glapi_proc) gl_dispatch_stub_343},
+    {"GetConvolutionFilterEXT", (_glapi_proc) gl_dispatch_stub_356},
+    {"GetConvolutionParameterfvEXT", (_glapi_proc) gl_dispatch_stub_357},
+    {"GetConvolutionParameterivEXT", (_glapi_proc) gl_dispatch_stub_358},
+    {"GetHistogramEXT", (_glapi_proc) gl_dispatch_stub_361},
+    {"GetHistogramParameterfvEXT", (_glapi_proc) gl_dispatch_stub_362},
+    {"GetHistogramParameterivEXT", (_glapi_proc) gl_dispatch_stub_363},
+    {"GetMinmaxEXT", (_glapi_proc) gl_dispatch_stub_364},
+    {"GetMinmaxParameterfvEXT", (_glapi_proc) gl_dispatch_stub_365},
+    {"GetMinmaxParameterivEXT", (_glapi_proc) gl_dispatch_stub_366},
+    {"GetSeparableFilterEXT", (_glapi_proc) gl_dispatch_stub_359},
+    {"IsTextureEXT", (_glapi_proc) glIsTextureEXT}
 };
 
 static int

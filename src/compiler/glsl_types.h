@@ -30,6 +30,11 @@
 
 #include "shader_enums.h"
 #include "blob.h"
+#include "c11/threads.h"
+
+#ifdef __cplusplus
+#include "main/config.h"
+#endif
 
 struct glsl_type;
 
@@ -63,6 +68,8 @@ enum glsl_base_type {
    GLSL_TYPE_FLOAT,
    GLSL_TYPE_FLOAT16,
    GLSL_TYPE_DOUBLE,
+   GLSL_TYPE_UINT8,
+   GLSL_TYPE_INT8,
    GLSL_TYPE_UINT16,
    GLSL_TYPE_INT16,
    GLSL_TYPE_UINT64,
@@ -79,6 +86,13 @@ enum glsl_base_type {
    GLSL_TYPE_FUNCTION,
    GLSL_TYPE_ERROR
 };
+
+static inline bool glsl_base_type_is_16bit(enum glsl_base_type type)
+{
+   return type == GLSL_TYPE_FLOAT16 ||
+          type == GLSL_TYPE_UINT16 ||
+          type == GLSL_TYPE_INT16;
+}
 
 static inline bool glsl_base_type_is_64bit(enum glsl_base_type type)
 {
@@ -144,7 +158,7 @@ enum {
 #ifdef __cplusplus
 #include "GL/gl.h"
 #include "util/ralloc.h"
-#include "main/mtypes.h" /* for gl_texture_index, C++'s enum rules are broken */
+#include "main/menums.h" /* for gl_texture_index, C++'s enum rules are broken */
 
 struct glsl_type {
    GLenum gl_type;
@@ -163,45 +177,12 @@ struct glsl_type {
    unsigned interface_row_major:1;
 
 private:
-   glsl_type()
+   glsl_type() : mem_ctx(NULL)
    {
       // Dummy constructor, just for the sake of ASSERT_BITFIELD_SIZE.
    }
 
 public:
-   /* Callers of this ralloc-based new need not call delete. It's
-    * easier to just ralloc_free 'mem_ctx' (or any of its ancestors). */
-   static void* operator new(size_t size)
-   {
-      ASSERT_BITFIELD_SIZE(glsl_type, base_type, GLSL_TYPE_ERROR);
-      ASSERT_BITFIELD_SIZE(glsl_type, sampled_type, GLSL_TYPE_ERROR);
-      ASSERT_BITFIELD_SIZE(glsl_type, sampler_dimensionality,
-                           GLSL_SAMPLER_DIM_SUBPASS_MS);
-
-      mtx_lock(&glsl_type::mem_mutex);
-
-      /* mem_ctx should have been created by the static members */
-      assert(glsl_type::mem_ctx != NULL);
-
-      void *type;
-
-      type = ralloc_size(glsl_type::mem_ctx, size);
-      assert(type != NULL);
-
-      mtx_unlock(&glsl_type::mem_mutex);
-
-      return type;
-   }
-
-   /* If the user *does* call delete, that's OK, we will just
-    * ralloc_free in that case. */
-   static void operator delete(void *type)
-   {
-      mtx_lock(&glsl_type::mem_mutex);
-      ralloc_free(type);
-      mtx_unlock(&glsl_type::mem_mutex);
-   }
-
    /**
     * \name Vector and matrix element counts
     *
@@ -229,6 +210,13 @@ public:
    const char *name;
 
    /**
+    * Explicit array, matrix, or vector stride.  This is used to communicate
+    * explicit array layouts from SPIR-V.  Should be 0 if the type has no
+    * explicit stride.
+    */
+   unsigned explicit_stride;
+
+   /**
     * Subtype of composite data types.
     */
    union {
@@ -254,6 +242,7 @@ public:
     * Convenience accessors for vector types (shorter than get_instance()).
     * @{
     */
+   static const glsl_type *vec(unsigned components, const glsl_type *const ts[]);
    static const glsl_type *vec(unsigned components);
    static const glsl_type *f16vec(unsigned components);
    static const glsl_type *dvec(unsigned components);
@@ -264,6 +253,8 @@ public:
    static const glsl_type *u64vec(unsigned components);
    static const glsl_type *i16vec(unsigned components);
    static const glsl_type *u16vec(unsigned components);
+   static const glsl_type *i8vec(unsigned components);
+   static const glsl_type *u8vec(unsigned components);
    /**@}*/
 
    /**
@@ -288,10 +279,17 @@ public:
    const glsl_type *get_scalar_type() const;
 
    /**
+    * Gets the "bare" type without any decorations or layout information.
+    */
+   const glsl_type *get_bare_type() const;
+
+   /**
     * Get the instance of a built-in scalar, vector, or matrix type
     */
    static const glsl_type *get_instance(unsigned base_type, unsigned rows,
-					unsigned columns);
+                                        unsigned columns,
+                                        unsigned explicit_stride = 0,
+                                        bool row_major = false);
 
    /**
     * Get the instance of a sampler type
@@ -308,7 +306,8 @@ public:
     * Get the instance of an array type
     */
    static const glsl_type *get_array_instance(const glsl_type *base,
-					      unsigned elements);
+                                              unsigned elements,
+                                              unsigned explicit_stride = 0);
 
    /**
     * Get the instance of a record type
@@ -394,8 +393,11 @@ public:
     *
     * For vertex shader attributes - doubles only take one slot.
     * For inter-shader varyings - dvec3/dvec4 take two slots.
+    *
+    * Vulkan doesn’t make this distinction so the argument should always be
+    * false.
     */
-   unsigned count_attribute_slots(bool is_vertex_input) const;
+   unsigned count_attribute_slots(bool is_gl_vertex_input) const;
 
    /**
     * Alignment in bytes of the start of this type in a std140 uniform
@@ -572,6 +574,14 @@ public:
    bool is_64bit() const
    {
       return glsl_base_type_is_64bit(base_type);
+   }
+
+   /**
+    * Query whether or not a type is 16-bit
+    */
+   bool is_16bit() const
+   {
+      return glsl_base_type_is_16bit(base_type);
    }
 
    /**
@@ -760,9 +770,13 @@ public:
     */
    const glsl_type *row_type() const
    {
-      return is_matrix()
-	 ? get_instance(base_type, matrix_columns, 1)
-	 : error_type;
+      if (!is_matrix())
+         return error_type;
+
+      if (explicit_stride && !interface_row_major)
+         return get_instance(base_type, matrix_columns, 1, explicit_stride);
+      else
+         return get_instance(base_type, matrix_columns, 1);
    }
 
    /**
@@ -774,9 +788,13 @@ public:
     */
    const glsl_type *column_type() const
    {
-      return is_matrix()
-	 ? get_instance(base_type, vector_elements, 1)
-	 : error_type;
+      if (!is_matrix())
+         return error_type;
+
+      if (explicit_stride && interface_row_major)
+         return get_instance(base_type, vector_elements, 1, explicit_stride);
+      else
+         return get_instance(base_type, vector_elements, 1);
    }
 
    /**
@@ -873,24 +891,22 @@ public:
       return (bool) interface_row_major;
    }
 
+   ~glsl_type();
+
 private:
 
-   static mtx_t mem_mutex;
    static mtx_t hash_mutex;
 
    /**
-    * ralloc context for all glsl_type allocations
-    *
-    * Set on the first call to \c glsl_type::new.
+    * ralloc context for the type itself.
     */
-   static void *mem_ctx;
-
-   void init_ralloc_type_ctx(void);
+   void *mem_ctx;
 
    /** Constructor for vector and matrix types */
    glsl_type(GLenum gl_type,
-	     glsl_base_type base_type, unsigned vector_elements,
-	     unsigned matrix_columns, const char *name);
+             glsl_base_type base_type, unsigned vector_elements,
+             unsigned matrix_columns, const char *name,
+             unsigned explicit_stride = 0, bool row_major = false);
 
    /** Constructor for sampler or image types */
    glsl_type(GLenum gl_type, glsl_base_type base_type,
@@ -910,11 +926,14 @@ private:
    glsl_type(const glsl_type *return_type,
              const glsl_function_param *params, unsigned num_params);
 
-   /** Constructor for array types */
-   glsl_type(const glsl_type *array, unsigned length);
+   /** Constructors for array types */
+   glsl_type(const glsl_type *array, unsigned length, unsigned explicit_stride);
 
    /** Constructor for subroutine types */
    glsl_type(const char *name);
+
+   /** Hash table containing the known explicit matrix and vector types. */
+   static struct hash_table *explicit_matrix_types;
 
    /** Hash table containing the known array types. */
    static struct hash_table *array_types;

@@ -130,6 +130,14 @@ _mesa_init_teximage_fields(struct gl_context *ctx,
                            GLsizei width, GLsizei height, GLsizei depth,
                            GLint border, GLenum internalFormat,
                            mesa_format format);
+extern void
+_mesa_init_teximage_fields_ms(struct gl_context *ctx,
+                              struct gl_texture_image *img,
+                              GLsizei width, GLsizei height, GLsizei depth,
+                              GLint border, GLenum internalFormat,
+                              mesa_format format,
+                              GLuint numSamples,
+                              GLboolean fixedSampleLocations);
 
 
 extern mesa_format
@@ -213,7 +221,7 @@ _mesa_legal_texture_base_format_for_target(struct gl_context *ctx,
                                            GLenum internalFormat);
 
 bool
-_mesa_format_no_online_compression(const struct gl_context *ctx, GLenum format);
+_mesa_format_no_online_compression(GLenum format);
 
 GLboolean
 _mesa_is_renderable_texture_format(const struct gl_context *ctx,

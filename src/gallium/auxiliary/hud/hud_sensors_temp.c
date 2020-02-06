@@ -122,6 +122,9 @@ get_sensor_values(struct sensors_temp_info *sti)
    case SENSORS_POWER_CURRENT:
       sf = sensors_get_subfeature(sti->chip, sti->feature,
                                   SENSORS_SUBFEATURE_POWER_INPUT);
+      if (!sf)
+          sf = sensors_get_subfeature(sti->chip, sti->feature,
+                                      SENSORS_SUBFEATURE_POWER_AVERAGE);
       if (sf) {
          /* Sensors API returns in WATTs, even though driver is reporting mW,
           * convert back to mW */
@@ -154,7 +157,7 @@ find_sti_by_name(const char *n, unsigned int mode)
 }
 
 static void
-query_sti_load(struct hud_graph *gr)
+query_sti_load(struct hud_graph *gr, struct pipe_context *pipe)
 {
    struct sensors_temp_info *sti = gr->query_data;
    uint64_t now = os_time_get();

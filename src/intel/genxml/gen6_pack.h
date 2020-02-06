@@ -43,6 +43,12 @@
 #ifndef __gen_field_functions
 #define __gen_field_functions
 
+#ifdef NDEBUG
+#define NDEBUG_UNUSED __attribute__((unused))
+#else
+#define NDEBUG_UNUSED
+#endif
+
 union __gen_value {
    float f;
    uint32_t dw;
@@ -55,7 +61,7 @@ __gen_mbo(uint32_t start, uint32_t end)
 }
 
 static inline uint64_t
-__gen_uint(uint64_t v, uint32_t start, uint32_t end)
+__gen_uint(uint64_t v, uint32_t start, NDEBUG_UNUSED uint32_t end)
 {
    __gen_validate_value(v);
 
@@ -91,7 +97,7 @@ __gen_sint(int64_t v, uint32_t start, uint32_t end)
 }
 
 static inline uint64_t
-__gen_offset(uint64_t v, uint32_t start, uint32_t end)
+__gen_offset(uint64_t v, NDEBUG_UNUSED uint32_t start, NDEBUG_UNUSED uint32_t end)
 {
    __gen_validate_value(v);
 #ifndef NDEBUG
@@ -130,7 +136,7 @@ __gen_sfixed(float v, uint32_t start, uint32_t end, uint32_t fract_bits)
 }
 
 static inline uint64_t
-__gen_ufixed(float v, uint32_t start, uint32_t end, uint32_t fract_bits)
+__gen_ufixed(float v, uint32_t start, NDEBUG_UNUSED uint32_t end, uint32_t fract_bits)
 {
    __gen_validate_value(v);
 
@@ -154,6 +160,8 @@ __gen_ufixed(float v, uint32_t start, uint32_t end, uint32_t fract_bits)
 #ifndef __gen_user_data
 #error #define __gen_combine_address before including this file
 #endif
+
+#undef NDEBUG_UNUSED
 
 #endif
 
@@ -264,230 +272,6 @@ enum GEN6_3D_Logic_Op_Function {
    LOGICOP_SET                          =     15,
 };
 
-enum GEN6_SURFACE_FORMAT {
-   SF_R32G32B32A32_FLOAT                =      0,
-   SF_R32G32B32A32_SINT                 =      1,
-   SF_R32G32B32A32_UINT                 =      2,
-   SF_R32G32B32A32_UNORM                =      3,
-   SF_R32G32B32A32_SNORM                =      4,
-   SF_R64G64_FLOAT                      =      5,
-   SF_R32G32B32X32_FLOAT                =      6,
-   SF_R32G32B32A32_SSCALED              =      7,
-   SF_R32G32B32A32_USCALED              =      8,
-   SF_R32G32B32A32_SFIXED               =     32,
-   SF_R64G64_PASSTHRU                   =     33,
-   SF_R32G32B32_FLOAT                   =     64,
-   SF_R32G32B32_SINT                    =     65,
-   SF_R32G32B32_UINT                    =     66,
-   SF_R32G32B32_UNORM                   =     67,
-   SF_R32G32B32_SNORM                   =     68,
-   SF_R32G32B32_SSCALED                 =     69,
-   SF_R32G32B32_USCALED                 =     70,
-   SF_R32G32B32_SFIXED                  =     80,
-   SF_R16G16B16A16_UNORM                =    128,
-   SF_R16G16B16A16_SNORM                =    129,
-   SF_R16G16B16A16_SINT                 =    130,
-   SF_R16G16B16A16_UINT                 =    131,
-   SF_R16G16B16A16_FLOAT                =    132,
-   SF_R32G32_FLOAT                      =    133,
-   SF_R32G32_SINT                       =    134,
-   SF_R32G32_UINT                       =    135,
-   SF_R32_FLOAT_X8X24_TYPELESS          =    136,
-   SF_X32_TYPELESS_G8X24_UINT           =    137,
-   SF_L32A32_FLOAT                      =    138,
-   SF_R32G32_UNORM                      =    139,
-   SF_R32G32_SNORM                      =    140,
-   SF_R64_FLOAT                         =    141,
-   SF_R16G16B16X16_UNORM                =    142,
-   SF_R16G16B16X16_FLOAT                =    143,
-   SF_A32X32_FLOAT                      =    144,
-   SF_L32X32_FLOAT                      =    145,
-   SF_I32X32_FLOAT                      =    146,
-   SF_R16G16B16A16_SSCALED              =    147,
-   SF_R16G16B16A16_USCALED              =    148,
-   SF_R32G32_SSCALED                    =    149,
-   SF_R32G32_USCALED                    =    150,
-   SF_R32G32_SFIXED                     =    160,
-   SF_R64_PASSTHRU                      =    161,
-   SF_B8G8R8A8_UNORM                    =    192,
-   SF_B8G8R8A8_UNORM_SRGB               =    193,
-   SF_R10G10B10A2_UNORM                 =    194,
-   SF_R10G10B10A2_UNORM_SRGB            =    195,
-   SF_R10G10B10A2_UINT                  =    196,
-   SF_R10G10B10_SNORM_A2_UNORM          =    197,
-   SF_R8G8B8A8_UNORM                    =    199,
-   SF_R8G8B8A8_UNORM_SRGB               =    200,
-   SF_R8G8B8A8_SNORM                    =    201,
-   SF_R8G8B8A8_SINT                     =    202,
-   SF_R8G8B8A8_UINT                     =    203,
-   SF_R16G16_UNORM                      =    204,
-   SF_R16G16_SNORM                      =    205,
-   SF_R16G16_SINT                       =    206,
-   SF_R16G16_UINT                       =    207,
-   SF_R16G16_FLOAT                      =    208,
-   SF_B10G10R10A2_UNORM                 =    209,
-   SF_B10G10R10A2_UNORM_SRGB            =    210,
-   SF_R11G11B10_FLOAT                   =    211,
-   SF_R32_SINT                          =    214,
-   SF_R32_UINT                          =    215,
-   SF_R32_FLOAT                         =    216,
-   SF_R24_UNORM_X8_TYPELESS             =    217,
-   SF_X24_TYPELESS_G8_UINT              =    218,
-   SF_L32_UNORM                         =    221,
-   SF_A32_UNORM                         =    222,
-   SF_L16A16_UNORM                      =    223,
-   SF_I24X8_UNORM                       =    224,
-   SF_L24X8_UNORM                       =    225,
-   SF_A24X8_UNORM                       =    226,
-   SF_I32_FLOAT                         =    227,
-   SF_L32_FLOAT                         =    228,
-   SF_A32_FLOAT                         =    229,
-   SF_X8B8_UNORM_G8R8_SNORM             =    230,
-   SF_A8X8_UNORM_G8R8_SNORM             =    231,
-   SF_B8X8_UNORM_G8R8_SNORM             =    232,
-   SF_B8G8R8X8_UNORM                    =    233,
-   SF_B8G8R8X8_UNORM_SRGB               =    234,
-   SF_R8G8B8X8_UNORM                    =    235,
-   SF_R8G8B8X8_UNORM_SRGB               =    236,
-   SF_R9G9B9E5_SHAREDEXP                =    237,
-   SF_B10G10R10X2_UNORM                 =    238,
-   SF_L16A16_FLOAT                      =    240,
-   SF_R32_UNORM                         =    241,
-   SF_R32_SNORM                         =    242,
-   SF_R10G10B10X2_USCALED               =    243,
-   SF_R8G8B8A8_SSCALED                  =    244,
-   SF_R8G8B8A8_USCALED                  =    245,
-   SF_R16G16_SSCALED                    =    246,
-   SF_R16G16_USCALED                    =    247,
-   SF_R32_SSCALED                       =    248,
-   SF_R32_USCALED                       =    249,
-   SF_B5G6R5_UNORM                      =    256,
-   SF_B5G6R5_UNORM_SRGB                 =    257,
-   SF_B5G5R5A1_UNORM                    =    258,
-   SF_B5G5R5A1_UNORM_SRGB               =    259,
-   SF_B4G4R4A4_UNORM                    =    260,
-   SF_B4G4R4A4_UNORM_SRGB               =    261,
-   SF_R8G8_UNORM                        =    262,
-   SF_R8G8_SNORM                        =    263,
-   SF_R8G8_SINT                         =    264,
-   SF_R8G8_UINT                         =    265,
-   SF_R16_UNORM                         =    266,
-   SF_R16_SNORM                         =    267,
-   SF_R16_SINT                          =    268,
-   SF_R16_UINT                          =    269,
-   SF_R16_FLOAT                         =    270,
-   SF_A8P8_UNORM_PALETTE0               =    271,
-   SF_A8P8_UNORM_PALETTE1               =    272,
-   SF_I16_UNORM                         =    273,
-   SF_L16_UNORM                         =    274,
-   SF_A16_UNORM                         =    275,
-   SF_L8A8_UNORM                        =    276,
-   SF_I16_FLOAT                         =    277,
-   SF_L16_FLOAT                         =    278,
-   SF_A16_FLOAT                         =    279,
-   SF_L8A8_UNORM_SRGB                   =    280,
-   SF_R5G5_SNORM_B6_UNORM               =    281,
-   SF_B5G5R5X1_UNORM                    =    282,
-   SF_B5G5R5X1_UNORM_SRGB               =    283,
-   SF_R8G8_SSCALED                      =    284,
-   SF_R8G8_USCALED                      =    285,
-   SF_R16_SSCALED                       =    286,
-   SF_R16_USCALED                       =    287,
-   SF_P8A8_UNORM_PALETTE0               =    290,
-   SF_P8A8_UNORM_PALETTE1               =    291,
-   SF_A1B5G5R5_UNORM                    =    292,
-   SF_A4B4G4R4_UNORM                    =    293,
-   SF_L8A8_UINT                         =    294,
-   SF_L8A8_SINT                         =    295,
-   SF_R8_UNORM                          =    320,
-   SF_R8_SNORM                          =    321,
-   SF_R8_SINT                           =    322,
-   SF_R8_UINT                           =    323,
-   SF_A8_UNORM                          =    324,
-   SF_I8_UNORM                          =    325,
-   SF_L8_UNORM                          =    326,
-   SF_P4A4_UNORM_PALETTE0               =    327,
-   SF_A4P4_UNORM_PALETTE0               =    328,
-   SF_R8_SSCALED                        =    329,
-   SF_R8_USCALED                        =    330,
-   SF_P8_UNORM_PALETTE0                 =    331,
-   SF_L8_UNORM_SRGB                     =    332,
-   SF_P8_UNORM_PALETTE1                 =    333,
-   SF_P4A4_UNORM_PALETTE1               =    334,
-   SF_A4P4_UNORM_PALETTE1               =    335,
-   SF_Y8_UNORM                          =    336,
-   SF_L8_UINT                           =    338,
-   SF_L8_SINT                           =    339,
-   SF_I8_UINT                           =    340,
-   SF_I8_SINT                           =    341,
-   SF_DXT1_RGB_SRGB                     =    384,
-   SF_R1_UNORM                          =    385,
-   SF_YCRCB_NORMAL                      =    386,
-   SF_YCRCB_SWAPUVY                     =    387,
-   SF_P2_UNORM_PALETTE0                 =    388,
-   SF_P2_UNORM_PALETTE1                 =    389,
-   SF_BC1_UNORM                         =    390,
-   SF_BC2_UNORM                         =    391,
-   SF_BC3_UNORM                         =    392,
-   SF_BC4_UNORM                         =    393,
-   SF_BC5_UNORM                         =    394,
-   SF_BC1_UNORM_SRGB                    =    395,
-   SF_BC2_UNORM_SRGB                    =    396,
-   SF_BC3_UNORM_SRGB                    =    397,
-   SF_MONO8                             =    398,
-   SF_YCRCB_SWAPUV                      =    399,
-   SF_YCRCB_SWAPY                       =    400,
-   SF_DXT1_RGB                          =    401,
-   SF_FXT1                              =    402,
-   SF_R8G8B8_UNORM                      =    403,
-   SF_R8G8B8_SNORM                      =    404,
-   SF_R8G8B8_SSCALED                    =    405,
-   SF_R8G8B8_USCALED                    =    406,
-   SF_R64G64B64A64_FLOAT                =    407,
-   SF_R64G64B64_FLOAT                   =    408,
-   SF_BC4_SNORM                         =    409,
-   SF_BC5_SNORM                         =    410,
-   SF_R16G16B16_FLOAT                   =    411,
-   SF_R16G16B16_UNORM                   =    412,
-   SF_R16G16B16_SNORM                   =    413,
-   SF_R16G16B16_SSCALED                 =    414,
-   SF_R16G16B16_USCALED                 =    415,
-   SF_BC6H_SF16                         =    417,
-   SF_BC7_UNORM                         =    418,
-   SF_BC7_UNORM_SRGB                    =    419,
-   SF_BC6H_UF16                         =    420,
-   SF_PLANAR_420_8                      =    421,
-   SF_R8G8B8_UNORM_SRGB                 =    424,
-   SF_ETC1_RGB8                         =    425,
-   SF_ETC2_RGB8                         =    426,
-   SF_EAC_R11                           =    427,
-   SF_EAC_RG11                          =    428,
-   SF_EAC_SIGNED_R11                    =    429,
-   SF_EAC_SIGNED_RG11                   =    430,
-   SF_ETC2_SRGB8                        =    431,
-   SF_R16G16B16_UINT                    =    432,
-   SF_R16G16B16_SINT                    =    433,
-   SF_R32_SFIXED                        =    434,
-   SF_R10G10B10A2_SNORM                 =    435,
-   SF_R10G10B10A2_USCALED               =    436,
-   SF_R10G10B10A2_SSCALED               =    437,
-   SF_R10G10B10A2_SINT                  =    438,
-   SF_B10G10R10A2_SNORM                 =    439,
-   SF_B10G10R10A2_USCALED               =    440,
-   SF_B10G10R10A2_SSCALED               =    441,
-   SF_B10G10R10A2_UINT                  =    442,
-   SF_B10G10R10A2_SINT                  =    443,
-   SF_R64G64B64A64_PASSTHRU             =    444,
-   SF_R64G64B64_PASSTHRU                =    445,
-   SF_ETC2_RGB8_PTA                     =    448,
-   SF_ETC2_SRGB8_PTA                    =    449,
-   SF_ETC2_EAC_RGBA8                    =    450,
-   SF_ETC2_EAC_SRGB8_A8                 =    451,
-   SF_R8G8B8_UINT                       =    456,
-   SF_R8G8B8_SINT                       =    457,
-   SF_RAW                               =    511,
-};
-
 enum GEN6_TextureCoordinateMode {
    TCM_WRAP                             =      0,
    TCM_MIRROR                           =      1,
@@ -521,8 +305,7 @@ struct GEN6_VERTEX_BUFFER_STATE {
    uint32_t                             BufferAccessType;
 #define VERTEXDATA                               0
 #define INSTANCEDATA                             1
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE VertexBufferMemoryObjectControlState;
-   uint32_t                             VertexBufferMOCS;
+   uint32_t                             MOCS;
    bool                                 NullVertexBuffer;
    bool                                 VertexFetchInvalidate;
    uint32_t                             BufferPitch;
@@ -538,14 +321,10 @@ GEN6_VERTEX_BUFFER_STATE_pack(__attribute__((unused)) __gen_user_data *data,
 {
    uint32_t * restrict dw = (uint32_t * restrict) dst;
 
-   uint32_t v0_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v0_0, &values->VertexBufferMemoryObjectControlState);
-
    dw[0] =
       __gen_uint(values->VertexBufferIndex, 26, 31) |
       __gen_uint(values->BufferAccessType, 20, 20) |
-      __gen_uint(v0_0, 16, 19) |
-      __gen_uint(values->VertexBufferMOCS, 16, 19) |
+      __gen_uint(values->MOCS, 16, 19) |
       __gen_uint(values->NullVertexBuffer, 13, 13) |
       __gen_uint(values->VertexFetchInvalidate, 12, 12) |
       __gen_uint(values->BufferPitch, 0, 11);
@@ -562,7 +341,7 @@ GEN6_VERTEX_BUFFER_STATE_pack(__attribute__((unused)) __gen_user_data *data,
 struct GEN6_VERTEX_ELEMENT_STATE {
    uint32_t                             VertexBufferIndex;
    bool                                 Valid;
-   enum GEN6_SURFACE_FORMAT             SourceElementFormat;
+   uint32_t                             SourceElementFormat;
    bool                                 EdgeFlagEnable;
    uint32_t                             SourceElementOffset;
    enum GEN6_3D_Vertex_Component_Control Component0Control;
@@ -1042,7 +821,7 @@ struct GEN6_RENDER_SURFACE_STATE {
 #define SURFTYPE_NULL                            7
    uint32_t                             DataReturnFormat;
 #define DATA_RETURN_FLOAT32                      0
-   enum GEN6_SURFACE_FORMAT             SurfaceFormat;
+   uint32_t                             SurfaceFormat;
    uint32_t                             VerticalLineStride;
    uint32_t                             VerticalLineStrideOffset;
    uint32_t                             MIPMapLayoutMode;
@@ -1090,7 +869,6 @@ struct GEN6_RENDER_SURFACE_STATE {
 #define VALIGN_2                                 0
 #define VALIGN_4                                 1
    uint32_t                             YOffset;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE SurfaceObjectControlState;
    uint32_t                             MOCS;
 };
 
@@ -1139,14 +917,10 @@ GEN6_RENDER_SURFACE_STATE_pack(__attribute__((unused)) __gen_user_data *data,
       __gen_uint(values->NumberofMultisamples, 4, 6) |
       __gen_uint(values->MultisamplePositionPaletteIndex, 0, 2);
 
-   uint32_t v5_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v5_0, &values->SurfaceObjectControlState);
-
    dw[5] =
       __gen_uint(values->XOffset, 25, 31) |
       __gen_uint(values->SurfaceVerticalAlignment, 24, 24) |
       __gen_uint(values->YOffset, 20, 23) |
-      __gen_uint(v5_0, 16, 19) |
       __gen_uint(values->MOCS, 16, 19);
 }
 
@@ -1722,6 +1496,42 @@ GEN6_3DSTATE_CLIP_pack(__attribute__((unused)) __gen_user_data *data,
       __gen_uint(values->MaximumVPIndex, 0, 3);
 }
 
+#define GEN6_3DSTATE_CONSTANT_BODY_length      4
+struct GEN6_3DSTATE_CONSTANT_BODY {
+   uint64_t                             PointertoConstantBuffer0;
+   uint32_t                             ConstantBuffer0ReadLength;
+   __gen_address_type                   PointertoConstantBuffer1;
+   uint32_t                             ConstantBuffer1ReadLength;
+   __gen_address_type                   PointertoConstantBuffer2;
+   uint32_t                             ConstantBuffer2ReadLength;
+   __gen_address_type                   PointertoConstantBuffer3;
+   uint32_t                             ConstantBuffer3ReadLength;
+};
+
+static inline void
+GEN6_3DSTATE_CONSTANT_BODY_pack(__attribute__((unused)) __gen_user_data *data,
+                                __attribute__((unused)) void * restrict dst,
+                                __attribute__((unused)) const struct GEN6_3DSTATE_CONSTANT_BODY * restrict values)
+{
+   uint32_t * restrict dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_offset(values->PointertoConstantBuffer0, 5, 31) |
+      __gen_uint(values->ConstantBuffer0ReadLength, 0, 4);
+
+   const uint32_t v1 =
+      __gen_uint(values->ConstantBuffer1ReadLength, 0, 4);
+   dw[1] = __gen_combine_address(data, &dw[1], values->PointertoConstantBuffer1, v1);
+
+   const uint32_t v2 =
+      __gen_uint(values->ConstantBuffer2ReadLength, 0, 4);
+   dw[2] = __gen_combine_address(data, &dw[2], values->PointertoConstantBuffer2, v2);
+
+   const uint32_t v3 =
+      __gen_uint(values->ConstantBuffer3ReadLength, 0, 4);
+   dw[3] = __gen_combine_address(data, &dw[3], values->PointertoConstantBuffer3, v3);
+}
+
 #define GEN6_3DSTATE_CONSTANT_GS_length        5
 #define GEN6_3DSTATE_CONSTANT_GS_length_bias      2
 #define GEN6_3DSTATE_CONSTANT_GS_header         \
@@ -1740,16 +1550,9 @@ struct GEN6_3DSTATE_CONSTANT_GS {
    bool                                 Buffer2Valid;
    bool                                 Buffer1Valid;
    bool                                 Buffer0Valid;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE ConstantBufferObjectControlState;
+   uint32_t                             MOCS;
    uint32_t                             DWordLength;
-   uint64_t                             PointertoGSConstantBuffer0;
-   uint32_t                             GSConstantBuffer0ReadLength;
-   __gen_address_type                   PointertoGSConstantBuffer1;
-   uint32_t                             GSConstantBuffer1ReadLength;
-   __gen_address_type                   PointertoGSConstantBuffer2;
-   uint32_t                             GSConstantBuffer2ReadLength;
-   __gen_address_type                   PointertoGSConstantBuffer3;
-   uint32_t                             GSConstantBuffer3ReadLength;
+   struct GEN6_3DSTATE_CONSTANT_BODY    ConstantBody;
 };
 
 static inline void
@@ -1758,9 +1561,6 @@ GEN6_3DSTATE_CONSTANT_GS_pack(__attribute__((unused)) __gen_user_data *data,
                               __attribute__((unused)) const struct GEN6_3DSTATE_CONSTANT_GS * restrict values)
 {
    uint32_t * restrict dw = (uint32_t * restrict) dst;
-
-   uint32_t v0_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v0_0, &values->ConstantBufferObjectControlState);
 
    dw[0] =
       __gen_uint(values->CommandType, 29, 31) |
@@ -1771,24 +1571,10 @@ GEN6_3DSTATE_CONSTANT_GS_pack(__attribute__((unused)) __gen_user_data *data,
       __gen_uint(values->Buffer2Valid, 14, 14) |
       __gen_uint(values->Buffer1Valid, 13, 13) |
       __gen_uint(values->Buffer0Valid, 12, 12) |
-      __gen_uint(v0_0, 8, 11) |
+      __gen_uint(values->MOCS, 8, 11) |
       __gen_uint(values->DWordLength, 0, 7);
 
-   dw[1] =
-      __gen_offset(values->PointertoGSConstantBuffer0, 5, 31) |
-      __gen_uint(values->GSConstantBuffer0ReadLength, 0, 4);
-
-   const uint32_t v2 =
-      __gen_uint(values->GSConstantBuffer1ReadLength, 0, 4);
-   dw[2] = __gen_combine_address(data, &dw[2], values->PointertoGSConstantBuffer1, v2);
-
-   const uint32_t v3 =
-      __gen_uint(values->GSConstantBuffer2ReadLength, 0, 4);
-   dw[3] = __gen_combine_address(data, &dw[3], values->PointertoGSConstantBuffer2, v3);
-
-   const uint32_t v4 =
-      __gen_uint(values->GSConstantBuffer3ReadLength, 0, 4);
-   dw[4] = __gen_combine_address(data, &dw[4], values->PointertoGSConstantBuffer3, v4);
+   GEN6_3DSTATE_CONSTANT_BODY_pack(data, &dw[1], &values->ConstantBody);
 }
 
 #define GEN6_3DSTATE_CONSTANT_PS_length        5
@@ -1809,16 +1595,9 @@ struct GEN6_3DSTATE_CONSTANT_PS {
    bool                                 Buffer2Valid;
    bool                                 Buffer1Valid;
    bool                                 Buffer0Valid;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE ConstantBufferObjectControlState;
+   uint32_t                             MOCS;
    uint32_t                             DWordLength;
-   uint64_t                             PointertoPSConstantBuffer0;
-   uint32_t                             PSConstantBuffer0ReadLength;
-   __gen_address_type                   PointertoPSConstantBuffer1;
-   uint32_t                             PSConstantBuffer1ReadLength;
-   __gen_address_type                   PointertoPSConstantBuffer2;
-   uint32_t                             PSConstantBuffer2ReadLength;
-   __gen_address_type                   PointertoPSConstantBuffer3;
-   uint32_t                             PSConstantBuffer3ReadLength;
+   struct GEN6_3DSTATE_CONSTANT_BODY    ConstantBody;
 };
 
 static inline void
@@ -1827,9 +1606,6 @@ GEN6_3DSTATE_CONSTANT_PS_pack(__attribute__((unused)) __gen_user_data *data,
                               __attribute__((unused)) const struct GEN6_3DSTATE_CONSTANT_PS * restrict values)
 {
    uint32_t * restrict dw = (uint32_t * restrict) dst;
-
-   uint32_t v0_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v0_0, &values->ConstantBufferObjectControlState);
 
    dw[0] =
       __gen_uint(values->CommandType, 29, 31) |
@@ -1840,24 +1616,10 @@ GEN6_3DSTATE_CONSTANT_PS_pack(__attribute__((unused)) __gen_user_data *data,
       __gen_uint(values->Buffer2Valid, 14, 14) |
       __gen_uint(values->Buffer1Valid, 13, 13) |
       __gen_uint(values->Buffer0Valid, 12, 12) |
-      __gen_uint(v0_0, 8, 11) |
+      __gen_uint(values->MOCS, 8, 11) |
       __gen_uint(values->DWordLength, 0, 7);
 
-   dw[1] =
-      __gen_offset(values->PointertoPSConstantBuffer0, 5, 31) |
-      __gen_uint(values->PSConstantBuffer0ReadLength, 0, 4);
-
-   const uint32_t v2 =
-      __gen_uint(values->PSConstantBuffer1ReadLength, 0, 4);
-   dw[2] = __gen_combine_address(data, &dw[2], values->PointertoPSConstantBuffer1, v2);
-
-   const uint32_t v3 =
-      __gen_uint(values->PSConstantBuffer2ReadLength, 0, 4);
-   dw[3] = __gen_combine_address(data, &dw[3], values->PointertoPSConstantBuffer2, v3);
-
-   const uint32_t v4 =
-      __gen_uint(values->PSConstantBuffer3ReadLength, 0, 4);
-   dw[4] = __gen_combine_address(data, &dw[4], values->PointertoPSConstantBuffer3, v4);
+   GEN6_3DSTATE_CONSTANT_BODY_pack(data, &dw[1], &values->ConstantBody);
 }
 
 #define GEN6_3DSTATE_CONSTANT_VS_length        5
@@ -1878,16 +1640,9 @@ struct GEN6_3DSTATE_CONSTANT_VS {
    bool                                 Buffer2Valid;
    bool                                 Buffer1Valid;
    bool                                 Buffer0Valid;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE ConstantBufferObjectControlState;
+   uint32_t                             MOCS;
    uint32_t                             DWordLength;
-   uint64_t                             PointertoVSConstantBuffer0;
-   uint32_t                             VSConstantBuffer0ReadLength;
-   __gen_address_type                   PointertoVSConstantBuffer1;
-   uint32_t                             VSConstantBuffer1ReadLength;
-   __gen_address_type                   PointertoVSConstantBuffer2;
-   uint32_t                             VSConstantBuffer2ReadLength;
-   __gen_address_type                   PointertoVSConstantBuffer3;
-   uint32_t                             VSConstantBuffer3ReadLength;
+   struct GEN6_3DSTATE_CONSTANT_BODY    ConstantBody;
 };
 
 static inline void
@@ -1896,9 +1651,6 @@ GEN6_3DSTATE_CONSTANT_VS_pack(__attribute__((unused)) __gen_user_data *data,
                               __attribute__((unused)) const struct GEN6_3DSTATE_CONSTANT_VS * restrict values)
 {
    uint32_t * restrict dw = (uint32_t * restrict) dst;
-
-   uint32_t v0_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v0_0, &values->ConstantBufferObjectControlState);
 
    dw[0] =
       __gen_uint(values->CommandType, 29, 31) |
@@ -1909,24 +1661,10 @@ GEN6_3DSTATE_CONSTANT_VS_pack(__attribute__((unused)) __gen_user_data *data,
       __gen_uint(values->Buffer2Valid, 14, 14) |
       __gen_uint(values->Buffer1Valid, 13, 13) |
       __gen_uint(values->Buffer0Valid, 12, 12) |
-      __gen_uint(v0_0, 8, 11) |
+      __gen_uint(values->MOCS, 8, 11) |
       __gen_uint(values->DWordLength, 0, 7);
 
-   dw[1] =
-      __gen_offset(values->PointertoVSConstantBuffer0, 5, 31) |
-      __gen_uint(values->VSConstantBuffer0ReadLength, 0, 4);
-
-   const uint32_t v2 =
-      __gen_uint(values->VSConstantBuffer1ReadLength, 0, 4);
-   dw[2] = __gen_combine_address(data, &dw[2], values->PointertoVSConstantBuffer1, v2);
-
-   const uint32_t v3 =
-      __gen_uint(values->VSConstantBuffer2ReadLength, 0, 4);
-   dw[3] = __gen_combine_address(data, &dw[3], values->PointertoVSConstantBuffer2, v3);
-
-   const uint32_t v4 =
-      __gen_uint(values->VSConstantBuffer3ReadLength, 0, 4);
-   dw[4] = __gen_combine_address(data, &dw[4], values->PointertoVSConstantBuffer3, v4);
+   GEN6_3DSTATE_CONSTANT_BODY_pack(data, &dw[1], &values->ConstantBody);
 }
 
 #define GEN6_3DSTATE_DEPTH_BUFFER_length       7
@@ -1978,8 +1716,7 @@ struct GEN6_3DSTATE_DEPTH_BUFFER {
    uint32_t                             RenderTargetViewExtent;
    int32_t                              DepthCoordinateOffsetY;
    int32_t                              DepthCoordinateOffsetX;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE DepthBufferObjectControlState;
-   uint32_t                             DepthBufferMOCS;
+   uint32_t                             MOCS;
 };
 
 static inline void
@@ -2023,12 +1760,8 @@ GEN6_3DSTATE_DEPTH_BUFFER_pack(__attribute__((unused)) __gen_user_data *data,
       __gen_sint(values->DepthCoordinateOffsetY, 16, 31) |
       __gen_sint(values->DepthCoordinateOffsetX, 0, 15);
 
-   uint32_t v6_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v6_0, &values->DepthBufferObjectControlState);
-
    dw[6] =
-      __gen_uint(v6_0, 27, 31) |
-      __gen_uint(values->DepthBufferMOCS, 27, 31);
+      __gen_uint(values->MOCS, 27, 31);
 }
 
 #define GEN6_3DSTATE_DRAWING_RECTANGLE_length      4
@@ -2253,8 +1986,7 @@ struct GEN6_3DSTATE_HIER_DEPTH_BUFFER {
    uint32_t                             _3DCommandOpcode;
    uint32_t                             _3DCommandSubOpcode;
    uint32_t                             DWordLength;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE HierarchicalDepthBufferObjectControlState;
-   uint32_t                             HierarchicalDepthBufferMOCS;
+   uint32_t                             MOCS;
    uint32_t                             SurfacePitch;
    __gen_address_type                   SurfaceBaseAddress;
 };
@@ -2273,12 +2005,8 @@ GEN6_3DSTATE_HIER_DEPTH_BUFFER_pack(__attribute__((unused)) __gen_user_data *dat
       __gen_uint(values->_3DCommandSubOpcode, 16, 23) |
       __gen_uint(values->DWordLength, 0, 7);
 
-   uint32_t v1_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v1_0, &values->HierarchicalDepthBufferObjectControlState);
-
    dw[1] =
-      __gen_uint(v1_0, 25, 28) |
-      __gen_uint(values->HierarchicalDepthBufferMOCS, 25, 28) |
+      __gen_uint(values->MOCS, 25, 28) |
       __gen_uint(values->SurfacePitch, 0, 16);
 
    dw[2] = __gen_combine_address(data, &dw[2], values->SurfaceBaseAddress, 0);
@@ -2298,8 +2026,7 @@ struct GEN6_3DSTATE_INDEX_BUFFER {
    uint32_t                             CommandSubType;
    uint32_t                             _3DCommandOpcode;
    uint32_t                             _3DCommandSubOpcode;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE MemoryObjectControlState;
-   uint32_t                             IndexBufferMOCS;
+   uint32_t                             MOCS;
    bool                                 CutIndexEnable;
    uint32_t                             IndexFormat;
 #define INDEX_BYTE                               0
@@ -2317,16 +2044,12 @@ GEN6_3DSTATE_INDEX_BUFFER_pack(__attribute__((unused)) __gen_user_data *data,
 {
    uint32_t * restrict dw = (uint32_t * restrict) dst;
 
-   uint32_t v0_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v0_0, &values->MemoryObjectControlState);
-
    dw[0] =
       __gen_uint(values->CommandType, 29, 31) |
       __gen_uint(values->CommandSubType, 27, 28) |
       __gen_uint(values->_3DCommandOpcode, 24, 26) |
       __gen_uint(values->_3DCommandSubOpcode, 16, 23) |
-      __gen_uint(v0_0, 12, 15) |
-      __gen_uint(values->IndexBufferMOCS, 12, 15) |
+      __gen_uint(values->MOCS, 12, 15) |
       __gen_uint(values->CutIndexEnable, 10, 10) |
       __gen_uint(values->IndexFormat, 8, 9) |
       __gen_uint(values->DWordLength, 0, 7);
@@ -3117,8 +2840,7 @@ struct GEN6_3DSTATE_STENCIL_BUFFER {
    uint32_t                             _3DCommandOpcode;
    uint32_t                             _3DCommandSubOpcode;
    uint32_t                             DWordLength;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE StencilBufferObjectControlState;
-   uint32_t                             StencilBufferMOCS;
+   uint32_t                             MOCS;
    uint32_t                             SurfacePitch;
    __gen_address_type                   SurfaceBaseAddress;
 };
@@ -3137,12 +2859,8 @@ GEN6_3DSTATE_STENCIL_BUFFER_pack(__attribute__((unused)) __gen_user_data *data,
       __gen_uint(values->_3DCommandSubOpcode, 16, 23) |
       __gen_uint(values->DWordLength, 0, 7);
 
-   uint32_t v1_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v1_0, &values->StencilBufferObjectControlState);
-
    dw[1] =
-      __gen_uint(v1_0, 25, 28) |
-      __gen_uint(values->StencilBufferMOCS, 25, 28) |
+      __gen_uint(values->MOCS, 25, 28) |
       __gen_uint(values->SurfacePitch, 0, 16);
 
    dw[2] = __gen_combine_address(data, &dw[2], values->SurfaceBaseAddress, 0);
@@ -4374,6 +4092,7 @@ struct GEN6_MI_LOAD_REGISTER_IMM {
    uint32_t                             DWordLength;
    uint64_t                             RegisterOffset;
    uint32_t                             DataDWord;
+   /* variable length fields follow */
 };
 
 static inline void
@@ -4936,26 +4655,20 @@ struct GEN6_STATE_BASE_ADDRESS {
    uint32_t                             _3DCommandSubOpcode;
    uint32_t                             DWordLength;
    __gen_address_type                   GeneralStateBaseAddress;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE GeneralStateMemoryObjectControlState;
    uint32_t                             GeneralStateMOCS;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE StatelessDataPortAccessMemoryObjectControlState;
    uint32_t                             StatelessDataPortAccessMOCS;
    uint32_t                             StatelessDataPortAccessForceWriteThru;
    bool                                 GeneralStateBaseAddressModifyEnable;
    __gen_address_type                   SurfaceStateBaseAddress;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE SurfaceStateMemoryObjectControlState;
    uint32_t                             SurfaceStateMOCS;
    bool                                 SurfaceStateBaseAddressModifyEnable;
    __gen_address_type                   DynamicStateBaseAddress;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE DynamicStateMemoryObjectControlState;
    uint32_t                             DynamicStateMOCS;
    bool                                 DynamicStateBaseAddressModifyEnable;
    __gen_address_type                   IndirectObjectBaseAddress;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE IndirectObjectMemoryObjectControlState;
    uint32_t                             IndirectObjectMOCS;
    bool                                 IndirectObjectBaseAddressModifyEnable;
    __gen_address_type                   InstructionBaseAddress;
-   struct GEN6_MEMORY_OBJECT_CONTROL_STATE InstructionMemoryObjectControlState;
    uint32_t                             InstructionMOCS;
    bool                                 InstructionBaseAddressModifyEnable;
    __gen_address_type                   GeneralStateAccessUpperBound;
@@ -4982,53 +4695,29 @@ GEN6_STATE_BASE_ADDRESS_pack(__attribute__((unused)) __gen_user_data *data,
       __gen_uint(values->_3DCommandSubOpcode, 16, 23) |
       __gen_uint(values->DWordLength, 0, 7);
 
-   uint32_t v1_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v1_0, &values->GeneralStateMemoryObjectControlState);
-
-   uint32_t v1_1;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v1_1, &values->StatelessDataPortAccessMemoryObjectControlState);
-
    const uint32_t v1 =
-      __gen_uint(v1_0, 8, 11) |
       __gen_uint(values->GeneralStateMOCS, 8, 11) |
-      __gen_uint(v1_1, 4, 7) |
       __gen_uint(values->StatelessDataPortAccessMOCS, 4, 7) |
       __gen_uint(values->StatelessDataPortAccessForceWriteThru, 3, 3) |
       __gen_uint(values->GeneralStateBaseAddressModifyEnable, 0, 0);
    dw[1] = __gen_combine_address(data, &dw[1], values->GeneralStateBaseAddress, v1);
 
-   uint32_t v2_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v2_0, &values->SurfaceStateMemoryObjectControlState);
-
    const uint32_t v2 =
-      __gen_uint(v2_0, 8, 11) |
       __gen_uint(values->SurfaceStateMOCS, 8, 11) |
       __gen_uint(values->SurfaceStateBaseAddressModifyEnable, 0, 0);
    dw[2] = __gen_combine_address(data, &dw[2], values->SurfaceStateBaseAddress, v2);
 
-   uint32_t v3_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v3_0, &values->DynamicStateMemoryObjectControlState);
-
    const uint32_t v3 =
-      __gen_uint(v3_0, 8, 11) |
       __gen_uint(values->DynamicStateMOCS, 8, 11) |
       __gen_uint(values->DynamicStateBaseAddressModifyEnable, 0, 0);
    dw[3] = __gen_combine_address(data, &dw[3], values->DynamicStateBaseAddress, v3);
 
-   uint32_t v4_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v4_0, &values->IndirectObjectMemoryObjectControlState);
-
    const uint32_t v4 =
-      __gen_uint(v4_0, 8, 11) |
       __gen_uint(values->IndirectObjectMOCS, 8, 11) |
       __gen_uint(values->IndirectObjectBaseAddressModifyEnable, 0, 0);
    dw[4] = __gen_combine_address(data, &dw[4], values->IndirectObjectBaseAddress, v4);
 
-   uint32_t v5_0;
-   GEN6_MEMORY_OBJECT_CONTROL_STATE_pack(data, &v5_0, &values->InstructionMemoryObjectControlState);
-
    const uint32_t v5 =
-      __gen_uint(v5_0, 8, 11) |
       __gen_uint(values->InstructionMOCS, 8, 11) |
       __gen_uint(values->InstructionBaseAddressModifyEnable, 0, 0);
    dw[5] = __gen_combine_address(data, &dw[5], values->InstructionBaseAddress, v5);
@@ -5440,7 +5129,7 @@ GEN6_BCS_FAULT_REG_pack(__attribute__((unused)) __gen_user_data *data,
       __gen_uint(values->ValidBit, 0, 0) |
       __gen_uint(values->FaultType, 1, 2) |
       __gen_uint(values->SRCIDofFault, 3, 10) |
-      __gen_uint(values->GTTSEL, 11, 1);
+      __gen_uint(values->GTTSEL, 11, 11);
    dw[0] = __gen_combine_address(data, &dw[0], values->VirtualAddressofFault, v0);
 }
 
@@ -5471,7 +5160,7 @@ GEN6_RCS_FAULT_REG_pack(__attribute__((unused)) __gen_user_data *data,
       __gen_uint(values->ValidBit, 0, 0) |
       __gen_uint(values->FaultType, 1, 2) |
       __gen_uint(values->SRCIDofFault, 3, 10) |
-      __gen_uint(values->GTTSEL, 11, 1);
+      __gen_uint(values->GTTSEL, 11, 11);
    dw[0] = __gen_combine_address(data, &dw[0], values->VirtualAddressofFault, v0);
 }
 
@@ -5502,7 +5191,7 @@ GEN6_VCS_FAULT_REG_pack(__attribute__((unused)) __gen_user_data *data,
       __gen_uint(values->ValidBit, 0, 0) |
       __gen_uint(values->FaultType, 1, 2) |
       __gen_uint(values->SRCIDofFault, 3, 10) |
-      __gen_uint(values->GTTSEL, 11, 1);
+      __gen_uint(values->GTTSEL, 11, 11);
    dw[0] = __gen_combine_address(data, &dw[0], values->VirtualAddressofFault, v0);
 }
 
@@ -5594,6 +5283,37 @@ GEN6_VCS_RING_BUFFER_CTL_pack(__attribute__((unused)) __gen_user_data *data,
       __gen_uint(values->SemaphoreWait, 10, 10) |
       __gen_uint(values->RBWait, 11, 11) |
       __gen_uint(values->BufferLengthinpages1, 12, 20);
+}
+
+#define GEN6_INSTPM_num                   0x20c0
+#define GEN6_INSTPM_length                     1
+struct GEN6_INSTPM {
+   bool                                 _3DStateInstructionDisable;
+   bool                                 _3DRenderingInstructionDisable;
+   bool                                 MediaInstructionDisable;
+   bool                                 CONSTANT_BUFFERAddressOffsetDisable;
+   bool                                 _3DStateInstructionDisableMask;
+   bool                                 _3DRenderingInstructionDisableMask;
+   bool                                 MediaInstructionDisableMask;
+   bool                                 CONSTANT_BUFFERAddressOffsetDisableMask;
+};
+
+static inline void
+GEN6_INSTPM_pack(__attribute__((unused)) __gen_user_data *data,
+                 __attribute__((unused)) void * restrict dst,
+                 __attribute__((unused)) const struct GEN6_INSTPM * restrict values)
+{
+   uint32_t * restrict dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_uint(values->_3DStateInstructionDisable, 1, 1) |
+      __gen_uint(values->_3DRenderingInstructionDisable, 2, 2) |
+      __gen_uint(values->MediaInstructionDisable, 3, 3) |
+      __gen_uint(values->CONSTANT_BUFFERAddressOffsetDisable, 6, 6) |
+      __gen_uint(values->_3DStateInstructionDisableMask, 17, 17) |
+      __gen_uint(values->_3DRenderingInstructionDisableMask, 18, 18) |
+      __gen_uint(values->MediaInstructionDisableMask, 19, 19) |
+      __gen_uint(values->CONSTANT_BUFFERAddressOffsetDisableMask, 22, 22);
 }
 
 #endif /* GEN6_PACK_H */

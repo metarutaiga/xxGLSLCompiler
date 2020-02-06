@@ -160,7 +160,6 @@ validate_variables_in_hash_table(struct hash_table *ht,
 
    va_end(args);
 
-   struct hash_entry *entry;
    hash_table_foreach(ht, entry) {
       const ir_instruction *const ir = (ir_instruction *) entry->key;
       const ir_variable *const v = ir->as_variable();
@@ -628,7 +627,7 @@ TEST_F(array_refcount_test, visit_array_indexing_an_array)
 
    ir_array_refcount_entry *const entry_c = v.get_variable_entry(var_c);
 
-   for (unsigned i = 0; i < var_c->type->array_size(); i++) {
+   for (int i = 0; i < var_c->type->array_size(); i++) {
       EXPECT_EQ(true, entry_c->is_linearized_index_referenced(i)) <<
          "array c, i = " << i;
    }
