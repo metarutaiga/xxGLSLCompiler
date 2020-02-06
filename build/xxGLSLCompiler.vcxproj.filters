@@ -755,4 +755,12 @@
       <Filter>src\compiler\glsl</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <Object Include="..\xxMiniCRT\chkstk.x64.obj">
+      <Filter>xxMiniCRT</Filter>
+    </Object>
+    <Object Include="..\xxMiniCRT\chkstk.x86.obj">
+      <Filter>xxMiniCRT</Filter>
+    </Object>
+  </ItemGroup>
 </Project>

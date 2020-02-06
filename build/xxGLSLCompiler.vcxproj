@@ -284,6 +284,16 @@
     <None Include="..\src\compiler\glsl\README" />
     <None Include="..\src\compiler\glsl\TODO" />
   </ItemGroup>
+  <ItemGroup>
+    <Object Include="..\xxMiniCRT\chkstk.x64.obj">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </Object>
+    <Object Include="..\xxMiniCRT\chkstk.x86.obj">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </Object>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{5A0CDE64-327D-4E77-ABD2-0F7CEE552CE8}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
