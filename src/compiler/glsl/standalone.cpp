@@ -46,6 +46,7 @@
 #include "main/mtypes.h"
 #include "program/program.h"
 #include "ir_print_glsl_visitor.h"
+#include "ir_print_spirv_visitor.h"
 
 class dead_variable_visitor : public ir_hierarchical_visitor {
 public:
@@ -406,6 +407,22 @@ compile_shader(struct gl_context *ctx, struct gl_shader *shader)
 
    if (!state->error && options->dump_glsl) {
       _mesa_print_glsl(stdout, shader->ir, state);
+   }
+
+   if (!state->error && (options->dump_spirv || options->dump_spirv_glsl)) {
+      spirv_buffer buffer;
+      _mesa_print_spirv(&buffer, shader->ir, shader->Stage, shader->Version, shader->IsES, 0, 0);
+
+      FILE* f = fopen("output.spv", "wb");
+      if (f) {
+         fwrite(buffer.data(), sizeof(int), buffer.count(), f);
+         fclose(f);
+      }
+
+      if (options->dump_spirv)
+         system("spirv-dis.exe output.spv");
+      if (options->dump_spirv_glsl)
+         system("spirv-cross.exe output.spv");
    }
 
    return;
