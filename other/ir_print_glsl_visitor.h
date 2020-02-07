@@ -38,7 +38,7 @@ _mesa_print_glsl(FILE * f, exec_list * instructions, struct _mesa_glsl_parse_sta
  */
 class ir_print_glsl_visitor : public ir_visitor {
 public:
-   ir_print_glsl_visitor(FILE *f);
+   ir_print_glsl_visitor(FILE *f, struct _mesa_glsl_parse_state* state);
    virtual ~ir_print_glsl_visitor();
 
    void indent(void);
@@ -85,11 +85,14 @@ private:
    const char *unique_name(ir_variable *var);
 
    /** A mapping from ir_variable * -> unique printable names. */
+   int parameter_number;
+   int name_number;
    hash_table *printable_names;
    _mesa_symbol_table *symbols;
 
    void *mem_ctx;
    FILE *f;
+   struct _mesa_glsl_parse_state* state;
 
    int indentation;
 };

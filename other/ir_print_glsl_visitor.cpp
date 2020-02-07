@@ -21,15 +21,13 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <inttypes.h> /* for PRIx64 macro */
 #include "ir_print_glsl_visitor.h"
 #include "compiler/glsl_types.h"
 #include "glsl_parser_extras.h"
 #include "main/macros.h"
 #include "util/hash_table.h"
-#include "util/u_string.h"
 
-static void print_type(FILE *f, const glsl_type *t);
+static void print_type(FILE *f, const glsl_type *t, unsigned version);
 
 static const char *const glsl_expression_operation_strings[] = {
    "~",
@@ -214,10 +212,24 @@ _mesa_print_glsl(FILE *f, exec_list *instructions, struct _mesa_glsl_parse_state
          fprintf(f, "precision %s float;\n", state->stage == MESA_SHADER_VERTEX ? "highp" : "mediump");
          fprintf(f, "precision mediump int;\n");
       }
+      if (state->ARB_shader_texture_lod_enable)
+         fprintf(f, "#extension GL_ARB_shader_texture_lod : enable\n");
+      if (state->ARB_draw_instanced_enable)
+         fprintf(f, "#extension GL_ARB_draw_instanced : enable\n");
+      if (state->OES_standard_derivatives_enable)
+         fprintf(f, "#extension GL_OES_standard_derivatives : enable\n");
+      if (state->EXT_shader_framebuffer_fetch_enable)
+         fprintf(f, "#extension GL_EXT_shader_framebuffer_fetch : enable\n");
+      if (state->es_shader && state->language_version < 300) {
+         if (state->EXT_draw_buffers_enable)
+            fprintf(f, "#extension GL_EXT_draw_buffers : enable\n");
+         if (state->OES_texture_3D_enable)
+            fprintf(f, "#extension GL_OES_texture_3D : enable\n");
+      }
    }
 
    foreach_in_list(ir_instruction, ir, instructions) {
-      ir_print_glsl_visitor v(f);
+      ir_print_glsl_visitor v(f, state);
 
       if (ir->ir_type == ir_type_variable) {
          ir_variable *var = ir->as_variable();
@@ -237,10 +249,12 @@ _mesa_print_glsl(FILE *f, exec_list *instructions, struct _mesa_glsl_parse_state
 
 } /* extern "C" */
 
-ir_print_glsl_visitor::ir_print_glsl_visitor(FILE *f)
-   : f(f)
+ir_print_glsl_visitor::ir_print_glsl_visitor(FILE *f, struct _mesa_glsl_parse_state* state)
+   : f(f), state(state)
 {
    indentation = 0;
+   parameter_number = 0;
+   name_number = 0;
    printable_names = _mesa_pointer_hash_table_create(NULL);
    symbols = _mesa_symbol_table_ctor();
    mem_ctx = ralloc_context(NULL);
@@ -269,8 +283,7 @@ ir_print_glsl_visitor::unique_name(ir_variable *var)
     * names hash because this is the only scope where it can ever appear.
     */
    if (var->name == NULL) {
-      static unsigned arg = 1;
-      return ralloc_asprintf(this->mem_ctx, "parameter_%u", arg++);
+      return ralloc_asprintf(this->mem_ctx, "parameter_%u", parameter_number++);
    }
 
    /* Do we already have a name for this variable? */
@@ -286,8 +299,7 @@ ir_print_glsl_visitor::unique_name(ir_variable *var)
    if (_mesa_symbol_table_find_symbol(this->symbols, var->name) == NULL) {
       name = var->name;
    } else {
-      static unsigned i = 1;
-      name = ralloc_asprintf(this->mem_ctx, "%s_%u", var->name, ++i);
+      name = ralloc_asprintf(this->mem_ctx, "%s_%u", var->name, ++name_number);
    }
    _mesa_hash_table_insert(this->printable_names, var, (void *) name);
    _mesa_symbol_table_add_symbol(this->symbols, name, var);
@@ -295,12 +307,14 @@ ir_print_glsl_visitor::unique_name(ir_variable *var)
 }
 
 static void
-print_type(FILE *f, const glsl_type *t)
+print_type(FILE *f, const glsl_type *t, unsigned version)
 {
    if (t->is_array()) {
 
    } else if (t->is_struct() && !is_gl_identifier(t->name)) {
       fprintf(f, "%s_%p", t->name, (void *) t);
+   } else if ((t->base_type == GLSL_TYPE_UINT) && version <= 120) {
+      fprintf(f, "%s", "int");
    } else {
       fprintf(f, "%s", t->name);
    }
@@ -315,17 +329,34 @@ ir_print_glsl_visitor::visit(ir_rvalue *)
 void
 ir_print_glsl_visitor::visit(ir_variable *ir)
 {
-   static const char *const mode[] = { "", "uniform ", "", "", "in ", "out ", "in ", "out ", "inout ", "", "", "" };
-   fprintf(f, "%s", mode[ir->data.mode]);
-
-   if (ir->type->base_type == GLSL_TYPE_ARRAY) {
-       print_type(f, ir->type->fields.array);
-       fprintf(f, " %s", unique_name(ir));
-       fprintf(f, "[%u]", ir->type->length);
-       return;
+   if (state->language_version <= 120) {
+      if (state->stage == MESA_SHADER_VERTEX) {
+         static const char *const mode[] = { "", "uniform ", "", "", "attribute ", "varying ", "in ", "out ", "inout ", "", "", "" };
+         fprintf(f, "%s", mode[ir->data.mode]);
+      } else if (state->stage == MESA_SHADER_FRAGMENT) {
+         static const char *const mode[] = { "", "uniform ", "", "", "varying ", "out ", "in ", "out ", "inout ", "", "", "" };
+         fprintf(f, "%s", mode[ir->data.mode]);
+      }
+   } else {
+      static const char *const mode[] = { "", "uniform ", "", "", "in ", "out ", "in ", "out ", "inout ", "", "", "" };
+      fprintf(f, "%s", mode[ir->data.mode]);
+   }
+   int default_precision = GLSL_PRECISION_NONE;
+   if (state->es_shader)
+      default_precision = (ir->type->contains_integer() == false && state->stage == MESA_SHADER_VERTEX) ? GLSL_PRECISION_HIGH : GLSL_PRECISION_MEDIUM;
+   if (ir->type->is_sampler() || ir->data.precision != default_precision) {
+      const char *const precision[] = { "", "highp ", "mediump ", "lowp " };
+      fprintf(f, "%s", precision[ir->data.precision]);
    }
 
-   print_type(f, ir->type);
+   if (ir->type->base_type == GLSL_TYPE_ARRAY) {
+      print_type(f, ir->type->fields.array, state->language_version);
+      fprintf(f, " %s", unique_name(ir));
+      fprintf(f, "[%u]", ir->type->length);
+      return;
+   }
+
+   print_type(f, ir->type, state->language_version);
    fprintf(f, " %s", unique_name(ir));
 }
 
@@ -334,7 +365,7 @@ ir_print_glsl_visitor::visit(ir_function_signature *ir)
 {
    _mesa_symbol_table_push_scope(symbols);
 
-   print_type(f, ir->return_type);
+   print_type(f, ir->return_type, state->language_version);
    fprintf(f, " %s(", ir->function_name());
    foreach_in_list(ir_variable, inst, &ir->parameters) {
       if (inst != ir->parameters.head_sentinel.next)
@@ -373,7 +404,7 @@ ir_print_glsl_visitor::visit(ir_expression *ir)
 {
    if (ir->num_operands == 1) {
       if (ir->operation >= ir_unop_f2i && ir->operation <= ir_unop_d2b) {
-         print_type(f, ir->type);
+         print_type(f, ir->type, state->language_version);
          fprintf(f, "(");
       } else if (ir->operation == ir_unop_rcp) {
          fprintf(f, "(1.0/(");
@@ -396,7 +427,7 @@ ir_print_glsl_visitor::visit(ir_expression *ir)
    } else if (is_binop_func_like(ir->operation, ir->type)) {
       if (ir->operation == ir_binop_mod) {
          fprintf(f, "(");
-         print_type(f, ir->type);
+         print_type(f, ir->type, state->language_version);
          fprintf(f, "(");
       }
       if (ir->type->is_vector() && (ir->operation >= ir_binop_less && ir->operation <= ir_binop_nequal))
@@ -448,7 +479,21 @@ ir_print_glsl_visitor::visit(ir_texture *ir)
       return;
    }
 
-   if (ir->op == ir_txf) {
+   if (state && state->language_version < 130) {
+      fprintf(f, ir->sampler->type->sampler_shadow ? "shadow" : "texture");
+      switch (ir->sampler->type->sampler_dimensionality)
+      {
+      case GLSL_SAMPLER_DIM_1D:        fprintf(f, "1D");       break;
+      case GLSL_SAMPLER_DIM_2D:        fprintf(f, "2D");       break;
+      case GLSL_SAMPLER_DIM_3D:        fprintf(f, "3D");       break;
+      case GLSL_SAMPLER_DIM_CUBE:      fprintf(f, "Cube");     break;
+      case GLSL_SAMPLER_DIM_RECT:      fprintf(f, "Rect");     break;
+      case GLSL_SAMPLER_DIM_BUF:       fprintf(f, "Buf");      break;
+      case GLSL_SAMPLER_DIM_EXTERNAL:  fprintf(f, "External"); break;
+      case GLSL_SAMPLER_DIM_MS:        fprintf(f, "MS");       break;
+      case GLSL_SAMPLER_DIM_SUBPASS:   fprintf(f, "Subpass");  break;
+      }
+   } else if (ir->op == ir_txf) {
       fprintf(f, "texelFetch");
    } else {
       fprintf(f, "texture");
@@ -469,6 +514,11 @@ ir_print_glsl_visitor::visit(ir_texture *ir)
    if (ir->op != ir_txs && ir->op != ir_query_levels && ir->op != ir_texture_samples) {
 
       fprintf(f, ", ");
+
+      if (ir->projector) {
+         fprintf(f, "vec3(");
+      }
+
       ir->coordinate->accept(this);
 
       if (ir->offset != NULL) {
@@ -482,6 +532,7 @@ ir_print_glsl_visitor::visit(ir_texture *ir)
       if (ir->projector) {
          fprintf(f, ", ");
          ir->projector->accept(this);
+         fprintf(f, ")");
       }
    }
 
@@ -600,7 +651,7 @@ void
 ir_print_glsl_visitor::visit(ir_constant *ir)
 {
    if (ir->type->components() > 1 || ir->type->is_float() == false) {
-      print_type(f, ir->type);
+      print_type(f, ir->type, state->language_version);
       fprintf(f, "(");
    }
 
