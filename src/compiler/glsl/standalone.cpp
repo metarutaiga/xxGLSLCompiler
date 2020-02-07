@@ -411,7 +411,7 @@ compile_shader(struct gl_context *ctx, struct gl_shader *shader)
 
    if (!state->error && (options->dump_spirv || options->dump_spirv_glsl)) {
       spirv_buffer buffer;
-      _mesa_print_spirv(&buffer, shader->ir, shader->Stage, shader->Version, shader->IsES, 0, 0);
+      _mesa_print_spirv(&buffer, shader->ir, shader->Stage, shader->Version, shader->IsES, 0);
 
       FILE* f = fopen("output.spv", "wb");
       if (f) {
