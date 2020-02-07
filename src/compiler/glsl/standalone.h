@@ -34,6 +34,7 @@ struct standalone_options {
    int dump_hir;
    int dump_lir;
    int dump_builder;
+   int dump_glsl;
    int do_link;
    int just_log;
 };

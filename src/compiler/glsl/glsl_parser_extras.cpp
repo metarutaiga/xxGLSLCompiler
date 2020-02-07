@@ -76,7 +76,7 @@ _mesa_glsl_parse_state::_mesa_glsl_parse_state(struct gl_context *_ctx,
    this->uses_builtin_functions = false;
 
    /* Set default language version and extensions */
-   this->language_version = 110;
+   this->language_version = ctx->Const.GLSLVersion;
    this->forced_language_version = ctx->Const.ForceGLSLVersion;
    this->zero_init = ctx->Const.GLSLZeroInit;
    this->gl_version = 20;

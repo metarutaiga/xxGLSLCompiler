@@ -354,6 +354,9 @@
     <ClInclude Include="..\src\compiler\glsl\glcpp\pp_standalone_scaffolding.h">
       <Filter>src\compiler\glsl\glcpp</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\compiler\glsl\ir_print_glsl_visitor.h">
+      <Filter>src\compiler\glsl</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\compiler\glsl_types.cpp">
@@ -727,6 +730,9 @@
     </ClCompile>
     <ClCompile Include="..\src\compiler\glsl\glcpp\pp_standalone_scaffolding.c">
       <Filter>src\compiler\glsl\glcpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\compiler\glsl\ir_print_glsl_visitor.cpp">
+      <Filter>src\compiler\glsl</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

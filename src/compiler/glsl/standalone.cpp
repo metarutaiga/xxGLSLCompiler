@@ -45,6 +45,7 @@
 #include "opt_add_neg_to_sub.h"
 #include "main/mtypes.h"
 #include "program/program.h"
+#include "ir_print_glsl_visitor.h"
 
 class dead_variable_visitor : public ir_hierarchical_visitor {
 public:
@@ -401,6 +402,10 @@ compile_shader(struct gl_context *ctx, struct gl_shader *shader)
    /* Print out the resulting IR */
    if (!state->error && options->dump_lir) {
       _mesa_print_ir(stdout, shader->ir, state);
+   }
+
+   if (!state->error && options->dump_glsl) {
+      _mesa_print_glsl(stdout, shader->ir, state);
    }
 
    return;
