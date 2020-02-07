@@ -360,6 +360,9 @@
     <ClInclude Include="..\other\ir_print_glsl_visitor.h">
       <Filter>other</Filter>
     </ClInclude>
+    <ClInclude Include="..\other\ir_expression_operation_glsl_strings.h">
+      <Filter>other</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\compiler\glsl_types.cpp">

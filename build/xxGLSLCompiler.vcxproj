@@ -173,6 +173,7 @@
     <ClCompile Include="..\xxMiniCRT\xxMSVCRT.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\other\ir_expression_operation_glsl_strings.h" />
     <ClInclude Include="..\other\ir_print_glsl_visitor.h" />
     <ClInclude Include="..\src\compiler\glsl\builtin_functions.h" />
     <ClInclude Include="..\src\compiler\glsl\builtin_int64.h" />

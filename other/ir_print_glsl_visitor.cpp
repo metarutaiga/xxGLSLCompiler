@@ -26,167 +26,9 @@
 #include "glsl_parser_extras.h"
 #include "main/macros.h"
 #include "util/hash_table.h"
+#include "ir_expression_operation_glsl_strings.h"
 
 static void print_type(FILE *f, const glsl_type *t, unsigned version);
-
-static const char *const glsl_expression_operation_strings[] = {
-   "~",
-   "!",
-   "-",
-   "abs",
-   "sign",
-   "1.0/",
-   "inversesqrt",
-   "sqrt",
-   "exp",
-   "log",
-   "exp2",
-   "log2",
-   "int",
-   "uint",
-   "float",
-   "bool",
-   "float",
-   "bool",
-   "int",
-   "float",
-   "uint",
-   "int",
-   "float",
-   "double",
-   "int",
-   "double",
-   "uint",
-   "double",
-   "bool",
-   "intBitsToFloat",
-   "floatBitsToInt",
-   "uintBitsToFloat",
-   "floatBitsToUint",
-   "bitcast_u642d",
-   "bitcast_i642d",
-   "bitcast_d2u64",
-   "bitcast_d2i64",
-   "i642i",
-   "u642i",
-   "i642u",
-   "u642u",
-   "i642b",
-   "i642f",
-   "u642f",
-   "i642d",
-   "u642d",
-   "i2i64",
-   "u2i64",
-   "b2i64",
-   "f2i64",
-   "d2i64",
-   "i2u64",
-   "u2u64",
-   "f2u64",
-   "d2u64",
-   "u642i64",
-   "i642u64",
-   "trunc",
-   "ceil",
-   "floor",
-   "fract",
-   "roundEven",
-   "sin",
-   "cos",
-   "atan",
-   "dFdx",
-   "dFdxCoarse",
-   "dFdxFine",
-   "dFdy",
-   "dFdyCoarse",
-   "dFdyFine",
-   "packSnorm2x16",
-   "packSnorm4x8",
-   "packUnorm2x16",
-   "packUnorm4x8",
-   "packHalf2x16",
-   "unpackSnorm2x16",
-   "unpackSnorm4x8",
-   "unpackUnorm2x16",
-   "unpackUnorm4x8",
-   "unpackHalf2x16",
-   "bitfield_reverse",
-   "bit_count",
-   "find_msb",
-   "find_lsb",
-   "clz",
-   "saturate",
-   "packDouble2x32",
-   "unpackDouble2x32",
-   "packSampler2x32",
-   "packImage2x32",
-   "unpackSampler2x32",
-   "unpackImage2x32",
-   "frexp_sig",
-   "frexp_exp",
-   "noise",
-   "subroutine_to_int",
-   "interpolate_at_centroid",
-   "get_buffer_size",
-   "ssbo_unsized_array_length",
-   "packInt2x32",
-   "packUint2x32",
-   "unpackInt2x32",
-   "unpackUint2x32",
-   "+",
-   "-",
-   "add_sat",
-   "sub_sat",
-   "abs_sub",
-   "average",
-   "average_rounded",
-   "*",
-   "*",
-   "imul_high",
-   "/",
-   "carry",
-   "borrow",
-   "mod",
-   "<",
-   ">=",
-   "==",
-   "!=",
-   "all_equal",
-   "any_nequal",
-   "<<",
-   ">>",
-   "&",
-   "^",
-   "|",
-   "&&",
-   "^^",
-   "||",
-   "dot",
-   "min",
-   "max",
-   "pow",
-   "ubo_load",
-   "ldexp",
-   "vector_extract",
-   "interpolate_at_offset",
-   "interpolate_at_sample",
-   "atan2",
-   "fma",
-   "mix",
-   "csel",
-   "bitfield_extract",
-   "vector_insert",
-   "bitfield_insert",
-   "vector",
-};
-
-static const char *const glsl_expression_vector_operation_strings[] = {
-   "lessThan",
-   "greaterThanEqual",
-   "equal",
-   "notEqual",
-};
 
 static bool is_binop_func_like(ir_expression_operation op, const glsl_type* type)
 {
@@ -409,7 +251,7 @@ ir_print_glsl_visitor::visit(ir_expression *ir)
       } else if (ir->operation == ir_unop_rcp) {
          fprintf(f, "(1.0/(");
       } else {
-         fprintf(f, "%s(", glsl_expression_operation_strings[ir->operation]);
+         fprintf(f, "%s(", ir_expression_operation_glsl_strings[ir->operation]);
       }
       if (ir->operands[0])
    	     ir->operands[0]->accept(this);
@@ -431,9 +273,9 @@ ir_print_glsl_visitor::visit(ir_expression *ir)
          fprintf(f, "(");
       }
       if (ir->type->is_vector() && (ir->operation >= ir_binop_less && ir->operation <= ir_binop_nequal))
-         fprintf(f, "%s(", glsl_expression_vector_operation_strings[ir->operation-ir_binop_less]);
+         fprintf(f, "%s(", ir_expression_operation_vector_strings[ir->operation-ir_binop_less]);
       else
-         fprintf(f, "%s(", glsl_expression_operation_strings[ir->operation]);
+         fprintf(f, "%s(", ir_expression_operation_glsl_strings[ir->operation]);
 
       if (ir->operands[0])
          ir->operands[0]->accept(this);
@@ -448,13 +290,13 @@ ir_print_glsl_visitor::visit(ir_expression *ir)
       if (ir->operands[0])
          ir->operands[0]->accept(this);
 
-      fprintf(f, " %s ", glsl_expression_operation_strings[ir->operation]);
+      fprintf(f, " %s ", ir_expression_operation_glsl_strings[ir->operation]);
 
       if (ir->operands[1])
           ir->operands[1]->accept(this);
       fprintf(f, ")");
    } else {
-      fprintf(f, "%s(", glsl_expression_operation_strings[ir->operation]);
+      fprintf(f, "%s(", ir_expression_operation_glsl_strings[ir->operation]);
       if (ir->operands[0])
          ir->operands[0]->accept(this);
       fprintf(f, ", ");
