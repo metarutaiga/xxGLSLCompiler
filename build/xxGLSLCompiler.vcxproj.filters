@@ -49,6 +49,9 @@
     <Filter Include="xxMiniCRT">
       <UniqueIdentifier>{aa19788e-8aa3-4b26-aa46-93fed111df46}</UniqueIdentifier>
     </Filter>
+    <Filter Include="other">
+      <UniqueIdentifier>{d3e5e56d-9312-454a-adc4-e8262393ef69}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\compiler\builtin_type_macros.h">
@@ -354,8 +357,8 @@
     <ClInclude Include="..\src\compiler\glsl\glcpp\pp_standalone_scaffolding.h">
       <Filter>src\compiler\glsl\glcpp</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\compiler\glsl\ir_print_glsl_visitor.h">
-      <Filter>src\compiler\glsl</Filter>
+    <ClInclude Include="..\other\ir_print_glsl_visitor.h">
+      <Filter>other</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -731,8 +734,8 @@
     <ClCompile Include="..\src\compiler\glsl\glcpp\pp_standalone_scaffolding.c">
       <Filter>src\compiler\glsl\glcpp</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\compiler\glsl\ir_print_glsl_visitor.cpp">
-      <Filter>src\compiler\glsl</Filter>
+    <ClCompile Include="..\other\ir_print_glsl_visitor.cpp">
+      <Filter>other</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

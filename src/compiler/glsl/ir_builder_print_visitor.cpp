@@ -580,7 +580,14 @@ ir_builder_print_visitor::print_without_declaration(const ir_expression *ir)
    for (unsigned i = 0; i < num_op; i++) {
       if (is_simple_operand(ir->operands[i]))
          print_without_declaration(ir->operands[i]);
-      else {
+      else if (ir->operands[i]->ir_type == ir_type_dereference_array) {
+         ir_dereference_array* array = ir->operands[i]->as_dereference_array();
+         print_without_indent("array.at(");
+         print_without_declaration(array->array);
+         print_without_indent(", ");
+         print_without_declaration(array->array_index);
+         print_without_indent(")");
+      } else {
          const struct hash_entry *const he =
             _mesa_hash_table_search(index_map, ir->operands[i]);
 
