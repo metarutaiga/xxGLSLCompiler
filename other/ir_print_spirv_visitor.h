@@ -38,9 +38,13 @@ class binary_buffer {
 public:
    binary_buffer();
    virtual ~binary_buffer();
+   void opcode(unsigned short length, unsigned short opcode, ...);
+   void text(unsigned short opcode, unsigned int id, const char* text);
+   void text(unsigned short opcode, unsigned int id, unsigned int index, const char* text);
    void push(unsigned short low, unsigned short high);
    void push(unsigned int value);
    void push(const char* text);
+   void push(binary_buffer& buffer);
    unsigned int count();
    unsigned int* data();
    unsigned int& operator[] (size_t i);
@@ -51,7 +55,6 @@ protected:
 class spirv_buffer : public binary_buffer {
 public:
    spirv_buffer();
-   ~spirv_buffer();
 
    binary_buffer capability;
    binary_buffer extensions;
@@ -63,15 +66,18 @@ public:
    binary_buffer per_vertices;
    binary_buffer builtins;
    binary_buffer functions;
-   binary_buffer reflections;
 
-   unsigned int precision_float;
-   unsigned int precision_int;
+   gl_shader_stage shader_stage;
 
    unsigned int id;
    unsigned int binding_id;
 
-   unsigned int import_id;
+   unsigned int precision_float;
+   unsigned int precision_int;
+
+   unsigned int memory_begin;
+
+   unsigned int ext_inst_import_id;
    unsigned int uniform_struct_id;
    unsigned int uniform_id;
    unsigned int uniform_pointer_id;
@@ -84,21 +90,22 @@ public:
    unsigned int void_id;
    unsigned int void_function_id;
    unsigned int bool_id;
-   unsigned int float_id[4*4];
-   unsigned int int_id[4*4];
-   unsigned int const_float_id[16];
-   unsigned int const_int_id[16];
+   unsigned int float_id[5][5];
+   unsigned int int_id[5][5];
    unsigned int sampler_id[16];
 
+   unsigned int constant_float_id[16];
+   unsigned int constant_int_id[16];
+
    unsigned int pointer_bool_id[16];
-   unsigned int pointer_float_id[16][4*4];
-   unsigned int pointer_int_id[16][4*4];
+   unsigned int pointer_float_id[16][5][5];
+   unsigned int pointer_int_id[16][5][5];
    unsigned int pointer_sampler_id[16];
 
    unsigned int input_loc;
    unsigned int output_loc;
 
-   gl_shader_stage shader_stage;
+   unsigned int memory_end;
 };
 
 /**
@@ -143,8 +150,10 @@ public:
 
 public:
    unsigned int visit_type(const struct glsl_type *type);
-   char check_pointer_to_type(const struct glsl_type *type, unsigned int point_to);
-   unsigned int visit_type_pointer(const struct glsl_type *type, unsigned int mode, unsigned int point_to);
+   unsigned int visit_type_pointer(const struct glsl_type *type, unsigned int mode, unsigned int pointer_to);
+   unsigned int visit_constant_value(float value);
+   unsigned int visit_constant_value(int value);
+   unsigned int visit_constant_value(unsigned int value);
    void visit_value(ir_rvalue *ir);
    void visit_precision(unsigned int id, unsigned int type, unsigned int precision);
 
