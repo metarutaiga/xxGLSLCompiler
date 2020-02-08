@@ -92,8 +92,8 @@ public:
    unsigned int ir_pointer;
    unsigned int ir_label;
    unsigned int ir_label_break;
-   unsigned int ir_uniform;
-   unsigned int ir_initialized;
+   unsigned int ir_uniform_location;
+   unsigned int ir_binding_point;
 
    struct exec_node *parent;
 

@@ -30,6 +30,8 @@
 #include "compiler/spirv/spirv.h"
 #include "compiler/spirv/GLSL.std.450.h"
 
+#define SpvBuiltInFragColor 21
+
 static const unsigned int reflection_float_type[4][4] = {
    GL_FLOAT,      GL_FLOAT_VEC2,   GL_FLOAT_VEC3,   GL_FLOAT_VEC4,
    GL_FLOAT_VEC2, GL_FLOAT_MAT2,   GL_FLOAT_MAT2x3, GL_FLOAT_MAT2x4,
@@ -85,6 +87,56 @@ void binary_buffer::opcode(unsigned short length, unsigned short opcode, ...)
       push(va_arg(ap, unsigned int));
    }
    va_end(ap);
+}
+
+void binary_buffer::opcode(unsigned short length, unsigned short opcode, binary_buffer& buffer)
+{
+   length += buffer.count();
+
+   push(opcode, length);
+   push(buffer);
+}
+
+void binary_buffer::opcode(unsigned short length, unsigned short opcode, unsigned int v1, binary_buffer& buffer)
+{
+   length += buffer.count();
+
+   push(opcode, length);
+   push(v1);
+   push(buffer);
+}
+
+void binary_buffer::opcode(unsigned short length, unsigned short opcode, unsigned int v1, unsigned int v2, binary_buffer& buffer)
+{
+   length += buffer.count();
+
+   push(opcode, length);
+   push(v1);
+   push(v2);
+   push(buffer);
+}
+
+void binary_buffer::opcode(unsigned short length, unsigned short opcode, unsigned int v1, unsigned int v2, unsigned int v3, binary_buffer& buffer)
+{
+   length += buffer.count();
+
+   push(opcode, length);
+   push(v1);
+   push(v2);
+   push(v3);
+   push(buffer);
+}
+
+void binary_buffer::opcode(unsigned short length, unsigned short opcode, unsigned int v1, unsigned int v2, unsigned int v3, unsigned int v4, binary_buffer& buffer)
+{
+   length += buffer.count();
+
+   push(opcode, length);
+   push(v1);
+   push(v2);
+   push(v3);
+   push(v4);
+   push(buffer);
 }
 
 void binary_buffer::text(unsigned short opcode, unsigned int id, const char *text)
@@ -200,26 +252,15 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, gl_shader_stage stag
    }
 
    // Uniform
-   unsigned int uniforms_count = f->uniforms.count();
-   if (uniforms_count != 0) {
-      f->types.push(SpvOpTypeStruct, uniforms_count + 2);
-      f->types.push(f->uniform_struct_id);
-      for (unsigned int i = 0; i < uniforms_count; ++i) {
-         f->types.push(f->uniforms[i]);
-      }
-
+   if (f->uniforms.count() != 0) {
+      f->types.opcode(2, SpvOpTypeStruct, f->uniform_struct_id, f->uniforms);
       f->types.opcode(4, SpvOpTypePointer, f->uniform_pointer_id, SpvStorageClassUniform, f->uniform_struct_id);
       f->types.opcode(4, SpvOpVariable, f->uniform_pointer_id, f->uniform_id, SpvStorageClassUniform);
    }
 
    // gl_PerVertex
-   unsigned int per_vertices_count = f->per_vertices.count();
-   if (per_vertices_count != 0) {
-      f->types.push(SpvOpTypeStruct, per_vertices_count + 2);
-      f->types.push(f->gl_per_vertex_id);
-      for (unsigned int i = 0; i < per_vertices_count; ++i) {
-         f->types.push(f->per_vertices[i]);
-      }
+   if (f->per_vertices.count() != 0) {
+      f->types.opcode(2, SpvOpTypeStruct, f->gl_per_vertex_id, f->per_vertices);
    }
 
    // Header - Mesa-IR/SPIR-V Translator
@@ -235,14 +276,7 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, gl_shader_stage stag
    f->push(f->extensions);
 
    // EntryPoint Fragment 4 "main" 20 22 37 43 46 49
-   unsigned int inouts_count = f->inouts.count();
-   f->push(SpvOpEntryPoint, inouts_count + 5);
-   f->push(stage_type[stage]);
-   f->push(f->main_id);
-   f->push("main");
-   for (unsigned int i = 0; i < inouts_count; ++i) {
-      f->push(f->inouts[i]);
-   }
+   f->opcode(5, SpvOpEntryPoint, stage_type[stage], f->main_id, *(int*)"main", 0, f->inouts);
 
    // ExecutionMode 4 OriginUpperLeft
    if (stage == MESA_SHADER_FRAGMENT) {
@@ -519,16 +553,6 @@ void
 ir_print_spirv_visitor::visit_value(ir_rvalue *ir)
 {
    if (ir->ir_value == 0) {
-      if (ir->ir_pointer == 0 && ir->ir_uniform) {
-         unsigned int uniform_type = visit_type(ir->type);
-         unsigned int type_pointer_id = visit_type_pointer(ir->type, ir_var_uniform, uniform_type);
-         unsigned int pointer_id = f->id++;
-         unsigned int index_id = visit_constant_value(ir->ir_uniform - 1);
-
-         f->functions.opcode(5, SpvOpAccessChain, type_pointer_id, pointer_id, f->uniform_id, index_id);
-
-         ir->ir_pointer = pointer_id;
-      }
       if (ir->ir_pointer != 0) {
          unsigned int type_id = visit_type(ir->type);
          unsigned int value_id = f->id++;
@@ -572,55 +596,30 @@ ir_print_spirv_visitor::visit(ir_variable *ir)
    if (ir->data.mode == ir_var_uniform) {
       if (ir->type->is_sampler()) {
          if (ir->data.explicit_binding) {
-           ir->ir_initialized = ir->data.binding;
+           ir->ir_binding_point = ir->data.binding;
            if (f->binding_id <= ir->data.binding)
               f->binding_id = ir->data.binding + 1;
          } else {
-           ir->ir_initialized = f->binding_id++;
+           ir->ir_binding_point = f->binding_id++;
          }
-      } else if (ir->type->is_interface()) {
-         const glsl_type* interface_type = ir->get_interface_type();
-         unsigned int interface_name_id = f->id++;
-
-         f->names.text(SpvOpName, interface_name_id, interface_type->name);
-         f->decorates.opcode(3, SpvOpDecorate, interface_name_id, SpvDecorationBlock);
-
-         unsigned int offset = 0;
-         binary_buffer ids;
-         for (unsigned int i = 0; i < interface_type->length; ++i) {
-            glsl_struct_field& field = interface_type->fields.structure[i];
-
-            f->names.text(SpvOpMemberName, interface_name_id, i, field.name);
-            f->decorates.opcode(5, SpvOpMemberDecorate, interface_name_id, i, SpvDecorationOffset, offset);
-            ids.push(visit_type(field.type));
-
-            offset += field.type->std430_array_stride(false);
-         }
-
-         unsigned int ids_count = ids.count();
-         f->types.push(SpvOpTypeStruct, ids_count + 2);
-         f->types.push(interface_name_id);
-         for (unsigned int i = 0; i < ids_count; ++i)
-            f->types.push(ids[i]);
-
-         unsigned int pointer_id = f->id++;
-         unsigned int name_id = unique_name(ir);
-
-         f->types.opcode(4, SpvOpTypePointer, pointer_id, SpvStorageClassPushConstant, interface_name_id);
-         f->types.opcode(4, SpvOpVariable, pointer_id, name_id, SpvStorageClassPushConstant);
-
-         ir->ir_pointer = pointer_id;
-         ir->ir_value = name_id;
       } else {
          if (f->uniform_struct_id == 0) {
             unsigned int uniform_struct_id = f->id++;
             unsigned int uniform_pointer_id = f->id++;
             unsigned int uniform_id = f->id++;
             unsigned int binding_id = f->binding_id++;
-            char block_name[64] = {};
-            snprintf(block_name, sizeof(block_name), "Global%d", binding_id);
+            const char *struct_name = "Global";
 
-            f->names.text(SpvOpName, uniform_struct_id, block_name);
+            switch (f->shader_stage) {
+            case MESA_SHADER_VERTEX:
+               struct_name = "GlobalVS";
+               break;
+            case MESA_SHADER_FRAGMENT:
+               struct_name = "GlobalFS";
+               break;
+            }
+
+            f->names.text(SpvOpName, uniform_struct_id, struct_name);
             f->names.text(SpvOpName, uniform_id, "");
             f->decorates.opcode(3, SpvOpDecorate, uniform_struct_id, SpvDecorationBlock);
             f->decorates.opcode(4, SpvOpDecorate, uniform_id, SpvDecorationDescriptorSet, 0u);
@@ -630,17 +629,17 @@ ir_print_spirv_visitor::visit(ir_variable *ir)
             f->uniform_pointer_id = uniform_pointer_id;
             f->uniform_id = uniform_id;
          }
+         ir->ir_uniform_location = f->uniforms.count();
+         f->uniforms.push(type_id);
 
-         f->names.text(SpvOpMemberName, f->uniform_struct_id, f->uniforms.count(), ir->name);
-         f->decorates.opcode(5, SpvOpMemberDecorate, f->uniform_struct_id, f->uniforms.count(), SpvDecorationOffset, f->uniform_offset);
+         f->names.text(SpvOpMemberName, f->uniform_struct_id, ir->ir_uniform_location, ir->name);
+         f->decorates.opcode(5, SpvOpMemberDecorate, f->uniform_struct_id, ir->ir_uniform_location, SpvDecorationOffset, f->uniform_offset);
 
          if (ir->type->is_matrix()) {
-            f->decorates.opcode(4, SpvOpMemberDecorate, f->uniform_struct_id, f->uniforms.count(), SpvDecorationColMajor);
-            f->decorates.opcode(5, SpvOpMemberDecorate, f->uniform_struct_id, f->uniforms.count(), SpvDecorationMatrixStride, ir->type->std430_array_stride(false));
+            f->decorates.opcode(4, SpvOpMemberDecorate, f->uniform_struct_id, ir->ir_uniform_location, SpvDecorationColMajor);
+            f->decorates.opcode(5, SpvOpMemberDecorate, f->uniform_struct_id, ir->ir_uniform_location, SpvDecorationMatrixStride, ir->type->std430_array_stride(false));
          }
 
-         ir->ir_uniform = f->uniforms.count();
-         f->uniforms.push(type_id);
          f->uniform_offset += ir->type->std430_array_stride(false);
       }
    } else {
@@ -693,19 +692,26 @@ ir_print_spirv_visitor::visit(ir_function_signature *ir)
    // TypeVoid
    unsigned int type_id;
    if (ir->return_type->base_type == GLSL_TYPE_VOID) {
-      if (f->void_id == 0) {
-         f->void_id = f->id++;
-         f->types.opcode(2, SpvOpTypeVoid, f->void_id);
-      }
       type_id = f->void_id;
+      if (type_id == 0) {
+         type_id = f->id++;
+
+         f->types.opcode(2, SpvOpTypeVoid, type_id);
+
+         f->void_id = type_id;
+      }
    } else {
       return;
    }
 
    // TypeFunction
-   if (f->void_function_id == 0) {
-      f->void_function_id = f->id++;
-      f->types.opcode(3, SpvOpTypeFunction, f->void_function_id, type_id);
+   unsigned int void_function_id = f->void_function_id;
+   if (void_function_id == 0) {
+      void_function_id = f->id++;
+
+      f->types.opcode(3, SpvOpTypeFunction, void_function_id, type_id);
+
+      f->void_function_id = void_function_id;
    }
 
    // TypeName
@@ -716,7 +722,7 @@ ir_print_spirv_visitor::visit(ir_function_signature *ir)
       function_name_id = f->id++;
    }
    f->names.text(SpvOpName, function_name_id, ir->function_name());
-   f->functions.opcode(5, SpvOpFunction, type_id, function_name_id, SpvFunctionControlMaskNone, f->void_function_id);
+   f->functions.opcode(5, SpvOpFunction, type_id, function_name_id, SpvFunctionControlMaskNone, void_function_id);
 
    // Label
    unsigned int label_id = f->id++;
@@ -937,12 +943,9 @@ ir_print_spirv_visitor::visit(ir_expression *ir)
                operands[i] = ir->operands[i]->ir_value;
             } else if (ir->operands[i]->type->components() == 1) {
                operands[i] = f->id++;
-               f->functions.push(SpvOpCompositeConstruct, ir->type->components() + 3);
-               f->functions.push(type_id);
-               f->functions.push(operands[i]);
-               for (unsigned int j = 0; j < ir->type->components(); ++j) {
-                  f->functions.push(ir->operands[i]->ir_value);
-               }
+
+               unsigned int id = ir->operands[i]->ir_value;
+               f->functions.opcode(3 + ir->type->components(), SpvOpCompositeConstruct, type_id, operands[i], id, id, id, id);
             } else {
                unreachable("operands must match result or be scalar");
             }
@@ -1009,12 +1012,9 @@ ir_print_spirv_visitor::visit(ir_expression *ir)
                operands[i] = ir->operands[i]->ir_value;
             } else if (ir->operands[i]->type->components() == 1) {
                operands[i] = f->id++;
-               f->functions.push(SpvOpCompositeConstruct, ir->type->components() + 3);
-               f->functions.push(type_id);
-               f->functions.push(operands[i]);
-               for (unsigned int j = 0; j < ir->type->components(); ++j) {
-                  f->functions.push(ir->operands[i]->ir_value);
-               }
+
+               unsigned int id = ir->operands[i]->ir_value;
+               f->functions.opcode(3 + ir->type->components(), SpvOpCompositeConstruct, type_id, operands[i], id, id, id, id);
             } else {
                unreachable("operands must match result or be scalar");
             }
@@ -1085,6 +1085,7 @@ ir_print_spirv_visitor::visit(ir_texture *ir)
             for (unsigned int i = 0; i < coordinate_component; ++i) {
                unsigned int type_id = visit_type(glsl_type::float_type);
                unsigned int id = f->id++;
+
                f->functions.opcode(5, SpvOpCompositeExtract, type_id, id, coordinate_id, i);
 
                components[i] = id;
@@ -1092,8 +1093,7 @@ ir_print_spirv_visitor::visit(ir_texture *ir)
          }
 
          const glsl_type* combined_type;
-         switch (coordinate_component)
-         {
+         switch (coordinate_component) {
          case 1:
             combined_type = glsl_type::vec2_type;
             break;
@@ -1106,10 +1106,11 @@ ir_print_spirv_visitor::visit(ir_texture *ir)
          default:
             unreachable("unknown component");
          }
-
+         unsigned int type_id = visit_type(combined_type);
          coordinate_id = f->id++;
+
          f->functions.push(SpvOpCompositeConstruct, coordinate_component + 4);
-         f->functions.push(visit_type(combined_type));
+         f->functions.push(type_id);
          f->functions.push(coordinate_id);
          for (unsigned int i = 0; i < coordinate_component; ++i) {
             f->functions.push(components[i]);
@@ -1254,9 +1255,7 @@ ir_print_spirv_visitor::visit(ir_texture *ir)
 #if 0
    const ir_dereference_variable* var = ir->sampler->as_dereference_variable();
    if (var && var->var->data.precision == GLSL_PRECISION_MEDIUM) {
-      f->decorates.push(SpvOpDecorate, 3);
-      f->decorates.push(result_id);
-      f->decorates.push(SpvDecorationRelaxedPrecision);
+      f->decorates.opcode(3, SpvOpDecorate, result_id, SpvDecorationRelaxedPrecision);
    }
 #endif
 }
@@ -1279,30 +1278,14 @@ ir_print_spirv_visitor::visit(ir_swizzle *ir)
    }
 
    if (ir->val->type->is_vector() == false) {
-      f->functions.push(SpvOpCompositeConstruct, ir->mask.num_components + 3);
-      f->functions.push(type_id);
-      f->functions.push(value_id);
-      for (unsigned int i = 0; i < ir->mask.num_components; ++i) {
-         f->functions.push(source_id);
-      }
+      f->functions.opcode(3 + ir->mask.num_components, SpvOpCompositeConstruct, type_id, value_id, source_id, source_id, source_id, source_id);
 
       ir->ir_value = value_id;
       return;
    }
 
-   f->functions.push(SpvOpVectorShuffle, ir->mask.num_components + 5);
-   f->functions.push(type_id);
-   f->functions.push(value_id);
-   f->functions.push(source_id);
-   f->functions.push(source_id);
-   if (ir->mask.num_components >= 1)
-      f->functions.push(ir->mask.x);
-   if (ir->mask.num_components >= 2)
-      f->functions.push(ir->mask.y);
-   if (ir->mask.num_components >= 3)
-      f->functions.push(ir->mask.z);
-   if (ir->mask.num_components >= 4)
-      f->functions.push(ir->mask.w);
+   f->functions.opcode(ir->mask.num_components + 5, SpvOpVectorShuffle, type_id, value_id, source_id, source_id, ir->mask.x, ir->mask.y, ir->mask.z, ir->mask.w);
+
    ir->ir_value = value_id;
 }
 
@@ -1310,17 +1293,16 @@ void
 ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
 {
    ir_variable *var = ir->variable_referenced();
-   if (is_gl_identifier(var->name) == false && var->data.mode != ir_var_uniform)
-      unique_name(var);
 
    switch (var->data.mode) {
    case ir_var_uniform:
       if (var->type->is_sampler()) {
          unsigned int sampled_image_id = visit_type(var->type);
          unsigned int value_id = f->id++;
+
          if (var->ir_pointer == 0) {
             unsigned int name_id = unique_name(var);
-            unsigned int binding_id = var->ir_initialized;
+            unsigned int binding_id = var->ir_binding_point;
             unsigned int type_pointer_id = visit_type_pointer(ir->type, var->data.mode, sampled_image_id);
 
             f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationDescriptorSet, 0);
@@ -1330,84 +1312,104 @@ ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
          f->functions.opcode(4, SpvOpLoad, sampled_image_id, value_id, var->ir_pointer);
  
          ir->ir_value = value_id;
-      } else if (var->type->is_interface()) {
-         ir->ir_value = var->ir_value;
+         ir->ir_pointer = var->ir_pointer;
          break;
       } else {
-         ir->ir_uniform = var->ir_uniform + 1;
+         unsigned int uniform_type = visit_type(var->type);
+         unsigned int type_pointer_id = visit_type_pointer(var->type, ir_var_uniform, uniform_type);
+         unsigned int pointer_id = f->id++;
+         unsigned int index_id = visit_constant_value(var->ir_uniform_location);
+
+         f->functions.opcode(5, SpvOpAccessChain, type_pointer_id, pointer_id, f->uniform_id, index_id);
+
+         ir->ir_pointer = pointer_id;
          break;
       }
+      unique_name(var);
       ir->ir_pointer = var->ir_pointer;
       break;
    case ir_var_shader_out:
-      if (f->shader_stage != MESA_SHADER_FRAGMENT && is_gl_identifier(var->name)) {
-         if (f->gl_per_vertex_id == 0) {
-            unsigned int name_id = f->id++;
-
-            f->names.text(SpvOpName, name_id, "gl_PerVertex");
-            f->decorates.opcode(3, SpvOpDecorate, name_id, SpvDecorationBlock);
-
-            f->gl_per_vertex_id = name_id;
-         }
-
-         if (var->ir_initialized == 0) {
+      if (is_gl_identifier(var->name)) {
+         if (var->ir_pointer == 0) {
             const glsl_type* type;
-            SpvBuiltIn built_in;
+            unsigned int built_in;
             if (strcmp(var->name, "gl_Position") == 0) {
                type = glsl_type::vec4_type;
                built_in = SpvBuiltInPosition;
             } else if (strcmp(var->name, "gl_PointSize") == 0) {
                type = glsl_type::float_type;
                built_in = SpvBuiltInPointSize;
-            } else {
-               break;
-            }
-
-            unsigned int struct_pointer_id = f->id++;
-            unsigned int type_id = visit_type(type);
-            unsigned int type_pointer_id = visit_type_pointer(type, var->data.mode, type_id);
-            unsigned int variable_id = f->id++;
-            unsigned int int_type_id = visit_type(glsl_type::int_type);
-            unsigned int constant_id = f->id++;
-            unsigned int pointer_id = f->id++;
-
-            f->names.text(SpvOpMemberName, f->gl_per_vertex_id, f->per_vertices.count(), var->name);
-            f->decorates.opcode(5, SpvOpMemberDecorate, f->gl_per_vertex_id, f->per_vertices.count(), SpvDecorationBuiltIn, built_in);
-            f->builtins.opcode(4, SpvOpTypePointer, struct_pointer_id, SpvStorageClassOutput, f->gl_per_vertex_id);
-            f->builtins.opcode(4, SpvOpVariable, struct_pointer_id, variable_id, SpvStorageClassOutput);
-            f->builtins.opcode(4, SpvOpConstant, int_type_id, constant_id, f->per_vertices.count());
-            f->functions.opcode(5, SpvOpAccessChain, type_pointer_id, pointer_id, variable_id, constant_id);
-
-            f->inouts.push(variable_id);
-            f->per_vertices.push(type_id);
-            var->ir_initialized = pointer_id;
-         }
-         ir->ir_pointer = var->ir_initialized;
-         break;
-      } else if (f->shader_stage == MESA_SHADER_FRAGMENT && is_gl_identifier(var->name)) {
-         if (var->ir_initialized == 0) {
-            const glsl_type* type;
-            if (strcmp(var->name, "gl_FragColor") == 0) {
+            } else if (strcmp(var->name, "gl_FragColor") == 0) {
                type = glsl_type::vec4_type;
+               built_in = SpvBuiltInFragColor;
+            } else if (strcmp(var->name, "gl_FragDepth") == 0) {
+               type = glsl_type::float_type;
+               built_in = SpvBuiltInFragDepth;
             } else {
                break;
             }
 
-            unsigned int type_id = visit_type(type);
-            unsigned int type_pointer_id = visit_type_pointer(type, var->data.mode, type_id);
-            unsigned int name_id = unique_name(var);
+            switch (f->shader_stage) {
+            case MESA_SHADER_VERTEX: {
+               if (f->gl_per_vertex_id == 0) {
+                  unsigned int name_id = f->id++;
 
-            f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationBinding, 0);
-            f->builtins.opcode(4, SpvOpVariable, type_pointer_id, name_id, SpvStorageClassOutput);
+                  f->names.text(SpvOpName, name_id, "gl_PerVertex");
+                  f->decorates.opcode(3, SpvOpDecorate, name_id, SpvDecorationBlock);
 
-            var->ir_initialized = name_id;
+                  f->gl_per_vertex_id = name_id;
+               }
+
+               unsigned int struct_pointer_id = f->id++;
+               unsigned int type_id = visit_type(type);
+               unsigned int type_pointer_id = visit_type_pointer(type, var->data.mode, type_id);
+               unsigned int variable_id = f->id++;
+               unsigned int int_type_id = visit_type(glsl_type::int_type);
+               unsigned int constant_id = f->id++;
+               unsigned int pointer_id = f->id++;
+
+               f->names.text(SpvOpMemberName, f->gl_per_vertex_id, f->per_vertices.count(), var->name);
+               f->decorates.opcode(5, SpvOpMemberDecorate, f->gl_per_vertex_id, f->per_vertices.count(), SpvDecorationBuiltIn, built_in);
+               f->builtins.opcode(4, SpvOpTypePointer, struct_pointer_id, SpvStorageClassOutput, f->gl_per_vertex_id);
+               f->builtins.opcode(4, SpvOpVariable, struct_pointer_id, variable_id, SpvStorageClassOutput);
+               f->builtins.opcode(4, SpvOpConstant, int_type_id, constant_id, f->per_vertices.count());
+               f->functions.opcode(5, SpvOpAccessChain, type_pointer_id, pointer_id, variable_id, constant_id);
+
+               f->inouts.push(variable_id);
+               f->per_vertices.push(type_id);
+               var->ir_pointer = pointer_id;
+               break;
+            }
+            case MESA_SHADER_FRAGMENT: {
+               unsigned int type_id = visit_type(type);
+               unsigned int type_pointer_id = visit_type_pointer(type, var->data.mode, type_id);
+               unsigned int name_id = unique_name(var);
+
+               if (built_in == SpvBuiltInFragColor) {
+                  unsigned int location = var->data.location == FRAG_RESULT_COLOR ? var->data.location - FRAG_RESULT_COLOR : var->data.location - FRAG_RESULT_DATA0;
+
+                  f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationBinding, location);
+               } else {
+                  f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationBuiltIn, built_in);
+               }
+               f->builtins.opcode(4, SpvOpVariable, type_pointer_id, name_id, SpvStorageClassOutput);
+
+               f->inouts.push(name_id);
+               var->ir_pointer = name_id;
+               break;
+            }
+            default:
+               break;
+            }
          }
-         ir->ir_pointer = var->ir_initialized;
+         ir->ir_pointer = var->ir_pointer;
          break;
       }
+      unique_name(var);
       ir->ir_pointer = var->ir_pointer;
       break;
    default:
+      unique_name(var);
       ir->ir_pointer = var->ir_pointer;
       break;
    }
@@ -1424,13 +1426,7 @@ ir_print_spirv_visitor::visit(ir_dereference_array *ir)
 
    unsigned int type_id = visit_type(ir->type);
    unsigned int pointer_id;
-   if (ir->array->ir_uniform) {
-      unsigned int type_pointer_id = visit_type_pointer(ir->type, ir_var_uniform, type_id);
-      unsigned int index_id = visit_constant_value(ir->array->ir_uniform - 1);
-      pointer_id = f->id++;
-
-      f->functions.opcode(6, SpvOpAccessChain, type_pointer_id, pointer_id, f->uniform_id, index_id, ir->array_index->ir_value);
-   } else if (var && var->var) {
+   if (var && var->var) {
       unsigned int type_pointer_id = visit_type_pointer(ir->type, var->var->data.mode, type_id);
       pointer_id = f->id++;
 
@@ -1479,14 +1475,10 @@ ir_print_spirv_visitor::visit(ir_assignment *ir)
    } else if (ir->rhs->type->components() == 1) {
       if (full_write) {
          unsigned int type_id = visit_type(ir->lhs->type);
+         unsigned int id = ir->rhs->ir_value;
          value_id = f->id++;
 
-         f->functions.push(SpvOpCompositeConstruct, ir->lhs->type->components() + 3);
-         f->functions.push(type_id);
-         f->functions.push(value_id);
-         for (unsigned int i = 0; i < ir->lhs->type->components(); ++i) {
-            f->functions.push(ir->rhs->ir_value);
-         }
+         f->functions.opcode(3 + ir->lhs->type->components(), SpvOpCompositeConstruct, type_id, value_id, id, id, id, id);
       } else {
          ir_variable *var = ir->lhs->variable_referenced();
          unsigned int type_id = visit_type(ir->lhs->type->get_base_type());
@@ -1506,21 +1498,18 @@ ir_print_spirv_visitor::visit(ir_assignment *ir)
       visit_value(ir->lhs);
 
       unsigned int type_id = visit_type(ir->lhs->type);
+      unsigned int ids[4] = {};
       value_id = f->id++;
-
-      f->functions.push(SpvOpVectorShuffle, ir->lhs->type->components() + 5);
-      f->functions.push(type_id);
-      f->functions.push(value_id);
-      f->functions.push(ir->lhs->ir_value);
-      f->functions.push(ir->rhs->ir_value);
 
       for (unsigned int i = 0, j = 0; i < ir->lhs->type->components(); ++i) {
          if (ir->write_mask & (1 << i)) {
-            f->functions.push(ir->lhs->type->components() + j++);
+            ids[i] = ir->lhs->type->components() + j++;
          } else {
-            f->functions.push(i);
+            ids[i] = i;
          }
       }
+
+      f->functions.opcode(5 + ir->lhs->type->components(), SpvOpVectorShuffle, type_id, value_id, ir->lhs->ir_value, ir->rhs->ir_value, ids[0], ids[1], ids[2], ids[3]);
    }
 
    if (ir->lhs->ir_pointer != 0) {
@@ -1595,17 +1584,17 @@ ir_print_spirv_visitor::visit(ir_constant *ir)
             break;
          }
       } else {
-         binary_buffer ids;
+         unsigned int ids[4] = {};
          for (unsigned int i = 0; i < ir->type->components(); i++) {
             switch (ir->type->base_type) {
             case GLSL_TYPE_UINT:
-               ids.push(visit_constant_value(ir->value.u[i]));
+               ids[i] = visit_constant_value(ir->value.u[i]);
                break;
             case GLSL_TYPE_INT:
-               ids.push(visit_constant_value(ir->value.i[i]));
+               ids[i] = visit_constant_value(ir->value.i[i]);
                break;
             case GLSL_TYPE_FLOAT:
-               ids.push(visit_constant_value(ir->value.f[i]));
+               ids[i] = visit_constant_value(ir->value.f[i]);
                break;
             default:
                unreachable("Invalid constant type");
@@ -1613,14 +1602,9 @@ ir_print_spirv_visitor::visit(ir_constant *ir)
          }
          unsigned int value_id = f->id++;
          unsigned int type_id = visit_type(ir->type);
-         unsigned int ids_count = ids.count();
 
-         f->types.push(SpvOpConstantComposite, ids_count + 3);
-         f->types.push(type_id);
-         f->types.push(value_id);
-         for (unsigned i = 0; i < ids_count; i++) {
-            f->types.push(ids[i]);
-         }
+         f->types.opcode(3 + ir->type->components(), SpvOpConstantComposite, type_id, value_id, ids[0], ids[1], ids[2], ids[3]);
+
          ir->ir_value = value_id;
       }
 #if 0

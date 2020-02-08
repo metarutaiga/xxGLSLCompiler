@@ -39,6 +39,11 @@ public:
    binary_buffer();
    virtual ~binary_buffer();
    void opcode(unsigned short length, unsigned short opcode, ...);
+   void opcode(unsigned short length, unsigned short opcode, binary_buffer& buffer);
+   void opcode(unsigned short length, unsigned short opcode, unsigned int v1, binary_buffer& buffer);
+   void opcode(unsigned short length, unsigned short opcode, unsigned int v1, unsigned int v2, binary_buffer& buffer);
+   void opcode(unsigned short length, unsigned short opcode, unsigned int v1, unsigned int v2, unsigned int v3, binary_buffer& buffer);
+   void opcode(unsigned short length, unsigned short opcode, unsigned int v1, unsigned int v2, unsigned int v3, unsigned int v4, binary_buffer& buffer);
    void text(unsigned short opcode, unsigned int id, const char* text);
    void text(unsigned short opcode, unsigned int id, unsigned int index, const char* text);
    void push(unsigned short low, unsigned short high);
@@ -61,11 +66,12 @@ public:
    binary_buffer names;
    binary_buffer decorates;
    binary_buffer types;
-   binary_buffer uniforms;
-   binary_buffer inouts;
-   binary_buffer per_vertices;
    binary_buffer builtins;
    binary_buffer functions;
+
+   binary_buffer inouts;
+   binary_buffer uniforms;
+   binary_buffer per_vertices;
 
    gl_shader_stage shader_stage;
 
@@ -75,7 +81,7 @@ public:
    unsigned int precision_float;
    unsigned int precision_int;
 
-   unsigned int memory_begin;
+   void *memory_begin;
 
    unsigned int ext_inst_import_id;
    unsigned int uniform_struct_id;
@@ -105,7 +111,7 @@ public:
    unsigned int input_loc;
    unsigned int output_loc;
 
-   unsigned int memory_end;
+   void *memory_end;
 };
 
 /**
