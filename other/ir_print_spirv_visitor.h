@@ -50,6 +50,7 @@ public:
    void push(unsigned int value);
    void push(const char* text);
    void push(binary_buffer& buffer);
+   void clear();
    unsigned int count();
    unsigned int* data();
    unsigned int& operator[] (size_t i);
@@ -68,6 +69,8 @@ public:
    binary_buffer types;
    binary_buffer builtins;
    binary_buffer functions;
+   binary_buffer variables;
+   binary_buffer codes;
 
    binary_buffer inouts;
    binary_buffer uniforms;
@@ -156,7 +159,7 @@ public:
 
 public:
    unsigned int visit_type(const struct glsl_type *type);
-   unsigned int visit_type_pointer(const struct glsl_type *type, unsigned int mode, unsigned int pointer_to);
+   unsigned int visit_type_pointer(const struct glsl_type *type, unsigned int mode, unsigned int type_id);
    unsigned int visit_constant_value(float value);
    unsigned int visit_constant_value(int value);
    unsigned int visit_constant_value(unsigned int value);
