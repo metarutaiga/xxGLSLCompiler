@@ -95,7 +95,8 @@ public:
    unsigned int function_id;
    unsigned int main_id;
 
-   unsigned int gl_per_vertex_id;
+   unsigned int gl_per_vertex_name_id;
+   unsigned int gl_per_vertex_struct_id;
 
    unsigned int void_id;
    unsigned int void_function_id;

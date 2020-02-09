@@ -54,7 +54,7 @@ static const unsigned int storage_mode[] = {
    SpvStorageClassOutput,         // ir_var_function_out
    SpvStorageClassWorkgroup,      // ir_var_function_inout
    SpvStorageClassPushConstant,   // ir_var_const_in
-   SpvStorageClassGeneric,        // ir_var_system_value
+   SpvStorageClassInput,          // ir_var_system_value
    SpvStorageClassFunction,       // ir_var_temporary
 };
 
@@ -254,10 +254,14 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, struct _mesa_glsl_pa
 
    // Capability
    f->capability.opcode(2, SpvOpCapability, SpvCapabilityShader);
-   if (state->ARB_shader_draw_parameters_enable)
-      f->capability.opcode(2, SpvOpCapability, SpvCapabilityDrawParameters);
    if (state->ARB_sample_shading_enable)
       f->capability.opcode(2, SpvOpCapability, SpvCapabilitySampleRateShading);
+   if (state->ARB_shader_draw_parameters_enable)
+      f->capability.opcode(2, SpvOpCapability, SpvCapabilityDrawParameters);
+   if (state->ARB_shader_viewport_layer_array_enable)
+      f->capability.opcode(2, SpvOpCapability, SpvCapabilityMultiViewport);
+   if (state->EXT_gpu_shader4_enable)
+      f->capability.opcode(2, SpvOpCapability, SpvCapabilityGeometry);
 
    // Extension
    if (state->ARB_shader_draw_parameters_enable)
@@ -286,7 +290,7 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, struct _mesa_glsl_pa
 
    // gl_PerVertex
    if (f->per_vertices.count() != 0) {
-      f->types.opcode(2, SpvOpTypeStruct, f->gl_per_vertex_id, f->per_vertices);
+      f->types.opcode(2, SpvOpTypeStruct, f->gl_per_vertex_name_id, f->per_vertices);
    }
 
    // Header - Mesa-IR/SPIR-V Translator
@@ -1413,7 +1417,9 @@ ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
       unique_name(var);
       ir->ir_pointer = var->ir_pointer;
       break;
+   case ir_var_shader_in:
    case ir_var_shader_out:
+   case ir_var_system_value:
       if (is_gl_identifier(var->name)) {
          if (var->ir_pointer == 0) {
             const glsl_type* type;
@@ -1424,92 +1430,54 @@ ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
             } else if (strcmp(var->name, "gl_PointSize") == 0) {
                type = glsl_type::float_type;
                built_in = SpvBuiltInPointSize;
-            } else if (strcmp(var->name, "gl_FragColor") == 0) {
-               type = glsl_type::vec4_type;
-               built_in = SpvBuiltInFragColor;
-            } else if (strcmp(var->name, "gl_FragDepth") == 0) {
-               type = glsl_type::float_type;
-               built_in = SpvBuiltInFragDepth;
-            } else {
-               break;
-            }
-
-            switch (f->shader_stage) {
-            case MESA_SHADER_VERTEX: {
-               if (f->gl_per_vertex_id == 0) {
-                  unsigned int name_id = f->id++;
-
-                  f->names.text(SpvOpName, name_id, "gl_PerVertex");
-                  f->decorates.opcode(3, SpvOpDecorate, name_id, SpvDecorationBlock);
-
-                  f->gl_per_vertex_id = name_id;
-               }
-
-               unsigned int struct_pointer_id = f->id++;
-               unsigned int type_id = visit_type(type);
-               unsigned int type_pointer_id = visit_type_pointer(type, var->data.mode, type_id);
-               unsigned int variable_id = f->id++;
-               unsigned int int_type_id = visit_type(glsl_type::int_type);
-               unsigned int constant_id = f->id++;
-               unsigned int pointer_id = f->id++;
-
-               f->names.text(SpvOpMemberName, f->gl_per_vertex_id, f->per_vertices.count(), var->name);
-               f->decorates.opcode(5, SpvOpMemberDecorate, f->gl_per_vertex_id, f->per_vertices.count(), SpvDecorationBuiltIn, built_in);
-               f->builtins.opcode(4, SpvOpTypePointer, struct_pointer_id, SpvStorageClassOutput, f->gl_per_vertex_id);
-               f->builtins.opcode(4, SpvOpVariable, struct_pointer_id, variable_id, SpvStorageClassOutput);
-               f->builtins.opcode(4, SpvOpConstant, int_type_id, constant_id, f->per_vertices.count());
-               f->codes.opcode(5, SpvOpAccessChain, type_pointer_id, pointer_id, variable_id, constant_id);
-
-               f->inouts.push(variable_id);
-               f->per_vertices.push(type_id);
-               var->ir_pointer = pointer_id;
-               break;
-            }
-            case MESA_SHADER_FRAGMENT: {
-               unsigned int type_id = visit_type(type);
-               unsigned int type_pointer_id = visit_type_pointer(type, var->data.mode, type_id);
-               unsigned int name_id = unique_name(var);
-
-               if (built_in == SpvBuiltInFragColor) {
-                  unsigned int location = var->data.location == FRAG_RESULT_COLOR ? var->data.location - FRAG_RESULT_COLOR : var->data.location - FRAG_RESULT_DATA0;
-
-                  f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationBinding, location);
-               } else {
-                  f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationBuiltIn, built_in);
-               }
-               f->builtins.opcode(4, SpvOpVariable, type_pointer_id, name_id, SpvStorageClassOutput);
-
-               f->inouts.push(name_id);
-               var->ir_pointer = name_id;
-               break;
-            }
-            default:
-               break;
-            }
-         }
-         ir->ir_pointer = var->ir_pointer;
-         break;
-      }
-      unique_name(var);
-      ir->ir_pointer = var->ir_pointer;
-      break;
-   case ir_var_system_value:
-      if (is_gl_identifier(var->name)) {
-         if (var->ir_pointer == 0) {
-            const glsl_type* type;
-            unsigned int built_in;
-            if (strcmp(var->name, "gl_VertexID") == 0) {
+            } else if (strcmp(var->name, "gl_ClipDistance") == 0) {
+               type = glsl_type::get_array_instance(glsl_type::float_type, 8);
+               built_in = SpvBuiltInClipDistance;
+            } else if (strcmp(var->name, "gl_CullDistance") == 0) {
+               type = glsl_type::get_array_instance(glsl_type::float_type, 8);
+               built_in = SpvBuiltInCullDistance;
+            } else if (strcmp(var->name, "gl_VertexID") == 0) {
                type = glsl_type::int_type;
                built_in = SpvBuiltInVertexId;
             } else if (strncmp(var->name, "gl_InstanceID", strlen("gl_InstanceID")) == 0) {
                type = glsl_type::int_type;
                built_in = SpvBuiltInInstanceId;
+            } else if (strcmp(var->name, "gl_PrimitiveID") == 0) {
+               type = glsl_type::int_type;
+               built_in = SpvBuiltInPrimitiveId;
+            } else if (strcmp(var->name, "gl_Layer") == 0) {
+               type = glsl_type::int_type;
+               built_in = SpvBuiltInLayer;
+            } else if (strcmp(var->name, "gl_ViewportIndex") == 0) {
+               type = glsl_type::int_type;
+               built_in = SpvBuiltInViewportIndex;
+            } else if (strcmp(var->name, "gl_FragCoord") == 0) {
+               type = glsl_type::vec4_type;
+               built_in = SpvBuiltInFragCoord;
+            } else if (strcmp(var->name, "gl_PointCoord") == 0) {
+               type = glsl_type::vec2_type;
+               built_in = SpvBuiltInPointCoord;
+            } else if (strcmp(var->name, "gl_FrontFacing") == 0) {
+               type = glsl_type::bool_type;
+               built_in = SpvBuiltInFrontFacing;
             } else if (strcmp(var->name, "gl_SampleID") == 0) {
                type = glsl_type::int_type;
                built_in = SpvBuiltInSampleId;
             } else if (strcmp(var->name, "gl_SamplePosition") == 0) {
                type = glsl_type::vec2_type;
                built_in = SpvBuiltInSamplePosition;
+            } else if (strcmp(var->name, "gl_FragColor") == 0) {
+               type = glsl_type::vec4_type;
+               built_in = SpvBuiltInFragColor;
+            } else if (strcmp(var->name, "gl_FragDepth") == 0) {
+               type = glsl_type::float_type;
+               built_in = SpvBuiltInFragDepth;
+            } else if (strcmp(var->name, "gl_VertexIndex") == 0) {
+               type = glsl_type::int_type;
+               built_in = SpvBuiltInVertexIndex;
+            } else if (strcmp(var->name, "gl_InstanceIndex") == 0) {
+               type = glsl_type::int_type;
+               built_in = SpvBuiltInInstanceIndex;
             } else if (strncmp(var->name, "gl_BaseVertex", strlen("gl_BaseVertex")) == 0) {
                type = glsl_type::int_type;
                built_in = SpvBuiltInBaseVertex;
@@ -1523,21 +1491,59 @@ ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
                break;
             }
 
-            switch (f->shader_stage) {
-            case MESA_SHADER_VERTEX:
-            case MESA_SHADER_FRAGMENT: {
+            switch (built_in) {
+            case SpvBuiltInPosition:
+            case SpvBuiltInPointSize:
+            case SpvBuiltInClipDistance:
+            case SpvBuiltInCullDistance: {
+               if (f->gl_per_vertex_name_id == 0 || f->gl_per_vertex_struct_id == 0) {
+                  unsigned int name_id = f->id++;
+                  unsigned int pointer_id = f->id++;
+                  unsigned int variable_id = f->id++;
+
+                  f->names.text(SpvOpName, name_id, "gl_PerVertex");
+                  f->decorates.opcode(3, SpvOpDecorate, name_id, SpvDecorationBlock);
+                  f->builtins.opcode(4, SpvOpTypePointer, pointer_id, SpvStorageClassOutput, name_id);
+                  f->builtins.opcode(4, SpvOpVariable, pointer_id, variable_id, SpvStorageClassOutput);
+
+                  f->inouts.push(variable_id);
+                  f->gl_per_vertex_name_id = name_id;
+                  f->gl_per_vertex_struct_id = variable_id;
+               }
+               unsigned int name_id = f->gl_per_vertex_name_id;
+               unsigned int struct_id = f->gl_per_vertex_struct_id;
+               unsigned int per_vertex_index = f->per_vertices.count();
+               unsigned int int_type_id = visit_type(glsl_type::int_type);
+               unsigned int constant_id = f->id++;
+               unsigned int pointer_id = f->id++;
                unsigned int type_id = visit_type(type);
-               unsigned int type_pointer_id = visit_type_pointer(type, ir_var_shader_in, type_id);
-               unsigned int name_id = unique_name(var);
+               unsigned int type_pointer_id = visit_type_pointer(type, var->data.mode, type_id);
 
-               f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationBuiltIn, built_in);
-               f->builtins.opcode(4, SpvOpVariable, type_pointer_id, name_id, SpvStorageClassInput);
+               f->names.text(SpvOpMemberName, name_id, per_vertex_index, var->name);
+               f->decorates.opcode(5, SpvOpMemberDecorate, name_id, per_vertex_index, SpvDecorationBuiltIn, built_in);
+               f->builtins.opcode(4, SpvOpConstant, int_type_id, constant_id, per_vertex_index);
+               f->codes.opcode(5, SpvOpAccessChain, type_pointer_id, pointer_id, struct_id, constant_id);
 
-               f->inouts.push(name_id);
-               var->ir_pointer = name_id;
+               f->per_vertices.push(type_id);
+               var->ir_pointer = pointer_id;
                break;
             }
             default:
+               unsigned int type_id = visit_type(type);
+               unsigned int type_pointer_id = visit_type_pointer(type, var->data.mode, type_id);
+               unsigned int name_id = unique_name(var);
+
+               if (built_in == SpvBuiltInFragColor) {
+                  unsigned int location = var->data.location == FRAG_RESULT_COLOR ? var->data.location - FRAG_RESULT_COLOR : var->data.location - FRAG_RESULT_DATA0;
+
+                  f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationBinding, location);
+               } else {
+                  f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationBuiltIn, built_in);
+               }
+               f->builtins.opcode(4, SpvOpVariable, type_pointer_id, name_id, storage_mode[var->data.mode]);
+
+               f->inouts.push(name_id);
+               var->ir_pointer = name_id;
                break;
             }
          }
@@ -1804,6 +1810,7 @@ void
 ir_print_spirv_visitor::visit(ir_if *ir)
 {
    ir->condition->accept(this);
+   visit_value(ir->condition);
 
    unsigned int label_then_id = f->id++;
    unsigned int label_else_id = f->id++;
