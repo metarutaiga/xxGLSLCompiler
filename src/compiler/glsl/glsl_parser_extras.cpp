@@ -2124,7 +2124,7 @@ can_skip_compile(struct gl_context *ctx, struct gl_shader *shader,
    return false;
 }
 
-void
+struct _mesa_glsl_parse_state *
 _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
                           bool dump_ast, bool dump_hir, bool force_recompile)
 {
@@ -2144,7 +2144,7 @@ _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
     */
    if (!source_has_shader_include &&
        can_skip_compile(ctx, shader, source, force_recompile, false))
-      return;
+      return NULL;
 
     struct _mesa_glsl_parse_state *state =
       new(shader) _mesa_glsl_parse_state(ctx, shader->Stage, shader);
@@ -2164,7 +2164,7 @@ _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
     */
    if (source_has_shader_include &&
        can_skip_compile(ctx, shader, source, force_recompile, true))
-      return;
+      return state;
 
    if (!state->error) {
      _mesa_glsl_lexer_ctor(state, source);
@@ -2223,7 +2223,8 @@ _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
    }
 
    delete state->symbols;
-   ralloc_free(state);
+   state->symbols = NULL;
+   return state;
 }
 
 } /* extern "C" */

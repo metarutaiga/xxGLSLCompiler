@@ -139,6 +139,14 @@ void binary_buffer::opcode(unsigned short length, unsigned short opcode, unsigne
    push(buffer);
 }
 
+void binary_buffer::text(unsigned short opcode, const char *text)
+{
+   unsigned int length = (int)strlen(text);
+   unsigned int count = (length + sizeof(int)) / sizeof(int);
+   push(opcode, count + 1);
+   push(text);
+}
+
 void binary_buffer::text(unsigned short opcode, unsigned int id, const char *text)
 {
    unsigned int length = (int)strlen(text);
@@ -221,8 +229,12 @@ spirv_buffer::spirv_buffer()
 
 extern "C" {
 void
-_mesa_print_spirv(spirv_buffer *f, exec_list *instructions, gl_shader_stage stage, unsigned version, bool es, unsigned binding)
+_mesa_print_spirv(spirv_buffer *f, exec_list *instructions, struct _mesa_glsl_parse_state* state, unsigned binding)
 {
+   gl_shader_stage stage = state->stage;
+   unsigned version = state->language_version;
+   bool es = state->es_shader;
+
    f->shader_stage = stage;
    f->id = 1;
    f->binding_id = binding;
@@ -242,6 +254,14 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, gl_shader_stage stag
 
    // Capability
    f->capability.opcode(2, SpvOpCapability, SpvCapabilityShader);
+   if (state->ARB_shader_draw_parameters_enable)
+      f->capability.opcode(2, SpvOpCapability, SpvCapabilityDrawParameters);
+   if (state->ARB_sample_shading_enable)
+      f->capability.opcode(2, SpvOpCapability, SpvCapabilitySampleRateShading);
+
+   // Extension
+   if (state->ARB_shader_draw_parameters_enable)
+      f->extensions.text(SpvOpExtension, "SPV_KHR_shader_draw_parameters");
 
    // ExtInstImport
    f->ext_inst_import_id = f->id++;
@@ -998,8 +1018,7 @@ ir_print_spirv_visitor::visit(ir_expression *ir)
       case ir_binop_gequal:
       case ir_binop_equal:
       case ir_binop_nequal:
-         switch (ir->operands[0]->type->base_type)
-         {
+         switch (ir->operands[0]->type->base_type) {
          default:
          case GLSL_TYPE_FLOAT:
          case GLSL_TYPE_DOUBLE:
@@ -1189,8 +1208,7 @@ ir_print_spirv_visitor::visit(ir_texture *ir)
 
    unsigned short opcode = ir->projector ? SpvOpImageSampleProjImplicitLod : SpvOpImageSampleImplicitLod;
    unsigned int component_id = 0;
-   switch (ir->op)
-   {
+   switch (ir->op) {
    case ir_tex:
    case ir_lod:
    case ir_query_levels:
@@ -1475,6 +1493,60 @@ ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
       unique_name(var);
       ir->ir_pointer = var->ir_pointer;
       break;
+   case ir_var_system_value:
+      if (is_gl_identifier(var->name)) {
+         if (var->ir_pointer == 0) {
+            const glsl_type* type;
+            unsigned int built_in;
+            if (strcmp(var->name, "gl_VertexID") == 0) {
+               type = glsl_type::int_type;
+               built_in = SpvBuiltInVertexId;
+            } else if (strncmp(var->name, "gl_InstanceID", strlen("gl_InstanceID")) == 0) {
+               type = glsl_type::int_type;
+               built_in = SpvBuiltInInstanceId;
+            } else if (strcmp(var->name, "gl_SampleID") == 0) {
+               type = glsl_type::int_type;
+               built_in = SpvBuiltInSampleId;
+            } else if (strcmp(var->name, "gl_SamplePosition") == 0) {
+               type = glsl_type::vec2_type;
+               built_in = SpvBuiltInSamplePosition;
+            } else if (strncmp(var->name, "gl_BaseVertex", strlen("gl_BaseVertex")) == 0) {
+               type = glsl_type::int_type;
+               built_in = SpvBuiltInBaseVertex;
+            } else if (strncmp(var->name, "gl_BaseInstance", strlen("gl_BaseInstance")) == 0) {
+               type = glsl_type::int_type;
+               built_in = SpvBuiltInBaseInstance;
+            } else if (strncmp(var->name, "gl_DrawID", strlen("gl_DrawID")) == 0) {
+               type = glsl_type::int_type;
+               built_in = SpvBuiltInDrawIndex;
+            } else {
+               break;
+            }
+
+            switch (f->shader_stage) {
+            case MESA_SHADER_VERTEX:
+            case MESA_SHADER_FRAGMENT: {
+               unsigned int type_id = visit_type(type);
+               unsigned int type_pointer_id = visit_type_pointer(type, ir_var_shader_in, type_id);
+               unsigned int name_id = unique_name(var);
+
+               f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationBuiltIn, built_in);
+               f->builtins.opcode(4, SpvOpVariable, type_pointer_id, name_id, SpvStorageClassInput);
+
+               f->inouts.push(name_id);
+               var->ir_pointer = name_id;
+               break;
+            }
+            default:
+               break;
+            }
+         }
+         ir->ir_pointer = var->ir_pointer;
+         break;
+      }
+      unique_name(var);
+      ir->ir_pointer = var->ir_pointer;
+      break;
    default:
       unique_name(var);
       ir->ir_pointer = var->ir_pointer;
@@ -1590,9 +1662,8 @@ ir_print_spirv_visitor::visit(ir_constant *ir)
       for (unsigned i = 0; i < ir->type->length; i++)
          ir->get_array_element(i)->accept(this);
    } else if (ir->type->is_struct()) {
-      for (unsigned i = 0; i < ir->type->length; i++) {
+      for (unsigned i = 0; i < ir->type->length; i++)
          ir->get_record_field(i)->accept(this);
-      }
    } else {
       if (ir->type->components() == 1) {
          switch (ir->type->base_type) {

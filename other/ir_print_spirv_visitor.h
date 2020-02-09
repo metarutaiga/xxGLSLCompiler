@@ -44,6 +44,7 @@ public:
    void opcode(unsigned short length, unsigned short opcode, unsigned int v1, unsigned int v2, binary_buffer& buffer);
    void opcode(unsigned short length, unsigned short opcode, unsigned int v1, unsigned int v2, unsigned int v3, binary_buffer& buffer);
    void opcode(unsigned short length, unsigned short opcode, unsigned int v1, unsigned int v2, unsigned int v3, unsigned int v4, binary_buffer& buffer);
+   void text(unsigned short opcode, const char* text);
    void text(unsigned short opcode, unsigned int id, const char* text);
    void text(unsigned short opcode, unsigned int id, unsigned int index, const char* text);
    void push(unsigned short low, unsigned short high);
@@ -189,7 +190,7 @@ private:
 
 extern "C" {
 void
-_mesa_print_spirv(spirv_buffer *f, exec_list *instructions, gl_shader_stage stage, unsigned version, bool es, unsigned binding);
+_mesa_print_spirv(spirv_buffer *f, exec_list *instructions, struct _mesa_glsl_parse_state* state, unsigned binding);
 }
 
 #endif /* IR_PRINT_SPIRV_VISITOR_H */

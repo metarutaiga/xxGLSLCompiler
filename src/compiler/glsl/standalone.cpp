@@ -395,10 +395,8 @@ static void
 compile_shader(struct gl_context *ctx, struct gl_shader *shader)
 {
    struct _mesa_glsl_parse_state *state =
-      new(shader) _mesa_glsl_parse_state(ctx, shader->Stage, shader);
-
-   _mesa_glsl_compile_shader(ctx, shader, options->dump_ast,
-                             options->dump_hir, true);
+      _mesa_glsl_compile_shader(ctx, shader, options->dump_ast,
+                                options->dump_hir, true);
 
    /* Print out the resulting IR */
    if (!state->error && options->dump_lir) {
@@ -411,7 +409,7 @@ compile_shader(struct gl_context *ctx, struct gl_shader *shader)
 
    if (!state->error && (options->dump_spirv || options->dump_spirv_glsl)) {
       spirv_buffer buffer;
-      _mesa_print_spirv(&buffer, shader->ir, shader->Stage, shader->Version, shader->IsES, 0);
+      _mesa_print_spirv(&buffer, shader->ir, state, 0);
 
       FILE* f = fopen("output.spv", "wb");
       if (f) {
@@ -428,6 +426,7 @@ compile_shader(struct gl_context *ctx, struct gl_shader *shader)
       }
    }
 
+   ralloc_free(state);
    return;
 }
 
