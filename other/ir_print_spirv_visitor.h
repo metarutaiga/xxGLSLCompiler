@@ -99,16 +99,16 @@ public:
    unsigned int void_id;
    unsigned int void_function_id;
    unsigned int bool_id;
-   unsigned int float_id[5][5];
-   unsigned int int_id[5][5];
+   unsigned int float_id[5][5][5];
+   unsigned int int_id[5][5][5];
    unsigned int sampler_id[16];
 
    unsigned int constant_float_id[16];
    unsigned int constant_int_id[16];
 
    unsigned int pointer_bool_id[16];
-   unsigned int pointer_float_id[16][5][5];
-   unsigned int pointer_int_id[16][5][5];
+   unsigned int pointer_float_id[16][5][5][5];
+   unsigned int pointer_int_id[16][5][5][5];
    unsigned int pointer_sampler_id[16];
 
    unsigned int input_loc;

@@ -419,10 +419,13 @@ compile_shader(struct gl_context *ctx, struct gl_shader *shader)
          fclose(f);
       }
 
-      if (options->dump_spirv)
+      if (options->dump_spirv) {
          system("spirv-dis.exe output.spv");
-      if (options->dump_spirv_glsl)
+         system("spirv-val.exe output.spv");
+      }
+      if (options->dump_spirv_glsl) {
          system("spirv-cross.exe output.spv");
+      }
    }
 
    return;

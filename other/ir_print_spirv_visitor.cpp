@@ -369,13 +369,33 @@ unsigned int
 ir_print_spirv_visitor::visit_type(const struct glsl_type *type)
 {
    if (type->is_array()) {
-      unsigned int vector_id = f->id++;
-      unsigned int base_type_id = visit_type(type->fields.array);
-      unsigned int array_size_id = visit_constant_value(type->array_size());
+      unsigned int depth = 0;
+      const struct glsl_type* base_type = type;
+      do {
+         depth++;
+         base_type = base_type->fields.array;
+      } while (base_type->is_array());
 
-      f->types.opcode(4, SpvOpTypeArray, vector_id, base_type_id, array_size_id);
-      f->decorates.opcode(4, SpvOpDecorate, vector_id, SpvDecorationArrayStride, type->fields.array->std430_array_stride(false));
+      unsigned int* vector_ids;
+      if (base_type->is_float()) {
+         vector_ids = f->float_id[depth][base_type->vector_elements];
+      } else if (base_type->is_integer()) {
+         vector_ids = f->int_id[depth][base_type->vector_elements];
+      } else {
+         return 0;
+      }
 
+      unsigned int vector_id = vector_ids[base_type->matrix_columns];
+      if (vector_id == 0) {
+         vector_id = f->id++;
+         unsigned int base_type_id = visit_type(type->fields.array);
+         unsigned int array_size_id = visit_constant_value(type->array_size());
+
+         f->types.opcode(4, SpvOpTypeArray, vector_id, base_type_id, array_size_id);
+         f->decorates.opcode(4, SpvOpDecorate, vector_id, SpvDecorationArrayStride, type->fields.array->std430_array_stride(false));
+
+         vector_ids[base_type->matrix_columns] = vector_id;
+      }
       return vector_id;
    } else if (type->is_sampler()) {
       unsigned int sampled_image_id = f->sampler_id[type->sampler_dimensionality];
@@ -428,24 +448,24 @@ ir_print_spirv_visitor::visit_type(const struct glsl_type *type)
    unsigned int* vector_ids;
    unsigned int scalar_id;
    if (type->is_float()) {
-      vector_ids = f->float_id[type->vector_elements];
-      scalar_id = f->float_id[1][1];
+      vector_ids = f->float_id[0][type->vector_elements];
+      scalar_id = f->float_id[0][1][1];
       if (scalar_id == 0) {
          scalar_id = f->id++;
 
          f->types.opcode(3, SpvOpTypeFloat, scalar_id, 32);
 
-         f->float_id[1][1] = scalar_id;
+         f->float_id[0][1][1] = scalar_id;
       }
    } else if (type->is_integer()) {
-      vector_ids = f->int_id[type->vector_elements];
-      scalar_id = f->int_id[1][1];
+      vector_ids = f->int_id[0][type->vector_elements];
+      scalar_id = f->int_id[0][1][1];
       if (scalar_id == 0) {
          scalar_id = f->id++;
 
          f->types.opcode(4, SpvOpTypeInt, scalar_id, 32, true);
 
-         f->int_id[1][1] = scalar_id;
+         f->int_id[0][1][1] = scalar_id;
       }
    } else {
       return 0;
@@ -478,10 +498,17 @@ unsigned int
 ir_print_spirv_visitor::visit_type_pointer(const struct glsl_type *type, unsigned int mode, unsigned int type_id)
 {
    unsigned int storage_class = storage_mode[mode];
+   unsigned int depth = 0;
 
    if (type->is_array()) {
-      return visit_type_pointer(type->fields.array, mode, type_id);
-   } else if (type->is_sampler()) {
+      type_id = visit_type(type);
+      do {
+         depth++;
+         type = type->fields.array;
+      } while (type->is_array());
+   }
+
+   if (type->is_sampler()) {
       unsigned int pointer_id = f->pointer_sampler_id[type->sampler_dimensionality];
       if (pointer_id == 0) {
          pointer_id = f->id++;
@@ -505,9 +532,9 @@ ir_print_spirv_visitor::visit_type_pointer(const struct glsl_type *type, unsigne
 
    unsigned int* pointer_ids;
    if (type->is_float()) {
-      pointer_ids = f->pointer_float_id[storage_class][type->vector_elements];
+      pointer_ids = f->pointer_float_id[storage_class][depth][type->vector_elements];
    } else if (type->is_integer()) {
-      pointer_ids = f->pointer_int_id[storage_class][type->vector_elements];
+      pointer_ids = f->pointer_int_id[storage_class][depth][type->vector_elements];
    } else {
       return 0;
    }
@@ -643,7 +670,7 @@ ir_print_spirv_visitor::visit(ir_variable *ir)
 
          if (ir->type->is_matrix()) {
             f->decorates.opcode(4, SpvOpMemberDecorate, f->uniform_struct_id, ir->ir_uniform_location, SpvDecorationColMajor);
-            f->decorates.opcode(5, SpvOpMemberDecorate, f->uniform_struct_id, ir->ir_uniform_location, SpvDecorationMatrixStride, ir->type->std430_array_stride(false));
+            f->decorates.opcode(5, SpvOpMemberDecorate, f->uniform_struct_id, ir->ir_uniform_location, SpvDecorationMatrixStride, 16);
          }
 
          f->uniform_offset += ir->type->std430_array_stride(false);
@@ -1458,25 +1485,22 @@ ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
 void
 ir_print_spirv_visitor::visit(ir_dereference_array *ir)
 {
-   ir_dereference_variable* var = ir->array->as_dereference_variable();
-
    ir->array->accept(this);
    ir->array_index->accept(this);
    visit_value(ir->array_index);
 
-   unsigned int type_id = visit_type(ir->type);
-   unsigned int pointer_id;
-   if (var && var->var) {
-      unsigned int type_pointer_id = visit_type_pointer(ir->type, var->var->data.mode, type_id);
-      pointer_id = f->id++;
-
-      f->codes.opcode(5, SpvOpAccessChain, type_pointer_id, pointer_id, ir->array->ir_pointer, ir->array_index->ir_value);
-   } else {
-      unsigned int type_pointer_id = visit_type_pointer(ir->type, ir_var_auto, type_id);
-      pointer_id = f->id++;
-
-      f->codes.opcode(5, SpvOpAccessChain, type_pointer_id, pointer_id, ir->array->ir_pointer, ir->array_index->ir_value);
+   ir_rvalue *array = ir->array;
+   while (ir_dereference_array *next = array->as_dereference_array()) {
+      array = next->array;
    }
+   ir_dereference_variable *var = array->as_dereference_variable();
+
+   unsigned int variable_mode = (var && var->var) ? var->var->data.mode : ir_var_auto;
+   unsigned int type_id = visit_type(ir->type);
+   unsigned int type_pointer_id = visit_type_pointer(ir->type, variable_mode, type_id);
+   unsigned int pointer_id = f->id++;
+
+   f->codes.opcode(5, SpvOpAccessChain, type_pointer_id, pointer_id, ir->array->ir_pointer, ir->array_index->ir_value);
 
    ir->ir_pointer = pointer_id;
 }
@@ -1776,7 +1800,7 @@ ir_print_spirv_visitor::visit(ir_loop_jump *ir)
       loop = parent->as_loop();
       if (loop)
          break;
-      parent = (ir_instruction*)parent->parent;
+      parent = (ir_instruction *)parent->parent;
    }
    if (loop == NULL)
       return;
