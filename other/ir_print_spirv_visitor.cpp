@@ -1877,10 +1877,11 @@ ir_print_spirv_visitor::visit(ir_loop *ir)
    unsigned int label_id = f->id++;
    unsigned int label_inner_id = f->id++;
    unsigned int label_outer_id = f->id++;
+   unsigned int label_continue_id = f->id++;
 
    f->codes.opcode(2, SpvOpBranch, label_id);
    f->codes.opcode(2, SpvOpLabel, label_id);
-   f->codes.opcode(4, SpvOpLoopMerge, label_outer_id, label_inner_id, SpvLoopControlMaskNone);
+   f->codes.opcode(4, SpvOpLoopMerge, label_outer_id, label_continue_id, SpvLoopControlMaskNone);
    f->codes.opcode(2, SpvOpBranch, label_inner_id);
    f->codes.opcode(2, SpvOpLabel, label_inner_id);
 
@@ -1888,6 +1889,10 @@ ir_print_spirv_visitor::visit(ir_loop *ir)
    ir->ir_label_break = label_outer_id;
 
    foreach_in_list(ir_instruction, inst, &ir->body_instructions) {
+      if (ir->body_instructions.tail_sentinel.prev == inst) {
+         f->codes.opcode(2, SpvOpBranch, label_continue_id);
+         f->codes.opcode(2, SpvOpLabel, label_continue_id);
+      }
       inst->parent = ir;
       inst->accept(this);
    }
