@@ -275,6 +275,7 @@ initialize_context(struct gl_context *ctx, gl_api api)
       ctx->Const.MaxShaderStorageBufferBindings = 4;
       ctx->Const.MaxShaderStorageBlockSize = 4096;
       ctx->Const.MaxAtomicBufferBindings = 4;
+      ctx->Const.MaxImageUnits = 8;
 
       ctx->Const.Program[MESA_SHADER_VERTEX].MaxAttribs = 16;
       ctx->Const.Program[MESA_SHADER_VERTEX].MaxTextureImageUnits = 16;

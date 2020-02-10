@@ -67,6 +67,11 @@ static const unsigned int stage_type[] = {
    SpvExecutionModelGLCompute,
 };
 
+inline constexpr unsigned int h(const char* key, const unsigned int hash = 0)
+{
+    return (*key) ? h(key + 1, (hash << 5) ^ (*key) ^ hash) : hash;
+}
+
 binary_buffer::binary_buffer()
 {
    u_vector_init(&vector_buffer, sizeof(int), 1024);
@@ -421,10 +426,9 @@ ir_print_spirv_visitor::visit_type(const struct glsl_type *type)
          vector_ids[base_type->matrix_columns] = vector_id;
       }
       return vector_id;
-   } else if (type->is_sampler()) {
-      unsigned int sampled_image_id = f->sampler_id[type->sampler_dimensionality];
-      if (sampled_image_id == 0) {
-         unsigned int image_id = f->id++;
+   } else if (type->is_image() || type->is_sampler()) {
+      unsigned int image_id = f->image_id[type->sampler_dimensionality];
+      if (image_id == 0) {
          unsigned int type_id = visit_type(glsl_type::float_type);
          unsigned int dim_id = SpvDim1D;
          switch (type->sampler_dimensionality) {
@@ -438,9 +442,19 @@ ir_print_spirv_visitor::visit_type(const struct glsl_type *type)
             case GLSL_SAMPLER_DIM_MS:       dim_id = SpvDim1D;          break;// TODO
             case GLSL_SAMPLER_DIM_SUBPASS:  dim_id = SpvDimSubpassData; break;
          }
+         image_id = f->id++;
+
+         f->types.opcode(9, SpvOpTypeImage, image_id, type_id, dim_id, 0, 0, 0, 0, SpvImageFormatUnknown);
+
+         f->image_id[type->sampler_dimensionality] = image_id;
+      }
+      if (type->is_image())
+         return image_id;
+
+      unsigned int sampled_image_id = f->sampler_id[type->sampler_dimensionality];
+      if (sampled_image_id == 0) {
          sampled_image_id = f->id++;
 
-         f->types.opcode(9, SpvOpTypeImage, image_id, type_id, dim_id, 0, 0, 0, 1, SpvImageFormatUnknown);
          f->types.opcode(3, SpvOpTypeSampledImage, sampled_image_id, image_id);
 
          f->sampler_id[type->sampler_dimensionality] = sampled_image_id;
@@ -532,7 +546,17 @@ ir_print_spirv_visitor::visit_type_pointer(const struct glsl_type *type, unsigne
       } while (type->is_array());
    }
 
-   if (type->is_sampler()) {
+   if (type->is_image()) {
+      unsigned int pointer_id = f->pointer_image_id[type->sampler_dimensionality];
+      if (pointer_id == 0) {
+         pointer_id = f->id++;
+
+         f->types.opcode(4, SpvOpTypePointer, pointer_id, SpvStorageClassUniformConstant, type_id);
+
+         f->pointer_image_id[type->sampler_dimensionality] = pointer_id;
+      }
+      return pointer_id;
+   } else if (type->is_sampler()) {
       unsigned int pointer_id = f->pointer_sampler_id[type->sampler_dimensionality];
       if (pointer_id == 0) {
          pointer_id = f->id++;
@@ -651,7 +675,7 @@ ir_print_spirv_visitor::visit(ir_variable *ir)
    unsigned int type_id = visit_type(ir->type);
 
    if (ir->data.mode == ir_var_uniform) {
-      if (ir->type->is_sampler()) {
+      if (ir->type->is_image() || ir->type->is_sampler()) {
          if (ir->data.explicit_binding) {
            ir->ir_binding_point = ir->data.binding;
            if (f->binding_id <= ir->data.binding)
@@ -679,7 +703,7 @@ ir_print_spirv_visitor::visit(ir_variable *ir)
             f->names.text(SpvOpName, uniform_struct_id, struct_name);
             f->names.text(SpvOpName, uniform_id, "");
             f->decorates.opcode(3, SpvOpDecorate, uniform_struct_id, SpvDecorationBlock);
-            f->decorates.opcode(4, SpvOpDecorate, uniform_id, SpvDecorationDescriptorSet, 0u);
+            f->decorates.opcode(4, SpvOpDecorate, uniform_id, SpvDecorationDescriptorSet, 0);
             f->decorates.opcode(4, SpvOpDecorate, uniform_id, SpvDecorationBinding, binding_id);
 
             f->uniform_struct_id = uniform_struct_id;
@@ -1385,31 +1409,48 @@ ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
 
    switch (var->data.mode) {
    case ir_var_uniform:
-      if (var->type->is_sampler()) {
-         unsigned int sampled_image_id = visit_type(var->type);
-         unsigned int value_id = f->id++;
+      if (var->type->is_image()) {
+         if (var->ir_pointer == 0) {
+            unsigned int name_id = unique_name(var);
+            unsigned int type_id = visit_type(var->type);
+            unsigned int pointer_id = visit_type_pointer(var->type, ir_var_uniform, type_id);
+            unsigned int value_id = f->id++;
 
+            f->types.opcode(4, SpvOpVariable, pointer_id, name_id, SpvStorageClassUniformConstant);
+            f->codes.opcode(4, SpvOpLoad, type_id, value_id, name_id);
+
+            var->ir_value = value_id;
+            var->ir_pointer = pointer_id;
+         }
+         ir->ir_value = var->ir_value;
+         ir->ir_pointer = var->ir_pointer;
+         break;
+      } else if (var->type->is_sampler()) {
          if (var->ir_pointer == 0) {
             unsigned int name_id = unique_name(var);
             unsigned int binding_id = var->ir_binding_point;
-            unsigned int type_pointer_id = visit_type_pointer(ir->type, var->data.mode, sampled_image_id);
+            unsigned int type_id = visit_type(var->type);
+            unsigned int pointer_id = visit_type_pointer(ir->type, ir_var_uniform, type_id);
+            unsigned int value_id = f->id++;
 
             f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationDescriptorSet, 0);
             f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationBinding, binding_id);
-            f->types.opcode(4, SpvOpVariable, type_pointer_id, var->ir_pointer, SpvStorageClassUniformConstant);
+            f->types.opcode(4, SpvOpVariable, pointer_id, name_id, SpvStorageClassUniformConstant);
+            f->codes.opcode(4, SpvOpLoad, type_id, value_id, name_id);
+
+            var->ir_value = value_id;
+            var->ir_pointer = pointer_id;
          }
-         f->codes.opcode(4, SpvOpLoad, sampled_image_id, value_id, var->ir_pointer);
- 
-         ir->ir_value = value_id;
+         ir->ir_value = var->ir_value;
          ir->ir_pointer = var->ir_pointer;
          break;
       } else {
-         unsigned int uniform_type = visit_type(var->type);
-         unsigned int type_pointer_id = visit_type_pointer(var->type, ir_var_uniform, uniform_type);
+         unsigned int uniform_type_id = visit_type(var->type);
+         unsigned int uniform_pointer_id = visit_type_pointer(var->type, ir_var_uniform, uniform_type_id);
          unsigned int pointer_id = f->id++;
          unsigned int index_id = visit_constant_value(var->ir_uniform_location);
 
-         f->codes.opcode(5, SpvOpAccessChain, type_pointer_id, pointer_id, f->uniform_id, index_id);
+         f->codes.opcode(5, SpvOpAccessChain, uniform_pointer_id, pointer_id, f->uniform_id, index_id);
 
          ir->ir_pointer = pointer_id;
          break;
@@ -1424,71 +1465,33 @@ ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
          if (var->ir_pointer == 0) {
             const glsl_type* type;
             unsigned int built_in;
-            if (strcmp(var->name, "gl_Position") == 0) {
-               type = glsl_type::vec4_type;
-               built_in = SpvBuiltInPosition;
-            } else if (strcmp(var->name, "gl_PointSize") == 0) {
-               type = glsl_type::float_type;
-               built_in = SpvBuiltInPointSize;
-            } else if (strcmp(var->name, "gl_ClipDistance") == 0) {
-               type = glsl_type::get_array_instance(glsl_type::float_type, 8);
-               built_in = SpvBuiltInClipDistance;
-            } else if (strcmp(var->name, "gl_CullDistance") == 0) {
-               type = glsl_type::get_array_instance(glsl_type::float_type, 8);
-               built_in = SpvBuiltInCullDistance;
-            } else if (strcmp(var->name, "gl_VertexID") == 0) {
-               type = glsl_type::int_type;
-               built_in = SpvBuiltInVertexId;
-            } else if (strncmp(var->name, "gl_InstanceID", strlen("gl_InstanceID")) == 0) {
-               type = glsl_type::int_type;
-               built_in = SpvBuiltInInstanceId;
-            } else if (strcmp(var->name, "gl_PrimitiveID") == 0) {
-               type = glsl_type::int_type;
-               built_in = SpvBuiltInPrimitiveId;
-            } else if (strcmp(var->name, "gl_Layer") == 0) {
-               type = glsl_type::int_type;
-               built_in = SpvBuiltInLayer;
-            } else if (strcmp(var->name, "gl_ViewportIndex") == 0) {
-               type = glsl_type::int_type;
-               built_in = SpvBuiltInViewportIndex;
-            } else if (strcmp(var->name, "gl_FragCoord") == 0) {
-               type = glsl_type::vec4_type;
-               built_in = SpvBuiltInFragCoord;
-            } else if (strcmp(var->name, "gl_PointCoord") == 0) {
-               type = glsl_type::vec2_type;
-               built_in = SpvBuiltInPointCoord;
-            } else if (strcmp(var->name, "gl_FrontFacing") == 0) {
-               type = glsl_type::bool_type;
-               built_in = SpvBuiltInFrontFacing;
-            } else if (strcmp(var->name, "gl_SampleID") == 0) {
-               type = glsl_type::int_type;
-               built_in = SpvBuiltInSampleId;
-            } else if (strcmp(var->name, "gl_SamplePosition") == 0) {
-               type = glsl_type::vec2_type;
-               built_in = SpvBuiltInSamplePosition;
-            } else if (strcmp(var->name, "gl_FragColor") == 0) {
-               type = glsl_type::vec4_type;
-               built_in = SpvBuiltInFragColor;
-            } else if (strcmp(var->name, "gl_FragDepth") == 0) {
-               type = glsl_type::float_type;
-               built_in = SpvBuiltInFragDepth;
-            } else if (strcmp(var->name, "gl_VertexIndex") == 0) {
-               type = glsl_type::int_type;
-               built_in = SpvBuiltInVertexIndex;
-            } else if (strcmp(var->name, "gl_InstanceIndex") == 0) {
-               type = glsl_type::int_type;
-               built_in = SpvBuiltInInstanceIndex;
-            } else if (strncmp(var->name, "gl_BaseVertex", strlen("gl_BaseVertex")) == 0) {
-               type = glsl_type::int_type;
-               built_in = SpvBuiltInBaseVertex;
-            } else if (strncmp(var->name, "gl_BaseInstance", strlen("gl_BaseInstance")) == 0) {
-               type = glsl_type::int_type;
-               built_in = SpvBuiltInBaseInstance;
-            } else if (strncmp(var->name, "gl_DrawID", strlen("gl_DrawID")) == 0) {
-               type = glsl_type::int_type;
-               built_in = SpvBuiltInDrawIndex;
-            } else {
-               break;
+            switch (h(var->name)) {
+            case h("gl_Position"):       type = glsl_type::vec4_type;  built_in = SpvBuiltInPosition;       break;
+            case h("gl_PointSize"):      type = glsl_type::float_type; built_in = SpvBuiltInPointSize;      break;
+            case h("gl_ClipDistance"):   type = glsl_type::get_array_instance(glsl_type::float_type, 8);    built_in = SpvBuiltInClipDistance; break;
+            case h("gl_CullDistance"):   type = glsl_type::get_array_instance(glsl_type::float_type, 8);    built_in = SpvBuiltInCullDistance; break;
+            case h("gl_VertexID"):       type = glsl_type::int_type;   built_in = SpvBuiltInVertexId;       break;
+            case h("gl_InstanceID"):
+            case h("gl_InstanceIDARB"):  type = glsl_type::int_type;   built_in = SpvBuiltInInstanceId;     break;
+            case h("gl_PrimitiveID"):    type = glsl_type::int_type;   built_in = SpvBuiltInPrimitiveId;    break;
+            case h("gl_Layer"):          type = glsl_type::int_type;   built_in = SpvBuiltInLayer;          break;
+            case h("gl_ViewportIndex"):  type = glsl_type::int_type;   built_in = SpvBuiltInViewportIndex;  break;
+            case h("gl_FragCoord"):      type = glsl_type::vec4_type;  built_in = SpvBuiltInFragCoord;      break;
+            case h("gl_PointCoord"):     type = glsl_type::vec2_type;  built_in = SpvBuiltInPointCoord;     break;
+            case h("gl_FrontFacing"):    type = glsl_type::bool_type;  built_in = SpvBuiltInFrontFacing;    break;
+            case h("gl_SampleID"):       type = glsl_type::int_type;   built_in = SpvBuiltInSampleId;       break;
+            case h("gl_SamplePosition"): type = glsl_type::vec2_type;  built_in = SpvBuiltInSamplePosition; break;
+            case h("gl_FragColor"):      type = glsl_type::vec4_type;  built_in = SpvBuiltInFragColor;      break;
+            case h("gl_FragDepth"):      type = glsl_type::float_type; built_in = SpvBuiltInFragDepth;      break;
+            case h("gl_VertexIndex"):    type = glsl_type::int_type;   built_in = SpvBuiltInVertexIndex;    break;
+            case h("gl_InstanceIndex"):  type = glsl_type::int_type;   built_in = SpvBuiltInInstanceIndex;  break;
+            case h("gl_BaseVertexARB"):
+            case h("gl_BaseVertex"):     type = glsl_type::int_type;   built_in = SpvBuiltInBaseVertex;     break;
+            case h("gl_BaseInstanceARB"):
+            case h("gl_BaseInstance"):   type = glsl_type::int_type;   built_in = SpvBuiltInBaseInstance;   break;
+            case h("gl_DrawIDARB"):
+            case h("gl_DrawID"):         type = glsl_type::int_type;   built_in = SpvBuiltInDrawIndex;      break;
+            default:                     type = glsl_type::int_type;   built_in = SpvBuiltInMax;            break;
             }
 
             switch (built_in) {
@@ -1757,18 +1760,46 @@ ir_print_spirv_visitor::visit(ir_constant *ir)
 void
 ir_print_spirv_visitor::visit(ir_call *ir)
 {
-   //if (ir->return_deref) {
-   //   ir->return_deref->accept(this);
-   //   fprintf(f, " = ");
-   //}
-   //fprintf(f, "%s", ir->callee_name());
-   //fprintf(f, "(");
-   //foreach_in_list(ir_rvalue, param, &ir->actual_parameters) {
-   //   if (param != ir->actual_parameters.head_sentinel.next)
-   //      fprintf(f, ", ");
-   //   param->accept(this);
-   //}
-   //fprintf(f, ")");
+   if (ir->return_deref)
+      ir->return_deref->accept(this);
+ 
+   unsigned int parameters[16] = {};
+   unsigned int i = 0;
+
+   foreach_in_list(ir_rvalue, param, &ir->actual_parameters) {
+      param->accept(this);
+      parameters[i++] = param->ir_value;
+   }
+
+   switch (h(ir->callee_name())) {
+   case h("__intrinsic_memory_barrier"): {
+      unsigned int semantic = SpvMemorySemanticsAcquireReleaseMask | 
+                              SpvMemorySemanticsUniformMemoryMask | 
+                              SpvMemorySemanticsWorkgroupMemoryMask | 
+                              SpvMemorySemanticsAtomicCounterMemoryMask | 
+                              SpvMemorySemanticsImageMemoryMask;
+      unsigned int memory_id = visit_constant_value(1u);
+      unsigned int semantic_id = visit_constant_value(semantic);
+
+      f->codes.opcode(3, SpvOpMemoryBarrier, memory_id, semantic_id);
+      return;
+   }
+   case h("__intrinsic_image_load"): {
+      if (ir->return_deref == NULL)
+         return;
+      unsigned int type_id = visit_type(ir->return_deref->type);
+      unsigned int result_id = f->id++;
+
+      f->codes.opcode(5, SpvOpImageRead, type_id, result_id, parameters[0], parameters[1]);
+      f->codes.opcode(3, SpvOpStore, ir->return_deref->ir_pointer, result_id);
+      break;
+   }
+   case h("__intrinsic_image_store"):
+      f->codes.opcode(4, SpvOpImageWrite, parameters[0], parameters[1], parameters[2]);
+      return;
+   default:
+      break;
+   }
 }
 
 void
