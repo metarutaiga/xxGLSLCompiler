@@ -74,12 +74,14 @@ inline constexpr unsigned int h(const char* key, const unsigned int hash = 0)
 
 binary_buffer::binary_buffer()
 {
-   u_vector_init(&vector_buffer, sizeof(int), 1024);
+   buffer = NULL;
+   index = 0;
+   capacity = 0;
 }
 
 binary_buffer::~binary_buffer()
 {
-   u_vector_finish(&vector_buffer);
+   ralloc_free(buffer);
 }
 
 void binary_buffer::opcode(unsigned short length, unsigned short opcode, ...)
@@ -173,14 +175,20 @@ void binary_buffer::text(unsigned short opcode, unsigned int id, unsigned int in
 
 void binary_buffer::push(unsigned short low, unsigned short high)
 {
-   int* buf = (int*)u_vector_add(&vector_buffer);
-   (*buf) = (high << 16) | low;
+   push((high << 16) | low);
 }
 
 void binary_buffer::push(unsigned int value)
 {
-   int* buf = (int*)u_vector_add(&vector_buffer);
-   (*buf) = value;
+   if (index >= capacity) {
+      unsigned int new_capacity = capacity ? capacity * 2 : 256;
+      unsigned int *new_buffer = (unsigned int *)ralloc_size(NULL, new_capacity * sizeof(int));
+      memcpy(new_buffer, buffer, capacity * sizeof(int));
+      ralloc_free(buffer);
+      buffer = new_buffer;
+      capacity = new_capacity;
+   }
+   buffer[index++] = value;
 }
 
 void binary_buffer::push(const char *text)
@@ -208,23 +216,22 @@ void binary_buffer::push(binary_buffer& buffer)
 
 void binary_buffer::clear()
 {
-   vector_buffer.head = 0;
-   vector_buffer.tail = 0;
+   index = 0;
 }
 
 unsigned int binary_buffer::count()
 {
-   return u_vector_length(&vector_buffer);
+   return index;
 }
 
 unsigned int* binary_buffer::data()
 {
-   return (unsigned int*)u_vector_tail(&vector_buffer);
+   return buffer;
 }
 
 unsigned int& binary_buffer::operator[] (size_t i)
 {
-   return data()[i];
+   return buffer[i];
 }
 
 spirv_buffer::spirv_buffer()
@@ -263,6 +270,10 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, struct _mesa_glsl_pa
       f->capability.opcode(2, SpvOpCapability, SpvCapabilitySampleRateShading);
    if (state->ARB_shader_draw_parameters_enable)
       f->capability.opcode(2, SpvOpCapability, SpvCapabilityDrawParameters);
+   if (state->ARB_shader_image_load_store_enable) {
+      f->capability.opcode(2, SpvOpCapability, SpvCapabilityStorageImageReadWithoutFormat);
+      f->capability.opcode(2, SpvOpCapability, SpvCapabilityStorageImageWriteWithoutFormat);
+   }
    if (state->ARB_shader_viewport_layer_array_enable)
       f->capability.opcode(2, SpvOpCapability, SpvCapabilityMultiViewport);
    if (state->EXT_gpu_shader4_enable)
@@ -634,15 +645,16 @@ void
 ir_print_spirv_visitor::visit_value(ir_rvalue *ir)
 {
    if (ir->ir_value == 0) {
-      if (ir->ir_pointer != 0) {
-         unsigned int type_id = visit_type(ir->type);
-         unsigned int value_id = f->id++;
+      if (ir->ir_pointer == 0)
+         unreachable("pointer is empty");
 
-         f->codes.opcode(4, SpvOpLoad, type_id, value_id, ir->ir_pointer);
-         visit_precision(ir->ir_value, ir->type->base_type, GLSL_PRECISION_NONE);
+      unsigned int type_id = visit_type(ir->type);
+      unsigned int value_id = f->id++;
 
-         ir->ir_value = value_id;
-      }
+      f->codes.opcode(4, SpvOpLoad, type_id, value_id, ir->ir_pointer);
+      visit_precision(ir->ir_value, ir->type->base_type, GLSL_PRECISION_NONE);
+
+      ir->ir_value = value_id;
    }
 }
 
@@ -650,8 +662,6 @@ void
 ir_print_spirv_visitor::visit_precision(unsigned int id, unsigned int type, unsigned int precision)
 {
    switch (type) {
-   default:
-      break;
    case GLSL_TYPE_UINT:
    case GLSL_TYPE_INT:
       if (precision == GLSL_PRECISION_MEDIUM || f->precision_int == GLSL_PRECISION_MEDIUM) {
@@ -662,6 +672,8 @@ ir_print_spirv_visitor::visit_precision(unsigned int id, unsigned int type, unsi
       if (precision == GLSL_PRECISION_MEDIUM || f->precision_float == GLSL_PRECISION_MEDIUM) {
          f->decorates.opcode(3, SpvOpDecorate, id, SpvDecorationRelaxedPrecision);
       }
+      break;
+   default:
       break;
    }
 }
@@ -1409,28 +1421,12 @@ ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
 
    switch (var->data.mode) {
    case ir_var_uniform:
-      if (var->type->is_image()) {
-         if (var->ir_pointer == 0) {
-            unsigned int name_id = unique_name(var);
-            unsigned int type_id = visit_type(var->type);
-            unsigned int pointer_id = visit_type_pointer(var->type, ir_var_uniform, type_id);
-            unsigned int value_id = f->id++;
-
-            f->types.opcode(4, SpvOpVariable, pointer_id, name_id, SpvStorageClassUniformConstant);
-            f->codes.opcode(4, SpvOpLoad, type_id, value_id, name_id);
-
-            var->ir_value = value_id;
-            var->ir_pointer = pointer_id;
-         }
-         ir->ir_value = var->ir_value;
-         ir->ir_pointer = var->ir_pointer;
-         break;
-      } else if (var->type->is_sampler()) {
+      if (var->type->is_image() || var->type->is_sampler()) {
          if (var->ir_pointer == 0) {
             unsigned int name_id = unique_name(var);
             unsigned int binding_id = var->ir_binding_point;
             unsigned int type_id = visit_type(var->type);
-            unsigned int pointer_id = visit_type_pointer(ir->type, ir_var_uniform, type_id);
+            unsigned int pointer_id = visit_type_pointer(var->type, ir_var_uniform, type_id);
             unsigned int value_id = f->id++;
 
             f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationDescriptorSet, 0);

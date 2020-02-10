@@ -31,7 +31,6 @@
 
 extern "C" {
 #include "program/symbol_table.h"
-#include "util/u_vector.h"
 }
 
 class binary_buffer {
@@ -49,14 +48,16 @@ public:
    void text(unsigned short opcode, unsigned int id, unsigned int index, const char* text);
    void push(unsigned short low, unsigned short high);
    void push(unsigned int value);
-   void push(const char* text);
+   void push(const char *text);
    void push(binary_buffer& buffer);
    void clear();
    unsigned int count();
-   unsigned int* data();
+   unsigned int *data();
    unsigned int& operator[] (size_t i);
 protected:
-   struct u_vector vector_buffer;
+   unsigned int *buffer;
+   unsigned int index;
+   unsigned int capacity;
 };
 
 class spirv_buffer : public binary_buffer {

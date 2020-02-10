@@ -366,9 +366,6 @@
     <ClInclude Include="..\other\ir_print_spirv_visitor.h">
       <Filter>other</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\util\u_vector.h">
-      <Filter>src\util</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\compiler\glsl_types.cpp">
@@ -748,9 +745,6 @@
     </ClCompile>
     <ClCompile Include="..\other\ir_print_spirv_visitor.cpp">
       <Filter>other</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\util\u_vector.c">
-      <Filter>src\util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -170,7 +170,6 @@
     <ClCompile Include="..\src\util\strtod.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="..\src\util\u_vector.c" />
     <ClCompile Include="..\xxMiniCRT\xxFakeMain.cpp" />
     <ClCompile Include="..\xxMiniCRT\xxMSVCRT.cpp" />
   </ItemGroup>
@@ -277,7 +276,6 @@
     <ClInclude Include="..\src\util\strtod.h" />
     <ClInclude Include="..\src\util\u_math.h" />
     <ClInclude Include="..\src\util\u_string.h" />
-    <ClInclude Include="..\src\util\u_vector.h" />
     <ClInclude Include="..\src\util\xxhash.h" />
     <ClInclude Include="..\xxMiniCRT\xxMSVCRT.h" />
   </ItemGroup>
