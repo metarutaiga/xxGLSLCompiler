@@ -36,6 +36,7 @@ struct standalone_options {
    int dump_builder;
    int dump_glsl;
    int dump_spirv;
+   int dump_spirv_validation;
    int dump_spirv_glsl;
    int do_link;
    int just_log;

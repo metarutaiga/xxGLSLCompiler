@@ -8,3 +8,5 @@ temp/
 *.xcbkptlist
 xcschememanagement.plist
 IDEWorkspaceChecks.plist
+
+*.spv

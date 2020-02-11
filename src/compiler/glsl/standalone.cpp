@@ -408,7 +408,7 @@ compile_shader(struct gl_context *ctx, struct gl_shader *shader)
       _mesa_print_glsl(stdout, shader->ir, state);
    }
 
-   if (!state->error && (options->dump_spirv || options->dump_spirv_glsl)) {
+   if (!state->error && (options->dump_spirv || options->dump_spirv_validation || options->dump_spirv_glsl)) {
       spirv_buffer buffer;
       _mesa_print_spirv(&buffer, shader->ir, state, 0);
 
@@ -420,6 +420,8 @@ compile_shader(struct gl_context *ctx, struct gl_shader *shader)
 
       if (options->dump_spirv) {
          system("spirv-dis.exe output.spv");
+      }
+      if (options->dump_spirv_validation) {
          system("spirv-val.exe output.spv");
       }
       if (options->dump_spirv_glsl) {
