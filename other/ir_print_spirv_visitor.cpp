@@ -359,8 +359,12 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, struct _mesa_glsl_pa
    f->push(bound_id);
    f->push(0u);
 
-   // Capability / Extension
+   // Capability
    f->push(f->capability);
+   if (f->capability_image_query)
+      f->opcode(2, SpvOpCapability, SpvCapabilityImageQuery);
+
+   // Extension
    f->push(f->extensions);
 
    // EntryPoint Fragment 4 "main" 20 22 37 43 46 49
@@ -1451,11 +1455,20 @@ ir_print_spirv_visitor::visit(ir_texture *ir)
          f->codes.push(id);
       }
       break;
-   case ir_txs:
-      f->codes.opcode(5, SpvOpImageQuerySizeLod, type_id, result_id, ir->sampler->ir_value, ir->lod_info.lod->ir_value);
+   case ir_txs: {
+      unsigned int image_type_id = f->image_id[ir->sampler->type->sampler_dimensionality][ir->sampler->type->sampled_type][0];
+      unsigned int image_id = f->id++;
+
+      f->codes.opcode(4, SpvOpImage, image_type_id, image_id, ir->sampler->ir_value);
+      f->codes.opcode(5, SpvOpImageQuerySizeLod, type_id, result_id, image_id, ir->lod_info.lod->ir_value);
+
+      f->capability_image_query = true;
       break;
+   }
    case ir_lod:
       f->codes.opcode(5, SpvOpImageQueryLod, type_id, result_id, ir->sampler->ir_value, coordinate_id);
+
+      f->capability_image_query = true;
       break;
    case ir_tg4:
       f->codes.push(SpvOpImageGather, image_operand_count + 7);
@@ -1472,9 +1485,16 @@ ir_print_spirv_visitor::visit(ir_texture *ir)
          f->codes.push(id);
       }
       break;
-   case ir_query_levels:
-      f->codes.opcode(4, SpvOpImageQueryLevels, type_id, result_id, ir->sampler->ir_value);
+   case ir_query_levels: {
+      unsigned int image_type_id = f->image_id[ir->sampler->type->sampler_dimensionality][ir->sampler->type->sampled_type][0];
+      unsigned int image_id = f->id++;
+
+      f->codes.opcode(4, SpvOpImage, image_type_id, image_id, ir->sampler->ir_value);
+      f->codes.opcode(4, SpvOpImageQueryLevels, type_id, result_id, image_id);
+
+      f->capability_image_query = true;
       break;
+   }
    case ir_texture_samples:
       f->codes.opcode(4, SpvOpImageQuerySamples, type_id, result_id, ir->sampler->ir_value);
       break;
@@ -1869,6 +1889,7 @@ ir_print_spirv_visitor::visit(ir_call *ir)
    foreach_in_list(ir_rvalue, param, &ir->actual_parameters) {
       param->accept(this);
       visit_value(param);
+
       parameters_value[i] = param->ir_value;
       parameters_pointer[i] = param->ir_pointer;
       i++;
@@ -1900,6 +1921,18 @@ ir_print_spirv_visitor::visit(ir_call *ir)
    case h("__intrinsic_image_store"):
       f->codes.opcode(4, SpvOpImageWrite, parameters_value[0], parameters_value[1], parameters_value[2]);
       return;
+   case h("__intrinsic_image_size"): {
+      if (ir->return_deref == NULL)
+         return;
+      unsigned int type_id = visit_type(ir->return_deref->type);
+      unsigned int result_id = f->id++;
+
+      f->codes.opcode(4, SpvOpImageQuerySize, type_id, result_id, parameters_value[0]);
+      f->codes.opcode(3, SpvOpStore, ir->return_deref->ir_pointer, result_id);
+
+      f->capability_image_query = true;
+      return;
+   }
    case h("__intrinsic_image_atomic_add"):
    case h("__intrinsic_image_atomic_min"):
    case h("__intrinsic_image_atomic_max"):
@@ -1992,10 +2025,9 @@ ir_print_spirv_visitor::visit(ir_if *ir)
 
    if (ir->else_instructions.is_empty() == false) {
       label_end_id = f->id++;
-   } else {
-      f->codes.opcode(3, SpvOpSelectionMerge, label_else_id, SpvSelectionControlMaskNone);
    }
 
+   f->codes.opcode(3, SpvOpSelectionMerge, label_end_id, SpvSelectionControlMaskNone);
    f->codes.opcode(4, SpvOpBranchConditional, ir->condition->ir_value, label_then_id, label_else_id);
    f->codes.opcode(2, SpvOpLabel, label_then_id);
 

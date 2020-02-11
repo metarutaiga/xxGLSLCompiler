@@ -88,6 +88,8 @@ public:
 
    void *memory_begin;
 
+   bool capability_image_query;
+
    unsigned int ext_inst_import_id;
    unsigned int uniform_struct_id;
    unsigned int uniform_id;
