@@ -293,6 +293,9 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, struct _mesa_glsl_pa
    f->id = 1;
    f->binding_id = binding;
 
+   // ExtInstImport
+   f->ext_inst_import_id = f->id++;
+
    if (es) {
       if (stage == MESA_SHADER_FRAGMENT) {
          f->precision_float = GLSL_PRECISION_MEDIUM;
@@ -306,49 +309,11 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, struct _mesa_glsl_pa
       f->precision_int = GLSL_PRECISION_NONE;
    }
 
-   // Capability
-   f->capability.opcode(2, SpvOpCapability, SpvCapabilityShader);
-   if (state->ARB_sample_shading_enable)
-      f->capability.opcode(2, SpvOpCapability, SpvCapabilitySampleRateShading);
-   if (state->ARB_shader_draw_parameters_enable)
-      f->capability.opcode(2, SpvOpCapability, SpvCapabilityDrawParameters);
-   if (state->ARB_shader_image_load_store_enable) {
-      f->capability.opcode(2, SpvOpCapability, SpvCapabilityStorageImageReadWithoutFormat);
-      f->capability.opcode(2, SpvOpCapability, SpvCapabilityStorageImageWriteWithoutFormat);
-   }
-   if (state->ARB_shader_viewport_layer_array_enable)
-      f->capability.opcode(2, SpvOpCapability, SpvCapabilityMultiViewport);
-   if (state->EXT_gpu_shader4_enable)
-      f->capability.opcode(2, SpvOpCapability, SpvCapabilityGeometry);
-
-   // Extension
-   if (state->ARB_shader_draw_parameters_enable)
-      f->extensions.text(SpvOpExtension, "SPV_KHR_shader_draw_parameters");
-
-   // ExtInstImport
-   f->ext_inst_import_id = f->id++;
-   f->extensions.text(SpvOpExtInstImport, f->ext_inst_import_id, "GLSL.std.450");
-
-   // MemoryModel Logical GLSL450
-   f->extensions.opcode(3, SpvOpMemoryModel, SpvAddressingModelLogical, SpvMemoryModelGLSL450);
-
    // spirv visitor
    ir_print_spirv_visitor v(f);
 
    foreach_in_list(ir_instruction, ir, instructions) {
       ir->accept(&v);
-   }
-
-   // Uniform
-   if (f->uniforms.count() != 0) {
-      f->types.opcode(2, SpvOpTypeStruct, f->uniform_struct_id, f->uniforms);
-      f->types.opcode(4, SpvOpTypePointer, f->uniform_pointer_id, SpvStorageClassUniform, f->uniform_struct_id);
-      f->types.opcode(4, SpvOpVariable, f->uniform_pointer_id, f->uniform_id, SpvStorageClassUniform);
-   }
-
-   // gl_PerVertex
-   if (f->per_vertices.count() != 0) {
-      f->types.opcode(2, SpvOpTypeStruct, f->gl_per_vertex_name_id, f->per_vertices);
    }
 
    // Header - Mesa-IR/SPIR-V Translator
@@ -360,12 +325,25 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, struct _mesa_glsl_pa
    f->push(0u);
 
    // Capability
-   f->push(f->capability);
-   if (f->capability_image_query)
-      f->opcode(2, SpvOpCapability, SpvCapabilityImageQuery);
+   f->opcode(2, SpvOpCapability, SpvCapabilityShader);
+   if (f->capability_draw_parameters)             f->opcode(2, SpvOpCapability, SpvCapabilityDrawParameters);
+   if (f->capability_image_query)                 f->opcode(2, SpvOpCapability, SpvCapabilityImageQuery);
+   if (f->capability_sample_rate_shading)         f->opcode(2, SpvOpCapability, SpvCapabilitySampleRateShading);
+   if (f->capability_shader_viewport_index_layer) f->opcode(2, SpvOpCapability, SpvCapabilityShaderViewportIndexLayerEXT);
+   if (state->ARB_shader_image_load_store_enable) {
+      f->opcode(2, SpvOpCapability, SpvCapabilityStorageImageReadWithoutFormat);
+      f->opcode(2, SpvOpCapability, SpvCapabilityStorageImageWriteWithoutFormat);
+   }
 
    // Extension
-   f->push(f->extensions);
+   if (f->capability_shader_viewport_index_layer) f->text(SpvOpExtension, "SPV_EXT_shader_viewport_index_layer");
+   if (state->ARB_shader_draw_parameters_enable)  f->text(SpvOpExtension, "SPV_KHR_shader_draw_parameters");
+
+   // ExtInstImport
+   f->text(SpvOpExtInstImport, f->ext_inst_import_id, "GLSL.std.450");
+
+   // MemoryModel Logical GLSL450
+   f->opcode(3, SpvOpMemoryModel, SpvAddressingModelLogical, SpvMemoryModelGLSL450);
 
    // EntryPoint Fragment 4 "main" 20 22 37 43 46 49
    f->opcode(5, SpvOpEntryPoint, stage_type[stage], f->main_id, *(int*)"main", 0, f->inouts);
@@ -382,6 +360,19 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, struct _mesa_glsl_pa
    f->push(f->names);
    f->push(f->decorates);
    f->push(f->types);
+
+   // Uniform
+   if (f->uniforms.count() != 0) {
+      f->opcode(2, SpvOpTypeStruct, f->uniform_struct_id, f->uniforms);
+      f->opcode(4, SpvOpTypePointer, f->uniform_pointer_id, SpvStorageClassUniform, f->uniform_struct_id);
+      f->opcode(4, SpvOpVariable, f->uniform_pointer_id, f->uniform_id, SpvStorageClassUniform);
+   }
+
+   // gl_PerVertex
+   if (f->per_vertices.count() != 0) {
+      f->opcode(2, SpvOpTypeStruct, f->gl_per_vertex_name_id, f->per_vertices);
+   }
+
    f->push(f->builtins);
    f->push(f->functions);
 }
@@ -1587,29 +1578,29 @@ ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
             switch (h(var->name)) {
             case h("gl_Position"):       type = glsl_type::vec4_type;  built_in = SpvBuiltInPosition;       break;
             case h("gl_PointSize"):      type = glsl_type::float_type; built_in = SpvBuiltInPointSize;      break;
-            case h("gl_ClipDistance"):   type = glsl_type::get_array_instance(glsl_type::float_type, 8);    built_in = SpvBuiltInClipDistance; break;
-            case h("gl_CullDistance"):   type = glsl_type::get_array_instance(glsl_type::float_type, 8);    built_in = SpvBuiltInCullDistance; break;
+            case h("gl_ClipDistance"):   type = glsl_type::get_array_instance(glsl_type::float_type, 8);    built_in = SpvBuiltInClipDistance;                break;
+            case h("gl_CullDistance"):   type = glsl_type::get_array_instance(glsl_type::float_type, 8);    built_in = SpvBuiltInCullDistance;                break;
             case h("gl_VertexID"):       type = glsl_type::int_type;   built_in = SpvBuiltInVertexId;       break;
             case h("gl_InstanceID"):
             case h("gl_InstanceIDARB"):  type = glsl_type::int_type;   built_in = SpvBuiltInInstanceId;     break;
             case h("gl_PrimitiveID"):    type = glsl_type::int_type;   built_in = SpvBuiltInPrimitiveId;    break;
-            case h("gl_Layer"):          type = glsl_type::int_type;   built_in = SpvBuiltInLayer;          break;
-            case h("gl_ViewportIndex"):  type = glsl_type::int_type;   built_in = SpvBuiltInViewportIndex;  break;
+            case h("gl_Layer"):          type = glsl_type::int_type;   built_in = SpvBuiltInLayer;          f->capability_shader_viewport_index_layer = true; break;
+            case h("gl_ViewportIndex"):  type = glsl_type::int_type;   built_in = SpvBuiltInViewportIndex;  f->capability_shader_viewport_index_layer = true; break;
             case h("gl_FragCoord"):      type = glsl_type::vec4_type;  built_in = SpvBuiltInFragCoord;      break;
             case h("gl_PointCoord"):     type = glsl_type::vec2_type;  built_in = SpvBuiltInPointCoord;     break;
             case h("gl_FrontFacing"):    type = glsl_type::bool_type;  built_in = SpvBuiltInFrontFacing;    break;
-            case h("gl_SampleID"):       type = glsl_type::int_type;   built_in = SpvBuiltInSampleId;       break;
-            case h("gl_SamplePosition"): type = glsl_type::vec2_type;  built_in = SpvBuiltInSamplePosition; break;
+            case h("gl_SampleID"):       type = glsl_type::int_type;   built_in = SpvBuiltInSampleId;       f->capability_sample_rate_shading = true;         break;
+            case h("gl_SamplePosition"): type = glsl_type::vec2_type;  built_in = SpvBuiltInSamplePosition; f->capability_sample_rate_shading = true;         break;
             case h("gl_FragColor"):      type = glsl_type::vec4_type;  built_in = SpvBuiltInFragColor;      break;
             case h("gl_FragDepth"):      type = glsl_type::float_type; built_in = SpvBuiltInFragDepth;      break;
             case h("gl_VertexIndex"):    type = glsl_type::int_type;   built_in = SpvBuiltInVertexIndex;    break;
             case h("gl_InstanceIndex"):  type = glsl_type::int_type;   built_in = SpvBuiltInInstanceIndex;  break;
             case h("gl_BaseVertexARB"):
-            case h("gl_BaseVertex"):     type = glsl_type::int_type;   built_in = SpvBuiltInBaseVertex;     break;
+            case h("gl_BaseVertex"):     type = glsl_type::int_type;   built_in = SpvBuiltInBaseVertex;     f->capability_draw_parameters = true;             break;
             case h("gl_BaseInstanceARB"):
-            case h("gl_BaseInstance"):   type = glsl_type::int_type;   built_in = SpvBuiltInBaseInstance;   break;
+            case h("gl_BaseInstance"):   type = glsl_type::int_type;   built_in = SpvBuiltInBaseInstance;   f->capability_draw_parameters = true;             break;
             case h("gl_DrawIDARB"):
-            case h("gl_DrawID"):         type = glsl_type::int_type;   built_in = SpvBuiltInDrawIndex;      break;
+            case h("gl_DrawID"):         type = glsl_type::int_type;   built_in = SpvBuiltInDrawIndex;      f->capability_draw_parameters = true;             break;
             default:                     type = glsl_type::int_type;   built_in = SpvBuiltInMax;            break;
             }
 

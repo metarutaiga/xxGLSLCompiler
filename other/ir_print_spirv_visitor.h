@@ -64,8 +64,6 @@ class spirv_buffer : public binary_buffer {
 public:
    spirv_buffer();
 
-   binary_buffer capability;
-   binary_buffer extensions;
    binary_buffer names;
    binary_buffer decorates;
    binary_buffer types;
@@ -88,7 +86,10 @@ public:
 
    void *memory_begin;
 
+   bool capability_draw_parameters;
    bool capability_image_query;
+   bool capability_sample_rate_shading;
+   bool capability_shader_viewport_index_layer;
 
    unsigned int ext_inst_import_id;
    unsigned int uniform_struct_id;
