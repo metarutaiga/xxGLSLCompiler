@@ -87,6 +87,7 @@ public:
    void *memory_begin;
 
    bool capability_draw_parameters;
+   bool capability_geometry;
    bool capability_image_query;
    bool capability_sample_rate_shading;
    bool capability_shader_viewport_index_layer;

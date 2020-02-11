@@ -327,6 +327,7 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, struct _mesa_glsl_pa
    // Capability
    f->opcode(2, SpvOpCapability, SpvCapabilityShader);
    if (f->capability_draw_parameters)             f->opcode(2, SpvOpCapability, SpvCapabilityDrawParameters);
+   if (f->capability_geometry)                    f->opcode(2, SpvOpCapability, SpvCapabilityGeometry);
    if (f->capability_image_query)                 f->opcode(2, SpvOpCapability, SpvCapabilityImageQuery);
    if (f->capability_sample_rate_shading)         f->opcode(2, SpvOpCapability, SpvCapabilitySampleRateShading);
    if (f->capability_shader_viewport_index_layer) f->opcode(2, SpvOpCapability, SpvCapabilityShaderViewportIndexLayerEXT);
@@ -336,8 +337,8 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, struct _mesa_glsl_pa
    }
 
    // Extension
+   if (f->capability_draw_parameters)             f->text(SpvOpExtension, "SPV_KHR_shader_draw_parameters");
    if (f->capability_shader_viewport_index_layer) f->text(SpvOpExtension, "SPV_EXT_shader_viewport_index_layer");
-   if (state->ARB_shader_draw_parameters_enable)  f->text(SpvOpExtension, "SPV_KHR_shader_draw_parameters");
 
    // ExtInstImport
    f->text(SpvOpExtInstImport, f->ext_inst_import_id, "GLSL.std.450");
@@ -1583,7 +1584,7 @@ ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
             case h("gl_VertexID"):       type = glsl_type::int_type;   built_in = SpvBuiltInVertexId;       break;
             case h("gl_InstanceID"):
             case h("gl_InstanceIDARB"):  type = glsl_type::int_type;   built_in = SpvBuiltInInstanceId;     break;
-            case h("gl_PrimitiveID"):    type = glsl_type::int_type;   built_in = SpvBuiltInPrimitiveId;    break;
+            case h("gl_PrimitiveID"):    type = glsl_type::int_type;   built_in = SpvBuiltInPrimitiveId;    f->capability_geometry = true;                    break;
             case h("gl_Layer"):          type = glsl_type::int_type;   built_in = SpvBuiltInLayer;          f->capability_shader_viewport_index_layer = true; break;
             case h("gl_ViewportIndex"):  type = glsl_type::int_type;   built_in = SpvBuiltInViewportIndex;  f->capability_shader_viewport_index_layer = true; break;
             case h("gl_FragCoord"):      type = glsl_type::vec4_type;  built_in = SpvBuiltInFragCoord;      break;
