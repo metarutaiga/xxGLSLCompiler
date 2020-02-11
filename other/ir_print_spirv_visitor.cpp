@@ -32,17 +32,6 @@
 
 #define SpvBuiltInFragColor 21
 
-static const unsigned int reflection_float_type[4][4] = {
-   GL_FLOAT,      GL_FLOAT_VEC2,   GL_FLOAT_VEC3,   GL_FLOAT_VEC4,
-   GL_FLOAT_VEC2, GL_FLOAT_MAT2,   GL_FLOAT_MAT2x3, GL_FLOAT_MAT2x4,
-   GL_FLOAT_VEC3, GL_FLOAT_MAT3x2, GL_FLOAT_MAT3,   GL_FLOAT_MAT3x4,
-   GL_FLOAT_VEC4, GL_FLOAT_MAT4x2, GL_FLOAT_MAT4x3, GL_FLOAT_MAT4,
-};
-
-static const unsigned int reflection_int_type[4] = {
-   GL_INT, GL_INT_VEC2, GL_INT_VEC3, GL_INT_VEC4,
-};
-
 static const unsigned int storage_mode[] = {
    SpvStorageClassFunction,       // ir_var_auto
    SpvStorageClassUniform,        // ir_var_uniform
@@ -67,7 +56,60 @@ static const unsigned int stage_type[] = {
    SpvExecutionModelGLCompute,
 };
 
-inline constexpr unsigned int h(const char* key, const unsigned int hash = 0)
+static unsigned int get_vector_elements_from_image_format(GLenum format)
+{
+   switch (format)
+   {
+   case GL_R32F:
+   case GL_R16F:
+   case GL_R32UI:
+   case GL_R16UI:
+   case GL_R8UI:
+   case GL_R32I:
+   case GL_R16I:
+   case GL_R8I:
+   case GL_R16:
+   case GL_R8:
+   case GL_R16_SNORM:
+   case GL_R8_SNORM:
+      return 1;
+   case GL_RG32F:
+   case GL_RG16F:
+   case GL_RG32UI:
+   case GL_RG16UI:
+   case GL_RG8UI:
+   case GL_RG32I:
+   case GL_RG16I:
+   case GL_RG8I:
+   case GL_RG16:
+   case GL_RG8:
+   case GL_RG16_SNORM:
+   case GL_RG8_SNORM:
+      return 2;
+   case GL_R11F_G11F_B10F:
+      return 3;
+   default:
+   case GL_RGBA32F:
+   case GL_RGBA16F:
+   case GL_RGBA32UI:
+   case GL_RGBA16UI:
+   case GL_RGB10_A2UI:
+   case GL_RGBA8UI:
+   case GL_RGBA32I:
+   case GL_RGBA16I:
+   case GL_RGBA8I:
+   case GL_RGBA16:
+   case GL_RGB10_A2:
+   case GL_RGBA8:
+   case GL_RGBA16_SNORM:
+   case GL_RGBA8_SNORM:
+      return 4;
+   case 0:
+      return 5;
+   }
+}
+
+static constexpr unsigned int h(const char* key, const unsigned int hash = 0)
 {
     return (*key) ? h(key + 1, (hash << 5) ^ (*key) ^ hash) : hash;
 }
@@ -406,7 +448,7 @@ ir_print_spirv_visitor::visit(ir_rvalue *)
 }
 
 unsigned int
-ir_print_spirv_visitor::visit_type(const struct glsl_type *type)
+ir_print_spirv_visitor::visit_type(const struct glsl_type *type, GLenum format)
 {
    if (type->is_array()) {
       unsigned int depth = 0;
@@ -420,7 +462,11 @@ ir_print_spirv_visitor::visit_type(const struct glsl_type *type)
       if (base_type->is_float()) {
          vector_ids = f->float_id[depth][base_type->vector_elements];
       } else if (base_type->is_integer()) {
-         vector_ids = f->int_id[depth][base_type->vector_elements];
+         if (glsl_unsigned_base_type_of(base_type->base_type) == base_type->base_type) {
+            vector_ids = f->unsigned_int_id[depth][base_type->vector_elements];
+         } else {
+            vector_ids = f->int_id[depth][base_type->vector_elements];
+         }
       } else {
          return 0;
       }
@@ -438,10 +484,12 @@ ir_print_spirv_visitor::visit_type(const struct glsl_type *type)
       }
       return vector_id;
    } else if (type->is_image() || type->is_sampler()) {
-      unsigned int image_id = f->image_id[type->sampler_dimensionality];
+      unsigned int vector_elements = type->is_image() ? get_vector_elements_from_image_format(format) : 0;
+      unsigned int image_id = f->image_id[type->sampler_dimensionality][type->sampled_type][vector_elements];
       if (image_id == 0) {
-         unsigned int type_id = visit_type(glsl_type::float_type);
+         unsigned int type_id = visit_type(type->is_image() ? glsl_type::get_instance(type->sampled_type, 1, 1) : glsl_type::float_type);
          unsigned int dim_id = SpvDim1D;
+         unsigned int format_id = SpvImageFormatUnknown;
          switch (type->sampler_dimensionality) {
             case GLSL_SAMPLER_DIM_1D:       dim_id = SpvDim1D;          break;
             case GLSL_SAMPLER_DIM_2D:       dim_id = SpvDim2D;          break;
@@ -453,11 +501,49 @@ ir_print_spirv_visitor::visit_type(const struct glsl_type *type)
             case GLSL_SAMPLER_DIM_MS:       dim_id = SpvDim1D;          break;// TODO
             case GLSL_SAMPLER_DIM_SUBPASS:  dim_id = SpvDimSubpassData; break;
          }
+         switch (vector_elements) {
+         case 1:
+            switch (type->sampled_type) {
+               case GLSL_TYPE_UINT:         format_id = SpvImageFormatR32ui;    break;
+               case GLSL_TYPE_INT:          format_id = SpvImageFormatR32i;     break;
+               case GLSL_TYPE_FLOAT:        format_id = SpvImageFormatR32f;     break;
+               case GLSL_TYPE_FLOAT16:      format_id = SpvImageFormatR16f;     break;
+               case GLSL_TYPE_UINT8:        format_id = SpvImageFormatR8ui;     break;
+               case GLSL_TYPE_INT8:         format_id = SpvImageFormatR8i;      break;
+               case GLSL_TYPE_UINT16:       format_id = SpvImageFormatR16ui;    break;
+               case GLSL_TYPE_INT16:        format_id = SpvImageFormatR16i;     break;
+            }
+            break;
+         case 2:
+            switch (type->sampled_type) {
+               case GLSL_TYPE_UINT:         format_id = SpvImageFormatRg32ui;   break;
+               case GLSL_TYPE_INT:          format_id = SpvImageFormatRg32i;    break;
+               case GLSL_TYPE_FLOAT:        format_id = SpvImageFormatRg32f;    break;
+               case GLSL_TYPE_FLOAT16:      format_id = SpvImageFormatRg16f;    break;
+               case GLSL_TYPE_UINT8:        format_id = SpvImageFormatRg8ui;    break;
+               case GLSL_TYPE_INT8:         format_id = SpvImageFormatRg8i;     break;
+               case GLSL_TYPE_UINT16:       format_id = SpvImageFormatRg16ui;   break;
+               case GLSL_TYPE_INT16:        format_id = SpvImageFormatRg16i;    break;
+            }
+            break;
+         case 4:
+            switch (type->sampled_type) {
+               case GLSL_TYPE_UINT:         format_id = SpvImageFormatRgba32ui; break;
+               case GLSL_TYPE_INT:          format_id = SpvImageFormatRgba32i;  break;
+               case GLSL_TYPE_FLOAT:        format_id = SpvImageFormatRgba32f;  break;
+               case GLSL_TYPE_FLOAT16:      format_id = SpvImageFormatRgba16f;  break;
+               case GLSL_TYPE_UINT8:        format_id = SpvImageFormatRgba8ui;  break;
+               case GLSL_TYPE_INT8:         format_id = SpvImageFormatRgba8i;   break;
+               case GLSL_TYPE_UINT16:       format_id = SpvImageFormatRgba16ui; break;
+               case GLSL_TYPE_INT16:        format_id = SpvImageFormatRgba16i;  break;
+            }
+            break;
+         }
          image_id = f->id++;
 
-         f->types.opcode(9, SpvOpTypeImage, image_id, type_id, dim_id, 0, 0, 0, 0, SpvImageFormatUnknown);
+         f->types.opcode(9, SpvOpTypeImage, image_id, type_id, dim_id, 0, 0, 0, type->is_image() ? 2 : 1, format_id);
 
-         f->image_id[type->sampler_dimensionality] = image_id;
+         f->image_id[type->sampler_dimensionality][type->sampled_type][vector_elements] = image_id;
       }
       if (type->is_image())
          return image_id;
@@ -507,14 +593,26 @@ ir_print_spirv_visitor::visit_type(const struct glsl_type *type)
          f->float_id[0][1][1] = scalar_id;
       }
    } else if (type->is_integer()) {
-      vector_ids = f->int_id[0][type->vector_elements];
-      scalar_id = f->int_id[0][1][1];
-      if (scalar_id == 0) {
-         scalar_id = f->id++;
+      if (glsl_unsigned_base_type_of(type->base_type) == type->base_type) {
+         vector_ids = f->unsigned_int_id[0][type->vector_elements];
+         scalar_id = f->unsigned_int_id[0][1][1];
+         if (scalar_id == 0) {
+            scalar_id = f->id++;
 
-         f->types.opcode(4, SpvOpTypeInt, scalar_id, 32, true);
+            f->types.opcode(4, SpvOpTypeInt, scalar_id, 32, false);
 
-         f->int_id[0][1][1] = scalar_id;
+            f->unsigned_int_id[0][1][1] = scalar_id;
+         }
+      } else {
+         vector_ids = f->int_id[0][type->vector_elements];
+         scalar_id = f->int_id[0][1][1];
+         if (scalar_id == 0) {
+            scalar_id = f->id++;
+
+            f->types.opcode(4, SpvOpTypeInt, scalar_id, 32, true);
+
+            f->int_id[0][1][1] = scalar_id;
+         }
       }
    } else {
       return 0;
@@ -544,7 +642,7 @@ ir_print_spirv_visitor::visit_type(const struct glsl_type *type)
 }
 
 unsigned int
-ir_print_spirv_visitor::visit_type_pointer(const struct glsl_type *type, unsigned int mode, unsigned int type_id)
+ir_print_spirv_visitor::visit_type_pointer(const struct glsl_type *type, unsigned int mode, unsigned int type_id, GLenum format)
 {
    unsigned int storage_class = storage_mode[mode];
    unsigned int depth = 0;
@@ -558,13 +656,14 @@ ir_print_spirv_visitor::visit_type_pointer(const struct glsl_type *type, unsigne
    }
 
    if (type->is_image()) {
-      unsigned int pointer_id = f->pointer_image_id[type->sampler_dimensionality];
+      unsigned int vector_elements = type->is_image() ? get_vector_elements_from_image_format(format) : 0;
+      unsigned int pointer_id = f->pointer_image_id[type->sampler_dimensionality][type->sampled_type][vector_elements];
       if (pointer_id == 0) {
          pointer_id = f->id++;
 
          f->types.opcode(4, SpvOpTypePointer, pointer_id, SpvStorageClassUniformConstant, type_id);
 
-         f->pointer_image_id[type->sampler_dimensionality] = pointer_id;
+         f->pointer_image_id[type->sampler_dimensionality][type->sampled_type][vector_elements] = pointer_id;
       }
       return pointer_id;
    } else if (type->is_sampler()) {
@@ -593,7 +692,11 @@ ir_print_spirv_visitor::visit_type_pointer(const struct glsl_type *type, unsigne
    if (type->is_float()) {
       pointer_ids = f->pointer_float_id[storage_class][depth][type->vector_elements];
    } else if (type->is_integer()) {
-      pointer_ids = f->pointer_int_id[storage_class][depth][type->vector_elements];
+      if (glsl_unsigned_base_type_of(type->base_type) == type->base_type) {
+         pointer_ids = f->pointer_unsigned_int_id[storage_class][depth][type->vector_elements];
+      } else {
+         pointer_ids = f->pointer_int_id[storage_class][depth][type->vector_elements];
+      }
    } else {
       return 0;
    }
@@ -684,7 +787,7 @@ ir_print_spirv_visitor::visit(ir_variable *ir)
    if (is_gl_identifier(ir->name))
       return;
 
-   unsigned int type_id = visit_type(ir->type);
+   unsigned int type_id = visit_type(ir->type, ir->data.image_format);
 
    if (ir->data.mode == ir_var_uniform) {
       if (ir->type->is_image() || ir->type->is_sampler()) {
@@ -1425,8 +1528,8 @@ ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
          if (var->ir_pointer == 0) {
             unsigned int name_id = unique_name(var);
             unsigned int binding_id = var->ir_binding_point;
-            unsigned int type_id = visit_type(var->type);
-            unsigned int pointer_id = visit_type_pointer(var->type, ir_var_uniform, type_id);
+            unsigned int type_id = visit_type(var->type, var->data.image_format);
+            unsigned int pointer_id = visit_type_pointer(var->type, ir_var_uniform, type_id, var->data.image_format);
             unsigned int value_id = f->id++;
 
             f->decorates.opcode(4, SpvOpDecorate, name_id, SpvDecorationDescriptorSet, 0);
@@ -1435,7 +1538,7 @@ ir_print_spirv_visitor::visit(ir_dereference_variable *ir)
             f->codes.opcode(4, SpvOpLoad, type_id, value_id, name_id);
 
             var->ir_value = value_id;
-            var->ir_pointer = pointer_id;
+            var->ir_pointer = name_id;
          }
          ir->ir_value = var->ir_value;
          ir->ir_pointer = var->ir_pointer;
@@ -1674,7 +1777,7 @@ ir_print_spirv_visitor::visit(ir_constant *ir)
          switch (ir->type->base_type) {
          case GLSL_TYPE_UINT:
             if (ir->value.u[0] <= 15)
-               ir->ir_value = f->constant_int_id[ir->value.u[0]];
+               ir->ir_value = f->constant_unsigned_int_id[ir->value.u[0]];
             break;
          case GLSL_TYPE_INT:
             if (ir->value.i[0] >= 0 && ir->value.i[0] <= 15)
@@ -1710,7 +1813,7 @@ ir_print_spirv_visitor::visit(ir_constant *ir)
          switch (ir->type->base_type) {
          case GLSL_TYPE_UINT:
             if (ir->value.u[0] <= 15)
-               f->constant_int_id[ir->value.u[0]] = ir->ir_value;
+               f->constant_unsigned_int_id[ir->value.u[0]] = ir->ir_value;
             break;
          case GLSL_TYPE_INT:
             if (ir->value.i[0] >= 0 && ir->value.i[0] <= 15)
@@ -1759,12 +1862,16 @@ ir_print_spirv_visitor::visit(ir_call *ir)
    if (ir->return_deref)
       ir->return_deref->accept(this);
  
-   unsigned int parameters[16] = {};
+   unsigned int parameters_value[16] = {};
+   unsigned int parameters_pointer[16] = {};
    unsigned int i = 0;
 
    foreach_in_list(ir_rvalue, param, &ir->actual_parameters) {
       param->accept(this);
-      parameters[i++] = param->ir_value;
+      visit_value(param);
+      parameters_value[i] = param->ir_value;
+      parameters_pointer[i] = param->ir_pointer;
+      i++;
    }
 
    switch (h(ir->callee_name())) {
@@ -1786,13 +1893,53 @@ ir_print_spirv_visitor::visit(ir_call *ir)
       unsigned int type_id = visit_type(ir->return_deref->type);
       unsigned int result_id = f->id++;
 
-      f->codes.opcode(5, SpvOpImageRead, type_id, result_id, parameters[0], parameters[1]);
+      f->codes.opcode(5, SpvOpImageRead, type_id, result_id, parameters_value[0], parameters_value[1]);
       f->codes.opcode(3, SpvOpStore, ir->return_deref->ir_pointer, result_id);
       break;
    }
    case h("__intrinsic_image_store"):
-      f->codes.opcode(4, SpvOpImageWrite, parameters[0], parameters[1], parameters[2]);
+      f->codes.opcode(4, SpvOpImageWrite, parameters_value[0], parameters_value[1], parameters_value[2]);
       return;
+   case h("__intrinsic_image_atomic_add"):
+   case h("__intrinsic_image_atomic_min"):
+   case h("__intrinsic_image_atomic_max"):
+   case h("__intrinsic_image_atomic_and"):
+   case h("__intrinsic_image_atomic_or"):
+   case h("__intrinsic_image_atomic_xor"):
+   case h("__intrinsic_image_atomic_exchange"):
+   case h("__intrinsic_image_atomic_comp_swap"): {
+      if (ir->return_deref == NULL)
+         return;
+      unsigned int image_type_pointer_id = f->id++;
+      unsigned int image_texel_pointer_id = f->id++;
+      unsigned int unsigned_zero_id = visit_constant_value(0u);
+      unsigned int unsigned_one_id = visit_constant_value(1u);
+      unsigned int type_id = visit_type(ir->return_deref->type);
+      unsigned int result_id = f->id++;
+
+      unsigned int opcode_id;
+      unsigned int unsigned_type = glsl_unsigned_base_type_of(ir->return_deref->type->base_type) == ir->return_deref->type->base_type;
+      switch (h(ir->callee_name())) {
+      case h("__intrinsic_image_atomic_add"):       opcode_id = SpvOpAtomicIAdd;                                   break;
+      case h("__intrinsic_image_atomic_min"):       opcode_id = unsigned_type ? SpvOpAtomicUMin : SpvOpAtomicSMin; break;
+      case h("__intrinsic_image_atomic_max"):       opcode_id = unsigned_type ? SpvOpAtomicUMax : SpvOpAtomicSMax; break;
+      case h("__intrinsic_image_atomic_and"):       opcode_id = SpvOpAtomicAnd;                                    break;
+      case h("__intrinsic_image_atomic_or"):        opcode_id = SpvOpAtomicOr;                                     break;
+      case h("__intrinsic_image_atomic_xor"):       opcode_id = SpvOpAtomicXor;                                    break;
+      case h("__intrinsic_image_atomic_exchange"):  opcode_id = SpvOpAtomicExchange;                               break;
+      case h("__intrinsic_image_atomic_comp_swap"): opcode_id = SpvOpAtomicCompareExchange;                        break;
+      }
+
+      f->types.opcode(4, SpvOpTypePointer, image_type_pointer_id, SpvStorageClassImage, type_id);
+      f->codes.opcode(6, SpvOpImageTexelPointer, image_type_pointer_id, image_texel_pointer_id, parameters_pointer[0], parameters_value[1], unsigned_zero_id);
+      if (opcode_id == SpvOpAtomicCompareExchange) {
+         f->codes.opcode(9, SpvOpAtomicCompareExchange, type_id, result_id, image_texel_pointer_id, unsigned_one_id, unsigned_zero_id, unsigned_zero_id, parameters_value[2], parameters_value[3]);
+      } else {
+         f->codes.opcode(7, opcode_id, type_id, result_id, image_texel_pointer_id, unsigned_one_id, unsigned_zero_id, parameters_value[2]);
+      }
+      f->codes.opcode(3, SpvOpStore, ir->return_deref->ir_pointer, result_id);
+      break;
+   }
    default:
       break;
    }

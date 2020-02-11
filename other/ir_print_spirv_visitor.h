@@ -104,16 +104,19 @@ public:
    unsigned int bool_id;
    unsigned int float_id[5][5][5];
    unsigned int int_id[5][5][5];
-   unsigned int image_id[16];
+   unsigned int unsigned_int_id[5][5][5];
+   unsigned int image_id[16][16][6];
    unsigned int sampler_id[16];
 
    unsigned int constant_float_id[16];
    unsigned int constant_int_id[16];
+   unsigned int constant_unsigned_int_id[16];
 
    unsigned int pointer_bool_id[16];
    unsigned int pointer_float_id[16][5][5][5];
    unsigned int pointer_int_id[16][5][5][5];
-   unsigned int pointer_image_id[16];
+   unsigned int pointer_unsigned_int_id[16][5][5][5];
+   unsigned int pointer_image_id[16][16][6];
    unsigned int pointer_sampler_id[16];
 
    unsigned int input_loc;
@@ -163,8 +166,8 @@ public:
    /*@}*/
 
 public:
-   unsigned int visit_type(const struct glsl_type *type);
-   unsigned int visit_type_pointer(const struct glsl_type *type, unsigned int mode, unsigned int type_id);
+   unsigned int visit_type(const struct glsl_type *type, GLenum format = GL_FLOAT);
+   unsigned int visit_type_pointer(const struct glsl_type *type, unsigned int mode, unsigned int type_id, GLenum format = GL_FLOAT);
    unsigned int visit_constant_value(float value);
    unsigned int visit_constant_value(int value);
    unsigned int visit_constant_value(unsigned int value);
