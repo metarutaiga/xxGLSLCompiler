@@ -31,14 +31,14 @@
 #include "program/symbol_table.h"
 
 extern "C" void
-_mesa_print_glsl(FILE * f, exec_list * instructions, struct _mesa_glsl_parse_state* state);
+_mesa_print_glsl(FILE *f, int(*fprintf)(FILE *, const char *, ...), exec_list *instructions, struct _mesa_glsl_parse_state *state);
 
 /**
  * Abstract base class of visitors of IR instruction trees
  */
 class ir_print_glsl_visitor : public ir_visitor {
 public:
-   ir_print_glsl_visitor(FILE *f, struct _mesa_glsl_parse_state* state);
+   ir_print_glsl_visitor(FILE *f, int(*fprintf)(FILE *, const char *, ...), struct _mesa_glsl_parse_state *state);
    virtual ~ir_print_glsl_visitor();
 
    void indent(void);
@@ -92,6 +92,7 @@ private:
 
    void *mem_ctx;
    FILE *f;
+   int (*fprintf)(FILE *, const char *, ...);
    struct _mesa_glsl_parse_state* state;
 
    int indentation;

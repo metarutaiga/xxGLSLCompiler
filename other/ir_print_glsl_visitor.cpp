@@ -28,8 +28,6 @@
 #include "util/hash_table.h"
 #include "ir_expression_operation_glsl_strings.h"
 
-static void print_type(FILE *f, const glsl_type *t, unsigned version);
-
 static bool is_binop_func_like(ir_expression_operation op, const glsl_type* type)
 {
    if (op == ir_binop_equal || op == ir_binop_nequal)
@@ -43,7 +41,7 @@ static bool is_binop_func_like(ir_expression_operation op, const glsl_type* type
 
 extern "C" {
 void
-_mesa_print_glsl(FILE *f, exec_list *instructions, struct _mesa_glsl_parse_state *state)
+_mesa_print_glsl(FILE *f, int(*fprintf)(FILE *, const char *, ...), exec_list *instructions, struct _mesa_glsl_parse_state *state)
 {
    if (state) {
       fprintf(f, "#version %i", state->language_version);
@@ -71,7 +69,7 @@ _mesa_print_glsl(FILE *f, exec_list *instructions, struct _mesa_glsl_parse_state
    }
 
    foreach_in_list(ir_instruction, ir, instructions) {
-      ir_print_glsl_visitor v(f, state);
+      ir_print_glsl_visitor v(f, fprintf, state);
 
       if (ir->ir_type == ir_type_variable) {
          ir_variable *var = ir->as_variable();
@@ -91,8 +89,8 @@ _mesa_print_glsl(FILE *f, exec_list *instructions, struct _mesa_glsl_parse_state
 
 } /* extern "C" */
 
-ir_print_glsl_visitor::ir_print_glsl_visitor(FILE *f, struct _mesa_glsl_parse_state* state)
-   : f(f), state(state)
+ir_print_glsl_visitor::ir_print_glsl_visitor(FILE *f, int(*fprintf)(FILE *, const char *, ...), struct _mesa_glsl_parse_state *state)
+   : f(f), fprintf(fprintf), state(state)
 {
    indentation = 0;
    parameter_number = 0;
@@ -149,7 +147,7 @@ ir_print_glsl_visitor::unique_name(ir_variable *var)
 }
 
 static void
-print_type(FILE *f, const glsl_type *t, unsigned version)
+print_type(FILE *f, int(*fprintf)(FILE *, const char *, ...), const glsl_type *t, unsigned version)
 {
    if (t->is_array()) {
 
@@ -192,13 +190,13 @@ ir_print_glsl_visitor::visit(ir_variable *ir)
    }
 
    if (ir->type->base_type == GLSL_TYPE_ARRAY) {
-      print_type(f, ir->type->fields.array, state->language_version);
+      print_type(f, fprintf, ir->type->fields.array, state->language_version);
       fprintf(f, " %s", unique_name(ir));
       fprintf(f, "[%u]", ir->type->length);
       return;
    }
 
-   print_type(f, ir->type, state->language_version);
+   print_type(f, fprintf, ir->type, state->language_version);
    fprintf(f, " %s", unique_name(ir));
 }
 
@@ -207,7 +205,7 @@ ir_print_glsl_visitor::visit(ir_function_signature *ir)
 {
    _mesa_symbol_table_push_scope(symbols);
 
-   print_type(f, ir->return_type, state->language_version);
+   print_type(f, fprintf, ir->return_type, state->language_version);
    fprintf(f, " %s(", ir->function_name());
    foreach_in_list(ir_variable, inst, &ir->parameters) {
       if (inst != ir->parameters.head_sentinel.next)
@@ -246,7 +244,7 @@ ir_print_glsl_visitor::visit(ir_expression *ir)
 {
    if (ir->num_operands == 1) {
       if (ir->operation >= ir_unop_f2i && ir->operation <= ir_unop_d2b) {
-         print_type(f, ir->type, state->language_version);
+         print_type(f, fprintf, ir->type, state->language_version);
          fprintf(f, "(");
       } else if (ir->operation == ir_unop_rcp) {
          fprintf(f, "(1.0/(");
@@ -269,7 +267,7 @@ ir_print_glsl_visitor::visit(ir_expression *ir)
    } else if (is_binop_func_like(ir->operation, ir->type)) {
       if (ir->operation == ir_binop_mod) {
          fprintf(f, "(");
-         print_type(f, ir->type, state->language_version);
+         print_type(f, fprintf, ir->type, state->language_version);
          fprintf(f, "(");
       }
       if (ir->type->is_vector() && (ir->operation >= ir_binop_less && ir->operation <= ir_binop_nequal))
@@ -493,7 +491,7 @@ void
 ir_print_glsl_visitor::visit(ir_constant *ir)
 {
    if (ir->type->components() > 1 || ir->type->is_float() == false) {
-      print_type(f, ir->type, state->language_version);
+      print_type(f, fprintf, ir->type, state->language_version);
       fprintf(f, "(");
    }
 

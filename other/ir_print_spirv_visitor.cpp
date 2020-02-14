@@ -331,7 +331,7 @@ _mesa_print_spirv(spirv_buffer *f, exec_list *instructions, struct _mesa_glsl_pa
    if (f->capability_image_query)                 f->opcode(2, SpvOpCapability, SpvCapabilityImageQuery);
    if (f->capability_sample_rate_shading)         f->opcode(2, SpvOpCapability, SpvCapabilitySampleRateShading);
    if (f->capability_shader_viewport_index_layer) f->opcode(2, SpvOpCapability, SpvCapabilityShaderViewportIndexLayerEXT);
-   if (state->ARB_shader_image_load_store_enable) {
+   if (f->capability_storage_image_without_format) {
       f->opcode(2, SpvOpCapability, SpvCapabilityStorageImageReadWithoutFormat);
       f->opcode(2, SpvOpCapability, SpvCapabilityStorageImageWriteWithoutFormat);
    }
@@ -537,7 +537,15 @@ ir_print_spirv_visitor::visit_type(const struct glsl_type *type, GLenum format)
          }
          image_id = f->id++;
 
-         f->types.opcode(9, SpvOpTypeImage, image_id, type_id, dim_id, 0, 0, 0, type->is_image() ? 2 : 1, format_id);
+         if (type->is_image()) {
+            f->types.opcode(9, SpvOpTypeImage, image_id, type_id, dim_id, 0, 0, 0, 2, format_id);
+
+            if (format_id == SpvImageFormatUnknown)
+               f->capability_storage_image_without_format = true;
+         }
+         else {
+            f->types.opcode(9, SpvOpTypeImage, image_id, type_id, dim_id, 0, 0, 0, 1, format_id);
+         }
 
          f->image_id[type->sampler_dimensionality][type->sampled_type][vector_elements] = image_id;
       }

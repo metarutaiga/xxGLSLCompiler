@@ -405,7 +405,7 @@ compile_shader(struct gl_context *ctx, struct gl_shader *shader)
    }
 
    if (!state->error && options->dump_glsl) {
-      _mesa_print_glsl(stdout, shader->ir, state);
+      _mesa_print_glsl(stdout, fprintf, shader->ir, state);
    }
 
    if (!state->error && (options->dump_spirv || options->dump_spirv_validation || options->dump_spirv_glsl)) {

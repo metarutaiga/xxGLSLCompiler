@@ -91,6 +91,7 @@ public:
    bool capability_image_query;
    bool capability_sample_rate_shading;
    bool capability_shader_viewport_index_layer;
+   bool capability_storage_image_without_format;
 
    unsigned int ext_inst_import_id;
    unsigned int uniform_struct_id;
